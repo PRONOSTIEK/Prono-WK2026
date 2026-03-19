@@ -1519,7 +1519,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['fairplay','🟨 Fairplay'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -1614,6 +1614,28 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
               ))}
             </tbody>
           </table>
+        </div>);
+      })()}
+
+      {/* Fairplay ranking onder de groepsstand */}
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const teamsSet=new Set();
+        for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
+        const teams=[...teamsSet];
+        if(!teams.length)return null;
+        let fpVal=adminLFP[ag];
+        if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+        if(!Array.isArray(fpVal)||fpVal.length!==teams.length)fpVal=[...teams];
+        return(<div className="card" style={{marginTop:10}}>
+          <div className="card-title" style={{fontSize:14}}>🟨 Fairplay ranking Groep {ag}</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Sleep de ploegen in volgorde van beste fairplay (minste kaarten bovenaan). Tiebreaker bij gelijke stand.</div>
+          <FairplayRanking
+            teams={teams}
+            value={fpVal}
+            onChange={ranking=>{setAdminLFP(p=>({...p,[ag]:ranking}));saveAdminFP(ag,ranking);}}
+            locked={false}
+          />
         </div>);
       })()}
     </div>}
@@ -1789,38 +1811,6 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>);
         })}
       </div>
-    </div>}
-
-    {tab==='fairplay'&&<div>
-      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
-        Stel hier de officiële fairplay ranking in per groep. Dit wordt gebruikt als tiebreaker in de echte groepsstand bij gelijke stand.
-      </div>
-      <div className="groep-tabs" style={{marginBottom:10}}>
-        {GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}
-      </div>
-      {(()=>{
-        const gm=mbg[ag]||[];
-        const teamsSet=new Set();
-        for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
-        const teams=[...teamsSet];
-        if(!teams.length)return<div style={{color:'var(--muted)',fontSize:12}}>Geen wedstrijden in groep {ag}.</div>;
-        let fpVal=adminLFP[ag];
-        if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
-        if(!Array.isArray(fpVal)||fpVal.length!==teams.length)fpVal=[...teams];
-        return(<div className="card">
-          <div className="card-title" style={{fontSize:14}}>Groep {ag} — Fairplay ranking (1 = beste fairplay)</div>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Sleep de ploegen in volgorde van beste fairplay (minste kaarten bovenaan).</div>
-          <FairplayRanking
-            teams={teams}
-            value={fpVal}
-            onChange={ranking=>{
-              setAdminLFP(p=>({...p,[ag]:ranking}));
-              saveAdminFP(ag,ranking);
-            }}
-            locked={false}
-          />
-        </div>);
-      })()}
     </div>}
 
     {tab==='fifa'&&<div>
