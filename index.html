@@ -556,9 +556,20 @@ function FairplayRanking({teams,value,onChange,locked}){
 
 // LOGIN
 function Login({onLogin}){
-  const[name,setName]=useState(''),[pass,setPass]=useState(''),[err,setErr]=useState(''),[load,setLoad]=useState(false),[reg,setReg]=useState(false);
+  const[name,setName]=useState(''),[pass,setPass]=useState(''),[email,setEmail]=useState(''),[err,setErr]=useState(''),[load,setLoad]=useState(false),[reg,setReg]=useState(false);
   async function doLogin(e){e.preventDefault();setLoad(true);setErr('');const{data,error}=await sb.from('users').select('*').ilike('name',name.trim()).eq('password',pass).single();setLoad(false);if(error||!data)setErr('Naam of wachtwoord klopt niet.');else onLogin(data);}
-  async function doReg(e){e.preventDefault();if(!name.trim()||!pass.trim()){setErr('Vul naam en wachtwoord in.');return;}setLoad(true);setErr('');const{data:ex}=await sb.from('users').select('id').ilike('name',name.trim()).maybeSingle();if(ex){setErr('Naam al in gebruik.');setLoad(false);return;}const{data,error}=await sb.from('users').insert({name:name.trim(),password:pass,is_admin:false,is_test:false,betaald:false}).select().single();setLoad(false);if(error)setErr('Fout: '+error.message);else onLogin(data);}
+  async function doReg(e){
+    e.preventDefault();
+    if(!name.trim()||!pass.trim()){setErr('Vul naam en wachtwoord in.');return;}
+    if(!email.trim()||!email.includes('@')){setErr('Vul een geldig e-mailadres in.');return;}
+    setLoad(true);setErr('');
+    const{data:ex}=await sb.from('users').select('id').ilike('name',name.trim()).maybeSingle();
+    if(ex){setErr('Naam al in gebruik.');setLoad(false);return;}
+    const{data,error}=await sb.from('users').insert({name:name.trim(),password:pass,email:email.trim(),is_admin:false,is_test:false,betaald:false}).select().single();
+    setLoad(false);
+    if(error)setErr('Fout: '+error.message);
+    else onLogin(data);
+  }
   return(<div className="login-page"><div className="login-box">
     <div className="login-logo">⚽ WK 2026</div>
     <div className="login-sub">Pronostiek — VS · Canada · Mexico</div>
@@ -570,8 +581,17 @@ function Login({onLogin}){
       <div className={`tab ${reg?'active':''}`} onClick={()=>{setReg(true);setErr('');}}>Registreren</div>
     </div>
     <form onSubmit={reg?doReg:doLogin}>
-      <div className="field"><label>Naam</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Jouw naam" autoComplete="username"/></div>
+      <div className="field">
+        <label>Naam</label>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Jouw naam" autoComplete="username"/>
+        {reg&&<div style={{fontSize:10,color:'var(--gold)',marginTop:3}}>⚠️ Deze naam is zichtbaar voor alle deelnemers in het klassement.</div>}
+      </div>
       <div className="field"><label>Wachtwoord</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••" autoComplete={reg?'new-password':'current-password'}/></div>
+      {reg&&<div className="field">
+        <label>E-mailadres</label>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="naam@voorbeeld.be" autoComplete="email"/>
+        <div style={{fontSize:10,color:'var(--muted)',marginTop:3}}>Wordt gebruikt voor officiële communicatie. Niet zichtbaar voor andere deelnemers.</div>
+      </div>}
       {err&&<div className="err">{err}</div>}
       <br/>
       <button className="btn" type="submit" disabled={load}>{load?'Even wachten...':(reg?'Registreren':'Inloggen')}</button>
@@ -1926,6 +1946,25 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>
         </div>);
       })()}
+      {/* Excel export knop */}
+      <div style={{marginBottom:14}}>
+        <button className="btn btn-sm btn-outline" onClick={()=>{
+          // Bouw CSV data
+          const rows=[['Naam','E-mail','Betaald','Type']];
+          deelnemers.forEach(u=>{
+            rows.push([u.name,u.email||'',u.betaald?'Ja':'Nee',u.is_test?'Test':'Echt']);
+          });
+          // Maak CSV string
+          const csv=rows.map(r=>r.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+          // Download als CSV (opent in Excel)
+          const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');
+          a.href=url;a.download='deelnemers-wk2026.csv';a.click();
+          URL.revokeObjectURL(url);
+        }}>📥 Exporteer naar Excel (CSV)</button>
+      </div>
+
       {deelnemers.map(u=>{
         const pvIngevuld=(()=>{
           const p=pvAll.find(x=>x.user_id===u.id);
@@ -1949,6 +1988,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             {u.is_test?<span className="tag tag-test">🧪 test</span>:u.betaald?<span className="tag tag-green">✓ betaald</span>:<span className="tag tag-niet-betaald">⚠ niet betaald</span>}
             {!u.is_test&&(pvIngevuld?<span className="tag tag-green">🎚️ punten ✓</span>:<span className="tag tag-gray">🎚️ punten ✗</span>)}
           </div>
+          {u.email&&<div style={{fontSize:11,color:'var(--muted)'}}>✉️ {u.email}</div>}
         </div>);
       })}
     </div>}
