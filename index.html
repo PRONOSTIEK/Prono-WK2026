@@ -1766,19 +1766,28 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       <div className="card">
         <div className="card-title">🎫 Punten KO-kwalificatie</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Punten voor het correct voorspellen welke teams zich plaatsen voor de KO-fase (top 2 per groep + beste 8 derden).</div>
-        {[['kwal_juist','Juiste positie (bv. groepswinnaar én 1e geworden)','var(--green)'],['kwal_aanwezig','Wel naar KO maar verkeerde positie','var(--gold)']].map(([round,label,color])=>(
-          <div key={round} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-            <div style={{flex:1,fontSize:13}}>{label}</div>
-            <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:color,color}}
-              defaultValue={koPunten[round]??( round==='kwal_juist'?2:1)}
-              onBlur={async e=>{
-                await sb.from('ko_punten').upsert({round,points:parseInt(e.target.value)||0});
-                onRefresh();
-              }}
-            />
-            <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
-          </div>
-        ))}
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+          <div style={{flex:1,fontSize:13}}>Juiste positie (bv. groepswinnaar én 1e geworden)</div>
+          <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
+            defaultValue={koPunten['kwal_juist']??2}
+            onBlur={async e=>{
+              await sb.from('ko_punten').upsert({round:'kwal_juist',points:parseInt(e.target.value)||0});
+              onRefresh();
+            }}
+          />
+          <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0'}}>
+          <div style={{flex:1,fontSize:13}}>Wel naar KO maar verkeerde positie</div>
+          <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
+            defaultValue={koPunten['kwal_aanwezig']??1}
+            onBlur={async e=>{
+              await sb.from('ko_punten').upsert({round:'kwal_aanwezig',points:parseInt(e.target.value)||0});
+              onRefresh();
+            }}
+          />
+          <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+        </div>
       </div>
       <div className="card">
         <div className="card-title">🏆 Punten per KO-ronde</div>
