@@ -834,6 +834,21 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           </div>);
         })}
 
+        {/* Fairplay rangschikking */}
+        <div className="card">
+          <div className="card-title" style={{fontSize:15}}>🟨 Fairplay Rangschikking</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
+            Sleep de ploegen in volgorde van beste fairplay (1 = beste). Dit is de tiebreaker bij gelijke stand.<br/>
+            <span style={{fontSize:10}}>(Gele kaart: −1 · Rood na 2 gelen: −3 · Direct rood: −4 · Geel + direct rood: −5)</span>
+          </div>
+          <FairplayRanking
+            teams={teams}
+            value={fpRanking}
+            onChange={ranking=>hFP(grp,ranking)}
+            locked={gfStart}
+          />
+        </div>
+
         {/* Voorspelde stand */}
         <div className="card" style={{marginTop:14}}>
           <div className="card-title" style={{fontSize:15}}>📊 Mijn voorspelde stand</div>
@@ -863,21 +878,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             </tr>)}</tbody>
           </table>
         </div>}
-
-        {/* Fairplay rangschikking */}
-        <div className="card">
-          <div className="card-title" style={{fontSize:15}}>🟨 Fairplay Rangschikking</div>
-          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
-            Sleep de ploegen in volgorde van beste fairplay (1 = beste). Dit is de tiebreaker bij gelijke stand.<br/>
-            <span style={{fontSize:10}}>(Gele kaart: −1 · Rood na 2 gelen: −3 · Direct rood: −4 · Geel + direct rood: −5)</span>
-          </div>
-          <FairplayRanking
-            teams={teams}
-            value={fpRanking}
-            onChange={ranking=>hFP(grp,ranking)}
-            locked={gfStart}
-          />
-        </div>
       </div>);
     })()}
 
@@ -1592,6 +1592,28 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         </div>
       </div>)}
 
+      {/* Fairplay ranking */}
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const teamsSet=new Set();
+        for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
+        const teams=[...teamsSet];
+        if(!teams.length)return null;
+        let fpVal=adminLFP[ag];
+        if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+        if(!Array.isArray(fpVal)||fpVal.length!==teams.length)fpVal=[...teams];
+        return(<div className="card" style={{marginTop:10}}>
+          <div className="card-title" style={{fontSize:14}}>🟨 Fairplay ranking Groep {ag}</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Sleep de ploegen in volgorde van beste fairplay (minste kaarten bovenaan). Tiebreaker bij gelijke stand.</div>
+          <FairplayRanking
+            teams={teams}
+            value={fpVal}
+            onChange={ranking=>{setAdminLFP(p=>({...p,[ag]:ranking}));saveAdminFP(ag,ranking);}}
+            locked={false}
+          />
+        </div>);
+      })()}
+
       {/* Groepsstand op basis van ingevoerde uitslagen */}
       {(()=>{
         const gm=mbg[ag]||[];
@@ -1624,28 +1646,6 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
               ))}
             </tbody>
           </table>
-        </div>);
-      })()}
-
-      {/* Fairplay ranking onder de groepsstand */}
-      {(()=>{
-        const gm=mbg[ag]||[];
-        const teamsSet=new Set();
-        for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
-        const teams=[...teamsSet];
-        if(!teams.length)return null;
-        let fpVal=adminLFP[ag];
-        if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
-        if(!Array.isArray(fpVal)||fpVal.length!==teams.length)fpVal=[...teams];
-        return(<div className="card" style={{marginTop:10}}>
-          <div className="card-title" style={{fontSize:14}}>🟨 Fairplay ranking Groep {ag}</div>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Sleep de ploegen in volgorde van beste fairplay (minste kaarten bovenaan). Tiebreaker bij gelijke stand.</div>
-          <FairplayRanking
-            teams={teams}
-            value={fpVal}
-            onChange={ranking=>{setAdminLFP(p=>({...p,[ag]:ranking}));saveAdminFP(ag,ranking);}}
-            locked={false}
-          />
         </div>);
       })()}
     </div>}
