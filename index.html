@@ -1433,8 +1433,17 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   </div>);}
 
 // ADMIN
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
+
+  // Admin fairplay: gebruik user_id='admin' in fairplay tabel
+  const adminFP=fpAll['admin']||{};
+  const[adminLFP,setAdminLFP]=useState(adminFP);
+  useEffect(()=>setAdminLFP(fpAll['admin']||{}),[fpAll]);
+  async function saveAdminFP(grp,ranking){
+    await sb.from('fairplay').upsert({user_id:'admin',group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
+    onRefresh();
+  }
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
     if(existing){
@@ -1510,7 +1519,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['fairplay','🟨 Fairplay'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -1579,7 +1588,9 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         const gm=mbg[ag]||[];
         const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
         if(!Object.keys(scE).length)return null;
-        const stand=buildStand(gm,scE,null,fifaRanking);
+        let adminFpRanking=adminLFP[ag];
+        if(typeof adminFpRanking==='string'){try{adminFpRanking=JSON.parse(adminFpRanking);}catch{adminFpRanking=null;}}
+        const stand=buildStand(gm,scE,adminFpRanking,fifaRanking);
         return(<div className="card" style={{marginTop:12}}>
           <div className="card-title" style={{fontSize:14}}>📊 Huidige stand Groep {ag}</div>
           <table className="stand-table">
@@ -1778,6 +1789,38 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>);
         })}
       </div>
+    </div>}
+
+    {tab==='fairplay'&&<div>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
+        Stel hier de officiële fairplay ranking in per groep. Dit wordt gebruikt als tiebreaker in de echte groepsstand bij gelijke stand.
+      </div>
+      <div className="groep-tabs" style={{marginBottom:10}}>
+        {GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}
+      </div>
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const teamsSet=new Set();
+        for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
+        const teams=[...teamsSet];
+        if(!teams.length)return<div style={{color:'var(--muted)',fontSize:12}}>Geen wedstrijden in groep {ag}.</div>;
+        let fpVal=adminLFP[ag];
+        if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+        if(!Array.isArray(fpVal)||fpVal.length!==teams.length)fpVal=[...teams];
+        return(<div className="card">
+          <div className="card-title" style={{fontSize:14}}>Groep {ag} — Fairplay ranking (1 = beste fairplay)</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Sleep de ploegen in volgorde van beste fairplay (minste kaarten bovenaan).</div>
+          <FairplayRanking
+            teams={teams}
+            value={fpVal}
+            onChange={ranking=>{
+              setAdminLFP(p=>({...p,[ag]:ranking}));
+              saveAdminFP(ag,ranking);
+            }}
+            locked={false}
+          />
+        </div>);
+      })()}
     </div>}
 
     {tab==='fifa'&&<div>
@@ -1990,7 +2033,7 @@ function App(){
         {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} onRefresh={loadAll}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
