@@ -624,6 +624,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   function hFP(grp,ranking){setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
 
   function hM(mid,side,val){const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
+  const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
   const CT={alles_juist:'tag-green',een_juist_winnaar_juist:'tag-green',niets_juist_winnaar_juist:'tag-gold',een_juist_winnaar_fout:'tag-gold',alles_fout:'tag-red'};
