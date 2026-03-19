@@ -636,11 +636,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,onRefresh}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,initialTab,onRefresh}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
-  // fairplay per groep: { grp: [team1,team2,team3,team4] }
   const myFP=fpAll[cur.id]||{};
-  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState('bijvragen'),[saved,setSaved]=useState(false);
+  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'bijvragen'),[saved,setSaved]=useState(false);
   const timer=useRef(null);
   const gfStart=new Date()>=new Date('2026-06-11');
   const deadline=config.bijvragen_deadline||'';
@@ -1311,7 +1310,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       <div className="card-title" style={{fontSize:15}}>⭐ Bijvragen</div>
       {aantalBv===0
         ?<div style={{fontSize:12,color:'var(--muted)'}}>Nog geen bijvragen beschikbaar.</div>
-        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono')}/>
+        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono','bijvragen')}/>
       }
     </div>
 
@@ -1321,9 +1320,9 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       {groepStatus.map(g=>(
         <div key={g.grp}>
           <div style={{fontSize:11,fontFamily:'Bebas Neue',letterSpacing:1,color:'var(--muted)',padding:'8px 0 4px',borderTop:'1px solid var(--border)'}}>GROEP {g.grp}</div>
-          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono')}/>
-          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono')}/>
-          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono',g.grp)}/>
+          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono',g.grp)}/>
+          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono',g.grp)}/>
         </div>
       ))}
     </div>
@@ -1958,6 +1957,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 // MAIN
 function App(){
   const[user,setUser]=useState(null),[page,setPage]=useState('klassement'),[load,setLoad]=useState(true);
+  const[pronoTab,setPronoTab]=useState('bijvragen');
   const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
@@ -2028,9 +2028,9 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={(p,t)=>{setPage(p);if(t)setPronoTab(t);}}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser}/>}
-        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} onRefresh={loadAll}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} onRefresh={loadAll}/>}
