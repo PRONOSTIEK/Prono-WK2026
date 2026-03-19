@@ -1491,7 +1491,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   const speler3Bvs=bvs.filter(b=>b.type==='speler3');
   const[newSpelerNaam,setNewSpelerNaam]=useState({});
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
-  const deelnemers=users.filter(u=>!u.is_admin),echteD=deelnemers.filter(u=>!u.is_test),testD=deelnemers.filter(u=>u.is_test),betaald=echteD.filter(u=>u.betaald).length;
+  const deelnemers=users.filter(u=>!u.is_admin).sort((a,b)=>a.name.localeCompare(b.name,'nl')),echteD=deelnemers.filter(u=>!u.is_test),testD=deelnemers.filter(u=>u.is_test),betaald=echteD.filter(u=>u.betaald).length;
   async function addBv(){if(!newQ.trim())return;await sb.from('bijvragen').insert({id:'bv'+Date.now(),question:newQ,type:newType,points:parseInt(newPts)||5,correct_answer:''});setNewQ('');onRefresh();}
   async function delBv(id){await sb.from('bijvragen').delete().eq('id',id);onRefresh();}
   async function setBvField(id,field,val){await sb.from('bijvragen').update({[field]:val}).eq('id',id);onRefresh();}
