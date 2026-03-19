@@ -415,157 +415,19 @@ function getR32Teams(matchId, winnaars, runners, top8Derden){
 }
 
 // Bereken punten voor knock-out pronostieken
-// Juiste match (team in juiste wedstrijd van die ronde) → koPunten[round+'_juist']
-// Wel in ronde maar verkeerde match → koPunten[round+'_aanwezig']
 function calcKOPts(koPronos, koMatches, koPunten){
   let tot=0;const det=[];
-
-  // Bouw per ronde een map: teamnaam → match_id (op basis van echte winnaars)
-  // Een team "zit in een ronde" als het de vorige ronde gewonnen heeft (= winner van vorige match)
-  // Voor R32: alle teams zitten erin (winnaars/runners/derden uit groepsfase — al in ko_matches.home/away)
-  const echteTeamsPerMatch={}; // match_id → [home, away] op basis van winnaars vorige ronde
-  const rounds=['R32','R16','KF','HF','KF3','F'];
-
-  for(const round of rounds){
-    const rMatches=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
-    for(const m of rMatches){
-      if(round==='R32'){
-        echteTeamsPerMatch[m.id]=[m.home,m.away].filter(Boolean);
-      } else if(round==='KF3'){
-        const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-        const verliezers=hfMatches.flatMap(hm=>{
-          const t=[hm.home,hm.away].filter(Boolean);
-          return hm.winner?t.filter(x=>x!==hm.winner):[];
-        });
-        echteTeamsPerMatch[m.id]=verliezers.slice(0,2);
-      } else {
-        const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
-        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-        const idx=(m.position-1)*2;
-        const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
-        echteTeamsPerMatch[m.id]=[pm1?.winner,pm2?.winner].filter(Boolean);
-      }
-    }
-  }
-
-  // Bouw per ronde een set van alle teams die in die ronde zitten
-  const teamsInRonde={};
-  for(const round of rounds){
-    const rMatches=koMatches.filter(m=>m.round===round);
-    teamsInRonde[round]=new Set();
-    for(const m of rMatches){
-      for(const t of (echteTeamsPerMatch[m.id]||[])) teamsInRonde[round].add(t);
-    }
-  }
-
-  // Bereken punten per match
   for(const m of koMatches){
+    if(!m.winner)continue;
     const p=koPronos[m.id];
     if(!p)continue;
-    const ptsJuist=koPunten[m.round+'_juist']??2;
-    const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
-    const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
-    const teamInDezeMatch=teamsInDezeMatch.some(t=>t.toLowerCase().trim()===p.toLowerCase().trim());
-    const teamInDezeRonde=(teamsInRonde[m.round]||new Set()).has(p);
-
-    if(teamInDezeMatch){
-      // Juiste match
-      tot+=ptsJuist;
-      det.push({label:`🎯 ${p} (juiste match)`,pts:ptsJuist,round:m.round,cat:'juist'});
-    } else if(teamInDezeRonde){
-      // Wel in ronde maar verkeerde match
-      tot+=ptsAanwezig;
-      det.push({label:`✓ ${p} (in ronde)`,pts:ptsAanwezig,round:m.round,cat:'aanwezig'});
+    const pts=koPunten[m.round]||0;
+    if(p.toLowerCase().trim()===m.winner.toLowerCase().trim()){
+      tot+=pts;det.push({label:`${m.home} vs ${m.away}`,pts,round:m.round});
     }
   }
   return{tot,det};
 }
-// Bereken de echte KO-teams op basis van echte uitslagen
-function calcEchteKOTeams(matches, adminFP){
-  const mbg={};
-  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
-  const winnaars={},runners={},derden=[];
-  for(const grp of GRP){
-    const gm=mbg[grp]||[];
-    if(!gm.length)continue;
-    // Enkel groepen waar alle wedstrijden gespeeld zijn
-    if(gm.some(m=>m.home_score==null))continue;
-    const scE={};for(const m of gm)scE[m.id]={h:m.home_score,a:m.away_score};
-    let fp=adminFP?.[grp];
-    if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-    const stand=buildStand(gm,scE,Array.isArray(fp)?fp:null);
-    if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:1,grp};
-    if(stand.length>=2)runners[grp]={team:stand[1].team,pos:2,grp};
-    if(stand.length>=3)derden.push({...stand[2],pos:3,grp});
-  }
-  const top8Derden=[...derden].sort((a,b)=>{
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    if(b.w!==a.w)return b.w-a.w;
-    return a.team.localeCompare(b.team);
-  }).slice(0,8);
-  // Bouw een map: teamnaam → {gekwalificeerd, pos ('1','2','3')}
-  const result={};
-  for(const g of Object.values(winnaars))result[g.team]={gekwalificeerd:true,pos:'1',grp:g.grp};
-  for(const g of Object.values(runners))result[g.team]={gekwalificeerd:true,pos:'2',grp:g.grp};
-  for(const d of top8Derden)result[d.team]={gekwalificeerd:true,pos:'3',grp:d.grp};
-  return result;
-}
-
-// Bereken voorspelde KO-teams voor één deelnemer
-function calcVoorspeldeKOTeams(matches, pm, fpData){
-  const mbg={};
-  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
-  const winnaars={},runners={},derden=[];
-  for(const grp of GRP){
-    const gm=mbg[grp]||[];
-    if(!gm.length)continue;
-    const scV={};
-    for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-    let fp=fpData[grp];
-    if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-    const stand=buildStand(gm,scV,fp);
-    if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:'1',grp};
-    if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
-    if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
-  }
-  const top8Derden=[...derden].sort((a,b)=>{
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    if(b.w!==a.w)return b.w-a.w;
-    return a.team.localeCompare(b.team);
-  }).slice(0,8);
-  const result={};
-  for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
-  for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
-  for(const d of top8Derden)result[d.team]={pos:'3',grp:d.grp};
-  return result;
-}
-
-// Bereken kwalificatiepunten voor een deelnemer
-function calcKwalPunten(pm, fpData, matches, koPunten, adminFP){
-  const ptsJuist=koPunten['kwal_juist']??2;
-  const ptsAanwezig=koPunten['kwal_aanwezig']??1;
-  const echteKO=calcEchteKOTeams(matches,adminFP||{});
-  if(!Object.keys(echteKO).length)return{tot:0,det:[]};
-  const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData);
-  let tot=0;const det=[];
-  for(const [team,eInfo] of Object.entries(echteKO)){
-    const vInfo=voorspeld[team];
-    if(!vInfo)continue;
-    if(vInfo.pos===eInfo.pos&&vInfo.grp===eInfo.grp){
-      tot+=ptsJuist;
-      det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist'});
-    } else {
-      tot+=ptsAanwezig;
-      det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig'});
-    }
-  }
-  return{tot,det};
-}
-
 function FairplayRanking({teams,value,onChange,locked}){
   // value = array van teams gesorteerd op fairplay (beste eerst)
   const [order,setOrder]=useState(value&&value.length===teams.length?value:[...teams]);
@@ -659,7 +521,7 @@ function Login({onLogin}){
   </div></div>);}
 
 // KLASSEMENT
-function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const betaaldeUserIds=new Set(echteUsers.filter(u=>u.betaald).map(u=>u.id));
@@ -668,12 +530,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const st=echteUsers.map(u=>{
     const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
-    const fp=fpAll[u.id]||{};
     const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum);
     const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
-    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
-    return{...u,tot:u.betaald?(tot+koTot+kwalTot):0,filled};
+    return{...u,tot:u.betaald?(tot+koTot):0,filled};
   }).sort((a,b)=>b.tot-a.tot);
   return(<div>
     <div className="section-title">🏆 Live Klassement</div>
@@ -718,12 +578,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh,initialTab}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   // fairplay per groep: { grp: [team1,team2,team3,team4] }
   const myFP=fpAll[cur.id]||{};
-  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'bijvragen'),[saved,setSaved]=useState(false);
-  useEffect(()=>{if(initialTab)setTab(initialTab);},[initialTab]);
+  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState('bijvragen'),[saved,setSaved]=useState(false);
   const timer=useRef(null);
   const gfStart=new Date()>=new Date('2026-06-11');
   const deadline=config.bijvragen_deadline||'';
@@ -859,6 +718,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
       const teams=[...teamsSet];
 
+      // Fairplay ranking voor deze groep
+      let fpRanking=lFP[grp];
+      if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length){
+        if(typeof fpRanking==='string'){try{fpRanking=JSON.parse(fpRanking);}catch{fpRanking=null;}}
+        if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length)fpRanking=[...teams];
+      }
+
       // Voorspelde stand
       const scV={};for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
       const stand=buildStand(gm,scV,fpRanking);
@@ -867,14 +733,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
       const standEcht=buildStand(gm,scE,null);
       const heeftEcht=gm.some(m=>m.home_score!=null);
-
-      // Fairplay ranking voor deze groep
-      let fpRanking=lFP[grp];
-      if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length){
-        // Probeer JSON te parsen
-        if(typeof fpRanking==='string'){try{fpRanking=JSON.parse(fpRanking);}catch{fpRanking=null;}}
-        if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length)fpRanking=[...teams];
-      }
 
       return(<div>
         <div className="gh">
@@ -1100,9 +958,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
               {r.label}
               <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans'}}>
-                <span style={{color:'var(--green)'}}>{koPunten[r.id+'_juist']??2}pt</span>
-                <span style={{color:'var(--muted)',fontSize:10}}>/</span>
-                <span style={{color:'var(--gold)'}}>{koPunten[r.id+'_aanwezig']??1}pt</span>
+                {koPunten[r.id]||'?'} pt/correct
               </span>
             </div>
             {r.matches.map(m=>{
@@ -1253,16 +1109,15 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
   </div>);}
 
 // MIJN PUNTEN
-function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
-  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP);
-  const totaal=tot+koTot+kwalTot;
-  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`})),...kwalDet.map(d=>({...d,label:`🎫 ${d.label}`}))];
+  const totaal=tot+koTot;
+  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`}))];
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
     {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
@@ -1280,7 +1135,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spel
   </div>);}
 
 // UITLEG PAGINA + CHECKLIST
-function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
+function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n').filter(r=>r.trim()!=='');
 
@@ -1326,24 +1181,6 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
   // Puntenvragen
   const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
 
-  // KO-fase status
-  const myKO=koPronosAll[cur.id]||{};
-  const ROUNDS_KO=[
-    {id:'R32',label:'Ronde van 32'},
-    {id:'R16',label:'Ronde van 16'},
-    {id:'KF',label:'Kwartfinales'},
-    {id:'HF',label:'Halve finales'},
-    {id:'KF3',label:'Kleine finale'},
-    {id:'F',label:'Finale'},
-  ];
-  const koRondStatus=ROUNDS_KO.map(r=>{
-    const rMatches=koMatches.filter(m=>m.round===r.id);
-    if(!rMatches.length)return null;
-    const ingevuld=rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length;
-    return{...r,totaal:rMatches.length,ingevuld,volledig:ingevuld===rMatches.length};
-  }).filter(Boolean);
-  const koVolledig=koRondStatus.length>0&&koRondStatus.every(r=>r.volledig);
-
   // Betaalstatus
   const betaald=cur.betaald;
 
@@ -1354,9 +1191,8 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
     ...groepStatus.map(g=>g.heeftFP),
     bvVolledig,
     pvIngevuld,
-    koRondStatus.length>0?koVolledig:null,
     betaald,
-  ].filter(v=>v!==null);
+  ];
   const totaalOk=checks.filter(Boolean).length;
   const totaal=checks.length;
   const pct=totaal>0?Math.round(totaalOk/totaal*100):0;
@@ -1417,7 +1253,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
       <div className="card-title" style={{fontSize:15}}>⭐ Bijvragen</div>
       {aantalBv===0
         ?<div style={{fontSize:12,color:'var(--muted)'}}>Nog geen bijvragen beschikbaar.</div>
-        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>{setPronoTab('bijvragen');setPage('prono');}}/>
+        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono')}/>
       }
     </div>
 
@@ -1427,20 +1263,12 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
       {groepStatus.map(g=>(
         <div key={g.grp}>
           <div style={{fontSize:11,fontFamily:'Bebas Neue',letterSpacing:1,color:'var(--muted)',padding:'8px 0 4px',borderTop:'1px solid var(--border)'}}>GROEP {g.grp}</div>
-          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
-          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
-          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
+          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono')}/>
         </div>
       ))}
     </div>
-
-    {/* KO-FASE */}
-    {koRondStatus.length>0&&<div className="card">
-      <div className="card-title" style={{fontSize:15}}>🏆 Knock-out Fase</div>
-      {koRondStatus.map(r=>(
-        <CheckRow key={r.id} ok={r.volledig} label={`${r.label}: ${r.ingevuld}/${r.totaal} ingevuld`} sub={r.volledig?'Alle winnaars voorspeld':`Vul alle ${r.totaal} wedstrijden in`} onClick={()=>{setPronoTab('ko');setPage('prono');}}/>
-      ))}
-    </div>}
 
   </div>);}
 
@@ -1549,7 +1377,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   </div>);}
 
 // ADMIN
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,koMatches,koPunten,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
@@ -1689,99 +1517,6 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,k
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
         </div>
       </div>)}
-
-      {/* Echte groepsstand */}
-      {(()=>{
-        const gm=mbg[ag]||[];
-        const heeftUitslagen=gm.some(m=>m.home_score!=null);
-        if(!heeftUitslagen)return null;
-        const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
-        let afp=adminFP[ag];
-        if(typeof afp==='string'){try{afp=JSON.parse(afp);}catch{afp=null;}}
-        const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null);
-        return(<div className="card" style={{marginTop:14}}>
-          <div className="card-title" style={{fontSize:15}}>📊 Huidige stand groep {ag}</div>
-          <table className="stand-table">
-            <thead><tr><th>Ploeg</th><th>G</th><th>W</th><th>G</th><th>V</th><th>+</th><th>-</th><th>SD</th><th>Ptn</th></tr></thead>
-            <tbody>{stand.map((r,i)=><tr key={r.team}>
-              <td><span className={`stand-pos ${i<2?'q':''}`}>{i+1}</span>{r.team}</td>
-              <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
-              <td>{r.gs}</td><td>{r.ga}</td>
-              <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
-              <td><span className="stand-pts">{r.pts}</span></td>
-            </tr>)}</tbody>
-          </table>
-          <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 2 = gekwalificeerd</div>
-        </div>);
-      })()}
-
-      {/* Officiële fairplay ranking (admin) + overzicht deelnemers */}
-      {(()=>{
-        const gm=mbg[ag]||[];
-        const teams=new Set();
-        for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
-        if(!teams.size)return null;
-        const teamList=[...teams];
-
-        // Huidige admin ranking voor deze groep
-        let curAdminFP=adminFP[ag];
-        if(typeof curAdminFP==='string'){try{curAdminFP=JSON.parse(curAdminFP);}catch{curAdminFP=null;}}
-        if(!Array.isArray(curAdminFP)||curAdminFP.length!==teamList.length)curAdminFP=[...teamList];
-
-        async function saveAdminFP(ranking){
-          await sb.from('fairplay').upsert({user_id:'admin',group:ag,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
-          onRefresh();
-        }
-
-        const deelnemers=users.filter(u=>!u.is_admin&&!u.is_test);
-
-        return(<div>
-          {/* Admin fairplay widget */}
-          <div className="card" style={{marginTop:14}}>
-            <div className="card-title" style={{fontSize:15}}>🟨 Officiële Fairplay Ranking groep {ag}</div>
-            <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>
-              Sleep de ploegen in volgorde van beste fairplay. Dit wordt gebruikt als officiële tiebreaker in de groepsstand en voor de kwalificatiepunten.
-            </div>
-            <FairplayRanking
-              teams={teamList}
-              value={curAdminFP}
-              onChange={saveAdminFP}
-              locked={false}
-            />
-          </div>
-
-          {/* Overzicht fairplay rankings deelnemers */}
-          {deelnemers.length>0&&<div className="card" style={{marginTop:14}}>
-            <div className="card-title" style={{fontSize:15}}>👥 Fairplay Rankings deelnemers</div>
-            <table className="wt">
-              <thead><tr>
-                <th>Deelnemer</th>
-                {teamList.map(t=><th key={t} style={{textAlign:'center'}}>{t}</th>)}
-              </tr></thead>
-              <tbody>
-                {deelnemers.map(u=>{
-                  let fp=fpAll[u.id]?.[ag];
-                  if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-                  const ranking=Array.isArray(fp)&&fp.length===teamList.length?fp:null;
-                  return(<tr key={u.id}>
-                    <td style={{fontWeight:500}}>{u.name}</td>
-                    {teamList.map(t=>{
-                      const pos=ranking?ranking.indexOf(t)+1:null;
-                      return(<td key={t} style={{textAlign:'center'}}>
-                        {pos!=null
-                          ?<span style={{fontFamily:'Bebas Neue',fontSize:15,color:pos===1?'var(--gold)':pos===2?'#ccc':pos===3?'#cd7f32':'var(--muted)'}}>{pos}</span>
-                          :<span style={{color:'var(--border)'}}>–</span>
-                        }
-                      </td>);
-                    })}
-                  </tr>);
-                })}
-              </tbody>
-            </table>
-            <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>Positie per deelnemer (1 = beste fairplay)</div>
-          </div>}
-        </div>);
-      })()}
     </div>}
 
     {tab==='bijvragen'&&<div>
@@ -1910,56 +1645,19 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,k
 
     {tab==='ko'&&<div>
       <div className="card">
-        <div className="card-title">🎫 Punten KO-kwalificatie</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Punten voor het correct voorspellen welke teams zich plaatsen voor de KO-fase (top 2 per groep + beste 8 derden).</div>
-        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-          <div style={{flex:1,fontSize:13}}>Juiste positie (bv. groepswinnaar én 1e geworden)</div>
-          <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
-            defaultValue={koPunten['kwal_juist']??2}
-            onBlur={async e=>{
-              await sb.from('ko_punten').upsert({round:'kwal_juist',points:parseInt(e.target.value)||0});
-              onRefresh();
-            }}
-          />
-          <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0'}}>
-          <div style={{flex:1,fontSize:13}}>Wel naar KO maar verkeerde positie</div>
-          <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
-            defaultValue={koPunten['kwal_aanwezig']??1}
-            onBlur={async e=>{
-              await sb.from('ko_punten').upsert({round:'kwal_aanwezig',points:parseInt(e.target.value)||0});
-              onRefresh();
-            }}
-          />
-          <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
-        </div>
-      </div>
-      <div className="card">
         <div className="card-title">🏆 Punten per KO-ronde</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Stel per ronde in hoeveel punten een deelnemer krijgt.</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',marginBottom:6}}>
-          <div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.5}}>Ronde</div>
-          <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Juiste match</div>
-          <div style={{fontSize:10,color:'var(--gold)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Wel in ronde</div>
-        </div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Stel in hoeveel punten een correcte winnaarvoorspelling waard is per ronde.</div>
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
-          <div key={round} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',padding:'6px 0',borderTop:'1px solid var(--border)'}}>
-            <div style={{fontSize:13}}>{label}</div>
-            <input className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
-              defaultValue={koPunten[round+'_juist']??2}
+          <div key={round} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+            <div style={{flex:1,fontSize:13}}>{label}</div>
+            <input className="ii" type="number" min="1" style={{width:70,textAlign:'center'}}
+              defaultValue={koPunten[round]||2}
               onBlur={async e=>{
-                await sb.from('ko_punten').upsert({round:round+'_juist',points:parseInt(e.target.value)||0});
+                await sb.from('ko_punten').upsert({round,points:parseInt(e.target.value)||2});
                 onRefresh();
               }}
             />
-            <input className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
-              defaultValue={koPunten[round+'_aanwezig']??1}
-              onBlur={async e=>{
-                await sb.from('ko_punten').upsert({round:round+'_aanwezig',points:parseInt(e.target.value)||0});
-                onRefresh();
-              }}
-            />
+            <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
           </div>
         ))}
       </div>
@@ -1969,54 +1667,26 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,k
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
           const rMatches=koMatches.filter(m=>m.round===round);
           if(!rMatches.length)return null;
-
-          // Bereken echte teamnamen per match op basis van ingevulde winnaars
-          function getEchteTeams(m){
-            if(m.round==='R32'){
-              // home en away staan rechtstreeks in de database
-              return[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-'));
-            }
-            // Voor latere rondes: winnaars van de 2 vorige matches
-            const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
-            if(!prevRound)return[];
-            if(m.round==='KF3'){
-              // Verliezers van de HF
-              const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-              const verliezers=hfMatches.flatMap(hm=>{
-                const [t1,t2]=getEchteTeams(hm);
-                return hm.winner?[t1,t2].filter(t=>t&&t!==hm.winner):[];
-              });
-              return verliezers.slice(0,2);
-            }
-            const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-            const idx=(m.position-1)*2;
-            const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
-            return[pm1?.winner,pm2?.winner].filter(Boolean);
-          }
-
           return(<div key={round} style={{marginBottom:14}}>
             <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>{label}</div>
-            {rMatches.map(m=>{
-              const teams=getEchteTeams(m);
-              return(
-                <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
-                  <div style={{fontSize:12,flex:1,minWidth:120,color:teams.length<2?'var(--muted)':'var(--text)',fontStyle:teams.length<2?'italic':'normal'}}>
-                    {teams.length>=2?`${teams[0]} vs ${teams[1]}`:`Match ${m.position} — vorige ronde nog niet volledig`}
-                  </div>
-                  {teams.length>=2&&<select className="ii" style={{minWidth:140}}
-                    defaultValue={m.winner||''}
-                    onBlur={async e=>{
-                      await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);
-                      onRefresh();
-                    }}
-                  >
-                    <option value="">— Nog niet gespeeld —</option>
-                    {teams.map(t=>(<option key={t} value={t}>{t}</option>))}
-                  </select>}
-                  {m.winner&&<span className="tag tag-green">✓ {m.winner}</span>}
-                </div>
-              );
-            })}
+            {rMatches.map(m=>(
+              <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                <div style={{fontSize:12,flex:1,minWidth:120,color:'var(--text)'}}>{m.home} vs {m.away}</div>
+                <select className="ii" style={{minWidth:140}}
+                  defaultValue={m.winner||''}
+                  onBlur={async e=>{
+                    await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);
+                    onRefresh();
+                  }}
+                >
+                  <option value="">— Nog niet gespeeld —</option>
+                  {[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-')).map(t=>(
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                {m.winner&&<span className="tag tag-green">✓ {m.winner}</span>}
+              </div>
+            ))}
           </div>);
         })}
       </div>
@@ -2122,12 +1792,10 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,k
 // MAIN
 function App(){
   const[user,setUser]=useState(null),[page,setPage]=useState('klassement'),[load,setLoad]=useState(true);
-  const[pronoTab,setPronoTab]=useState('bijvragen');
   const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
   const[koMatches,setKoMatches]=useState([]),[koPronosAll,setKoPronosAll]=useState({}),[koPunten,setKoPunten]=useState({});
-  const[adminFP,setAdminFP]=useState({});
 
   async function loadAll(){
     const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt}]=await Promise.all([
@@ -2149,8 +1817,6 @@ function App(){
       let val=f.team;try{val=JSON.parse(f.team);}catch{}
       fpM[f.user_id][f.group]=val;
     }setFpAll(fpM);
-    // Admin fairplay: opgeslagen met user_id='admin'
-    setAdminFP(fpM['admin']||{});
     setPvAll(pv||[]);setSpelerStats(ss||[]);
     setKoMatches(km||[]);
     const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
@@ -2193,12 +1859,12 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
-        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll} initialTab={pronoTab}/>}
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
-        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
