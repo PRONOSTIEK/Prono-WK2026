@@ -415,21 +415,73 @@ function getR32Teams(matchId, winnaars, runners, top8Derden){
 }
 
 // Bereken punten voor knock-out pronostieken
+// Juiste match (team in juiste wedstrijd van die ronde) → koPunten[round+'_juist']
+// Wel in ronde maar verkeerde match → koPunten[round+'_aanwezig']
 function calcKOPts(koPronos, koMatches, koPunten){
   let tot=0;const det=[];
+
+  // Bouw per ronde een map: teamnaam → match_id (op basis van echte winnaars)
+  // Een team "zit in een ronde" als het de vorige ronde gewonnen heeft (= winner van vorige match)
+  // Voor R32: alle teams zitten erin (winnaars/runners/derden uit groepsfase — al in ko_matches.home/away)
+  const echteTeamsPerMatch={}; // match_id → [home, away] op basis van winnaars vorige ronde
+  const rounds=['R32','R16','KF','HF','KF3','F'];
+
+  for(const round of rounds){
+    const rMatches=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
+    for(const m of rMatches){
+      if(round==='R32'){
+        echteTeamsPerMatch[m.id]=[m.home,m.away].filter(Boolean);
+      } else if(round==='KF3'){
+        const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+        const verliezers=hfMatches.flatMap(hm=>{
+          const t=[hm.home,hm.away].filter(Boolean);
+          return hm.winner?t.filter(x=>x!==hm.winner):[];
+        });
+        echteTeamsPerMatch[m.id]=verliezers.slice(0,2);
+      } else {
+        const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
+        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+        const idx=(m.position-1)*2;
+        const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
+        echteTeamsPerMatch[m.id]=[pm1?.winner,pm2?.winner].filter(Boolean);
+      }
+    }
+  }
+
+  // Bouw per ronde een set van alle teams die in die ronde zitten
+  const teamsInRonde={};
+  for(const round of rounds){
+    const rMatches=koMatches.filter(m=>m.round===round);
+    teamsInRonde[round]=new Set();
+    for(const m of rMatches){
+      for(const t of (echteTeamsPerMatch[m.id]||[])) teamsInRonde[round].add(t);
+    }
+  }
+
+  // Bereken punten per match
   for(const m of koMatches){
-    if(!m.winner)continue;
     const p=koPronos[m.id];
     if(!p)continue;
-    const pts=koPunten[m.round]||0;
-    if(p.toLowerCase().trim()===m.winner.toLowerCase().trim()){
-      tot+=pts;det.push({label:`${m.home} vs ${m.away}`,pts,round:m.round});
+    const ptsJuist=koPunten[m.round+'_juist']??2;
+    const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
+    const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
+    const teamInDezeMatch=teamsInDezeMatch.some(t=>t.toLowerCase().trim()===p.toLowerCase().trim());
+    const teamInDezeRonde=(teamsInRonde[m.round]||new Set()).has(p);
+
+    if(teamInDezeMatch){
+      // Juiste match
+      tot+=ptsJuist;
+      det.push({label:`🎯 ${p} (juiste match)`,pts:ptsJuist,round:m.round,cat:'juist'});
+    } else if(teamInDezeRonde){
+      // Wel in ronde maar verkeerde match
+      tot+=ptsAanwezig;
+      det.push({label:`✓ ${p} (in ronde)`,pts:ptsAanwezig,round:m.round,cat:'aanwezig'});
     }
   }
   return{tot,det};
 }
 // Bereken de echte KO-teams op basis van echte uitslagen
-function calcEchteKOTeams(matches, fpAll){
+function calcEchteKOTeams(matches, adminFP){
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const winnaars={},runners={},derden=[];
@@ -439,7 +491,9 @@ function calcEchteKOTeams(matches, fpAll){
     // Enkel groepen waar alle wedstrijden gespeeld zijn
     if(gm.some(m=>m.home_score==null))continue;
     const scE={};for(const m of gm)scE[m.id]={h:m.home_score,a:m.away_score};
-    const stand=buildStand(gm,scE,null);
+    let fp=adminFP?.[grp];
+    if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
+    const stand=buildStand(gm,scE,Array.isArray(fp)?fp:null);
     if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:1,grp};
     if(stand.length>=2)runners[grp]={team:stand[1].team,pos:2,grp};
     if(stand.length>=3)derden.push({...stand[2],pos:3,grp});
@@ -491,23 +545,20 @@ function calcVoorspeldeKOTeams(matches, pm, fpData){
 }
 
 // Bereken kwalificatiepunten voor een deelnemer
-function calcKwalPunten(pm, fpData, matches, koPunten){
+function calcKwalPunten(pm, fpData, matches, koPunten, adminFP){
   const ptsJuist=koPunten['kwal_juist']??2;
   const ptsAanwezig=koPunten['kwal_aanwezig']??1;
-  // Echte KO-teams afleiden uit echte uitslagen
-  const echteKO=calcEchteKOTeams(matches,{});
+  const echteKO=calcEchteKOTeams(matches,adminFP||{});
   if(!Object.keys(echteKO).length)return{tot:0,det:[]};
   const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData);
   let tot=0;const det=[];
   for(const [team,eInfo] of Object.entries(echteKO)){
     const vInfo=voorspeld[team];
-    if(!vInfo)continue; // niet voorspeld als gekwalificeerd
+    if(!vInfo)continue;
     if(vInfo.pos===eInfo.pos&&vInfo.grp===eInfo.grp){
-      // Juiste positie in juiste groep
       tot+=ptsJuist;
       det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist'});
     } else {
-      // Wel naar KO maar verkeerde positie/groep
       tot+=ptsAanwezig;
       det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig'});
     }
@@ -608,7 +659,7 @@ function Login({onLogin}){
   </div></div>);}
 
 // KLASSEMENT
-function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const betaaldeUserIds=new Set(echteUsers.filter(u=>u.betaald).map(u=>u.id));
@@ -620,7 +671,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,spelerStats,
     const fp=fpAll[u.id]||{};
     const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum);
     const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
-    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten);
+    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     return{...u,tot:u.betaald?(tot+koTot+kwalTot):0,filled};
   }).sort((a,b)=>b.tot-a.tot);
@@ -1049,7 +1100,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
               {r.label}
               <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans'}}>
-                {koPunten[r.id]||'?'} pt/correct
+                <span style={{color:'var(--green)'}}>{koPunten[r.id+'_juist']??2}pt</span>
+                <span style={{color:'var(--muted)',fontSize:10}}>/</span>
+                <span style={{color:'var(--gold)'}}>{koPunten[r.id+'_aanwezig']??1}pt</span>
               </span>
             </div>
             {r.matches.map(m=>{
@@ -1200,14 +1253,14 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
   </div>);}
 
 // MIJN PUNTEN
-function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
-  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten);
+  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP);
   const totaal=tot+koTot+kwalTot;
   const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`})),...kwalDet.map(d=>({...d,label:`🎫 ${d.label}`}))];
   return(<div>
@@ -1496,7 +1549,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   </div>);}
 
 // ADMIN
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,fpAll,adminFP,koMatches,koPunten,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
@@ -1636,6 +1689,99 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
         </div>
       </div>)}
+
+      {/* Echte groepsstand */}
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const heeftUitslagen=gm.some(m=>m.home_score!=null);
+        if(!heeftUitslagen)return null;
+        const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
+        let afp=adminFP[ag];
+        if(typeof afp==='string'){try{afp=JSON.parse(afp);}catch{afp=null;}}
+        const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null);
+        return(<div className="card" style={{marginTop:14}}>
+          <div className="card-title" style={{fontSize:15}}>📊 Huidige stand groep {ag}</div>
+          <table className="stand-table">
+            <thead><tr><th>Ploeg</th><th>G</th><th>W</th><th>G</th><th>V</th><th>+</th><th>-</th><th>SD</th><th>Ptn</th></tr></thead>
+            <tbody>{stand.map((r,i)=><tr key={r.team}>
+              <td><span className={`stand-pos ${i<2?'q':''}`}>{i+1}</span>{r.team}</td>
+              <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
+              <td>{r.gs}</td><td>{r.ga}</td>
+              <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
+              <td><span className="stand-pts">{r.pts}</span></td>
+            </tr>)}</tbody>
+          </table>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 2 = gekwalificeerd</div>
+        </div>);
+      })()}
+
+      {/* Officiële fairplay ranking (admin) + overzicht deelnemers */}
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const teams=new Set();
+        for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
+        if(!teams.size)return null;
+        const teamList=[...teams];
+
+        // Huidige admin ranking voor deze groep
+        let curAdminFP=adminFP[ag];
+        if(typeof curAdminFP==='string'){try{curAdminFP=JSON.parse(curAdminFP);}catch{curAdminFP=null;}}
+        if(!Array.isArray(curAdminFP)||curAdminFP.length!==teamList.length)curAdminFP=[...teamList];
+
+        async function saveAdminFP(ranking){
+          await sb.from('fairplay').upsert({user_id:'admin',group:ag,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
+          onRefresh();
+        }
+
+        const deelnemers=users.filter(u=>!u.is_admin&&!u.is_test);
+
+        return(<div>
+          {/* Admin fairplay widget */}
+          <div className="card" style={{marginTop:14}}>
+            <div className="card-title" style={{fontSize:15}}>🟨 Officiële Fairplay Ranking groep {ag}</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>
+              Sleep de ploegen in volgorde van beste fairplay. Dit wordt gebruikt als officiële tiebreaker in de groepsstand en voor de kwalificatiepunten.
+            </div>
+            <FairplayRanking
+              teams={teamList}
+              value={curAdminFP}
+              onChange={saveAdminFP}
+              locked={false}
+            />
+          </div>
+
+          {/* Overzicht fairplay rankings deelnemers */}
+          {deelnemers.length>0&&<div className="card" style={{marginTop:14}}>
+            <div className="card-title" style={{fontSize:15}}>👥 Fairplay Rankings deelnemers</div>
+            <table className="wt">
+              <thead><tr>
+                <th>Deelnemer</th>
+                {teamList.map(t=><th key={t} style={{textAlign:'center'}}>{t}</th>)}
+              </tr></thead>
+              <tbody>
+                {deelnemers.map(u=>{
+                  let fp=fpAll[u.id]?.[ag];
+                  if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
+                  const ranking=Array.isArray(fp)&&fp.length===teamList.length?fp:null;
+                  return(<tr key={u.id}>
+                    <td style={{fontWeight:500}}>{u.name}</td>
+                    {teamList.map(t=>{
+                      const pos=ranking?ranking.indexOf(t)+1:null;
+                      return(<td key={t} style={{textAlign:'center'}}>
+                        {pos!=null
+                          ?<span style={{fontFamily:'Bebas Neue',fontSize:15,color:pos===1?'var(--gold)':pos===2?'#ccc':pos===3?'#cd7f32':'var(--muted)'}}>{pos}</span>
+                          :<span style={{color:'var(--border)'}}>–</span>
+                        }
+                      </td>);
+                    })}
+                  </tr>);
+                })}
+              </tbody>
+            </table>
+            <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>Positie per deelnemer (1 = beste fairplay)</div>
+          </div>}
+        </div>);
+      })()}
     </div>}
 
     {tab==='bijvragen'&&<div>
@@ -1791,18 +1937,29 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       </div>
       <div className="card">
         <div className="card-title">🏆 Punten per KO-ronde</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Stel in hoeveel punten een correcte winnaarvoorspelling waard is per ronde.</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Stel per ronde in hoeveel punten een deelnemer krijgt.</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',marginBottom:6}}>
+          <div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.5}}>Ronde</div>
+          <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Juiste match</div>
+          <div style={{fontSize:10,color:'var(--gold)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Wel in ronde</div>
+        </div>
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
-          <div key={round} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-            <div style={{flex:1,fontSize:13}}>{label}</div>
-            <input className="ii" type="number" min="1" style={{width:70,textAlign:'center'}}
-              defaultValue={koPunten[round]||2}
+          <div key={round} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',padding:'6px 0',borderTop:'1px solid var(--border)'}}>
+            <div style={{fontSize:13}}>{label}</div>
+            <input className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
+              defaultValue={koPunten[round+'_juist']??2}
               onBlur={async e=>{
-                await sb.from('ko_punten').upsert({round,points:parseInt(e.target.value)||2});
+                await sb.from('ko_punten').upsert({round:round+'_juist',points:parseInt(e.target.value)||0});
                 onRefresh();
               }}
             />
-            <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+            <input className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
+              defaultValue={koPunten[round+'_aanwezig']??1}
+              onBlur={async e=>{
+                await sb.from('ko_punten').upsert({round:round+'_aanwezig',points:parseInt(e.target.value)||0});
+                onRefresh();
+              }}
+            />
           </div>
         ))}
       </div>
@@ -1970,6 +2127,7 @@ function App(){
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
   const[koMatches,setKoMatches]=useState([]),[koPronosAll,setKoPronosAll]=useState({}),[koPunten,setKoPunten]=useState({});
+  const[adminFP,setAdminFP]=useState({});
 
   async function loadAll(){
     const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt}]=await Promise.all([
@@ -1991,6 +2149,8 @@ function App(){
       let val=f.team;try{val=JSON.parse(f.team);}catch{}
       fpM[f.user_id][f.group]=val;
     }setFpAll(fpM);
+    // Admin fairplay: opgeslagen met user_id='admin'
+    setAdminFP(fpM['admin']||{});
     setPvAll(pv||[]);setSpelerStats(ss||[]);
     setKoMatches(km||[]);
     const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
@@ -2034,11 +2194,11 @@ function App(){
       </div>
       <div className="content">
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
-        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll} initialTab={pronoTab}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
-        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} fpAll={fpAll} adminFP={adminFP} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
