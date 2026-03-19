@@ -322,48 +322,104 @@ function cmpUnderlinge(a,b,matches,scores){
   return 0;
 }
 
-// Volledige FIFA groepsstand met fairplay ranking
+// Volledige FIFA groepsstand met correcte tiebreaker volgorde
 // fpRanking = array van teamnamen gesorteerd op fairplay (index 0 = beste)
-function buildStand(matches, scores, fpRanking){
+// fifaRanking = array van {team, rank} gesorteerd op rank
+function buildStand(matches, scores, fpRanking, fifaRanking){
   const teams=new Set();
   for(const m of matches){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
   const teamList=[...teams];
   const st=buildStats(teamList,matches,scores);
   const rows=Object.values(st);
 
-  // Fairplay score: positie in fpRanking (lager = beter) → omgekeerd als getal
-  // index 0 (beste fairplay) krijgt hoogste score (teams.length)
   function fpScore(team){
     if(!fpRanking||!Array.isArray(fpRanking))return 0;
     const idx=fpRanking.indexOf(team);
     if(idx===-1)return 0;
-    return teamList.length-idx; // hoog getal = goede fairplay
+    return teamList.length-idx;
   }
 
-  rows.sort((a,b)=>{
-    // 1. Punten (alle groepswedstrijden)
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    // 2. Doelsaldo (alle groepswedstrijden)
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    // 3. Meeste goals gescoord (alle groepswedstrijden)
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    // 4-6. Onderlinge criteria (punten, doelsaldo, goals) onder gelijk gerangschikte groep
-    const und=cmpUnderlinge(a,b,matches,scores);
-    if(und!==0)return und;
-    // 7. Fairplay rangschikking
-    const fpA=fpScore(a.team),fpB=fpScore(b.team);
-    if(fpB!==fpA)return fpB-fpA;
-    // 8. Lottrekking (willekeurig, stabiel gesorteerd op naam als fallback)
-    return a.team.localeCompare(b.team);
-  });
+  function fifaScore(team){
+    if(!fifaRanking||!Array.isArray(fifaRanking))return 9999;
+    const entry=fifaRanking.find(r=>r.team===team);
+    return entry?entry.rank:9999; // lager = beter
+  }
 
-  return rows;
+  function getUnderlinge(group){
+    const names=group.map(r=>r.team);
+    return buildStats(names,matches,scores);
+  }
+
+  function cmpOnderlinge(a, b, und){
+    const ua=und[a.team],ub=und[b.team];
+    if(!ua||!ub)return 0;
+    if(ub.pts!==ua.pts)return ub.pts-ua.pts;
+    if(ub.gd!==ua.gd)return ub.gd-ua.gd;
+    if(ub.gs!==ua.gs)return ub.gs-ua.gs;
+    return 0;
+  }
+
+  function sortGelijk(group){
+    if(group.length<=1)return group;
+    const und=getUnderlinge(group);
+    const sorted=[...group].sort((a,b)=>cmpOnderlinge(a,b,und));
+    const result=[];
+    let i=0;
+    while(i<sorted.length){
+      let j=i+1;
+      while(j<sorted.length&&cmpOnderlinge(sorted[i],sorted[j],und)===0)j++;
+      const subGroup=sorted.slice(i,j);
+      if(subGroup.length>1&&subGroup.length<group.length){
+        const und2=getUnderlinge(subGroup);
+        subGroup.sort((a,b)=>cmpOnderlinge(a,b,und2));
+      }
+      result.push(...subGroup);
+      i=j;
+    }
+    return result;
+  }
+
+  rows.sort((a,b)=>b.pts-a.pts);
+
+  const final=[];
+  let i=0;
+  while(i<rows.length){
+    let j=i+1;
+    while(j<rows.length&&rows[j].pts===rows[i].pts)j++;
+    const gelijkePunten=rows.slice(i,j);
+    if(gelijkePunten.length===1){
+      final.push(gelijkePunten[0]);
+    } else {
+      const gesorteerd=sortGelijk(gelijkePunten);
+      gesorteerd.sort((a,b)=>{
+        const und=getUnderlinge(gelijkePunten);
+        const ondCmp=cmpOnderlinge(a,b,und);
+        if(ondCmp!==0)return ondCmp;
+        // 5. Doelsaldo alle wedstrijden
+        if(b.gd!==a.gd)return b.gd-a.gd;
+        // 6. Goals gescoord alle wedstrijden
+        if(b.gs!==a.gs)return b.gs-a.gs;
+        // 7. Fairplay drag & drop
+        const fpA=fpScore(a.team),fpB=fpScore(b.team);
+        if(fpB!==fpA)return fpB-fpA;
+        // 8. FIFA wereldranking (lager getal = beter)
+        const frA=fifaScore(a.team),frB=fifaScore(b.team);
+        if(frA!==frB)return frA-frB;
+        // 9. Alfabetisch
+        return a.team.localeCompare(b.team);
+      });
+      final.push(...gesorteerd);
+    }
+    i=j;
+  }
+
+  return final;
 }
 
 // ─── KNOCK-OUT HELPERS ───────────────────────────────────────────────────────
 
 // Bereken winnaar/runner-up/derden voor alle groepen op basis van pronostiek
-function calcKOTeams(matches, lPM, lFP){
+function calcKOTeams(matches, lPM, lFP, fifaRanking){
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
 
@@ -373,7 +429,7 @@ function calcKOTeams(matches, lPM, lFP){
     if(!gm.length)continue;
     const scV={};
     for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-    const stand=buildStand(gm,scV,lFP[grp]);
+    const stand=buildStand(gm,scV,lFP[grp],fifaRanking);
     if(stand.length>=1)winnaars[grp]=stand[0].team;
     if(stand.length>=2)runners[grp]=stand[1].team;
     if(stand.length>=3)derden.push({...stand[2],grp});
@@ -521,7 +577,7 @@ function Login({onLogin}){
   </div></div>);}
 
 // KLASSEMENT
-function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,koMatches,koPronosAll,koPunten,fifaRanking,cur}){
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const betaaldeUserIds=new Set(echteUsers.filter(u=>u.betaald).map(u=>u.id));
@@ -578,7 +634,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,onRefresh}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   // fairplay per groep: { grp: [team1,team2,team3,team4] }
   const myFP=fpAll[cur.id]||{};
@@ -727,11 +783,11 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
 
       // Voorspelde stand
       const scV={};for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-      const stand=buildStand(gm,scV,fpRanking);
+      const stand=buildStand(gm,scV,fpRanking,fifaRanking);
 
       // Echte stand
       const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
-      const standEcht=buildStand(gm,scE,null);
+      const standEcht=buildStand(gm,scE,null,fifaRanking);
       const heeftEcht=gm.some(m=>m.home_score!=null);
 
       return(<div>
@@ -831,7 +887,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         const gm=mbg[grp]||[];
         if(gm.length===0)continue;
         const scV={};for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-        const stand=buildStand(gm,scV,lFP[grp]);
+        const stand=buildStand(gm,scV,lFP[grp],fifaRanking);
         if(stand.length>=3){
           const derde=stand[2];
           derden.push({...derde,grp});
@@ -897,7 +953,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
 
     {/* KNOCK-OUT FASE */}
     {tab==='ko'&&(()=>{
-      const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP);
+      const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP,fifaRanking);
       const ROUNDS=[
         {id:'R32',label:'Ronde van 32',matches:koMatches.filter(m=>m.round==='R32')},
         {id:'R16',label:'Ronde van 16',matches:koMatches.filter(m=>m.round==='R16')},
@@ -1377,7 +1433,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   </div>);}
 
 // ADMIN
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
@@ -1454,7 +1510,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -1517,6 +1573,38 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
         </div>
       </div>)}
+
+      {/* Groepsstand op basis van ingevoerde uitslagen */}
+      {(()=>{
+        const gm=mbg[ag]||[];
+        const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
+        if(!Object.keys(scE).length)return null;
+        const stand=buildStand(gm,scE,null,fifaRanking);
+        return(<div className="card" style={{marginTop:12}}>
+          <div className="card-title" style={{fontSize:14}}>📊 Huidige stand Groep {ag}</div>
+          <table className="stand-table">
+            <thead><tr>
+              <th style={{textAlign:'left'}}>Ploeg</th>
+              <th>G</th><th>W</th><th>G</th><th>V</th>
+              <th>+</th><th>-</th><th>SD</th><th>Ptn</th>
+            </tr></thead>
+            <tbody>
+              {stand.map((r,i)=>(
+                <tr key={r.team} style={{background:i<2?'var(--dark3)':'transparent'}}>
+                  <td style={{fontWeight:500}}>
+                    <span className={`stand-pos ${i<2?'q':''}`}>{i+1}</span>
+                    {r.team}
+                  </td>
+                  <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
+                  <td>{r.gs}</td><td>{r.ga}</td>
+                  <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
+                  <td><span className="stand-pts">{r.pts}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>);
+      })()}
     </div>}
 
     {tab==='bijvragen'&&<div>
@@ -1692,6 +1780,41 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       </div>
     </div>}
 
+    {tab==='fifa'&&<div>
+      <div className="card">
+        <div className="card-title">🌍 FIFA Wereldranking</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
+          Vul de FIFA wereldranking in per ploeg. Dit wordt gebruikt als tiebreaker in de groepsstand (na fairplay). Lager nummer = hogere ranking.
+        </div>
+        {/* Alle ploegen uit de wedstrijden */}
+        {(()=>{
+          const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort();
+          return alleTeams.map(team=>{
+            const entry=fifaRanking.find(r=>r.team===team);
+            return(<div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+              <div style={{flex:1,fontSize:13}}>{team}</div>
+              <input
+                className="ii"
+                type="number"
+                min="1"
+                style={{width:80,textAlign:'center'}}
+                defaultValue={entry?entry.rank:''}
+                placeholder="Rang"
+                onBlur={async e=>{
+                  const val=parseInt(e.target.value);
+                  if(!val)return;
+                  await sb.from('fifa_ranking').upsert({team,rank:val},{onConflict:'team'});
+                  onRefresh();
+                }}
+              />
+              {entry&&<span style={{fontSize:11,color:'var(--gold)',minWidth:30}}>#{entry.rank}</span>}
+            </div>);
+          });
+        })()}
+        {matches.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Voer eerst wedstrijden in om ploegen te zien.</div>}
+      </div>
+    </div>}
+
     {tab==='deadline'&&<div>
       <div className="card">
         <div className="card-title">⏰ Deadline Bijvragen Invullen</div>
@@ -1796,9 +1919,10 @@ function App(){
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
   const[koMatches,setKoMatches]=useState([]),[koPronosAll,setKoPronosAll]=useState({}),[koPunten,setKoPunten]=useState({});
+  const[fifaRanking,setFifaRanking]=useState([]);
 
   async function loadAll(){
-    const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt}]=await Promise.all([
+    const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt},{data:fr}]=await Promise.all([
       sb.from('users').select('*'),sb.from('matches').select('*').order('date'),sb.from('bijvragen').select('*').order('sort_order'),
       sb.from('pronos_matches').select('*'),sb.from('pronos_bijvragen').select('*'),sb.from('jokers').select('*'),
       sb.from('punten_vragen').select('*'),sb.from('fairplay').select('*'),sb.from('config').select('*'),
@@ -1806,6 +1930,7 @@ function App(){
       sb.from('ko_matches').select('*').order('round_order').order('position'),
       sb.from('ko_pronos').select('*'),
       sb.from('ko_punten').select('*'),
+      sb.from('fifa_ranking').select('*').order('rank'),
     ]);
     setUsers(us||[]);setMatches(ma||[]);setBvs(bv||[]);
     const pmM={};for(const p of(pm||[])){if(!pmM[p.user_id])pmM[p.user_id]={};pmM[p.user_id][p.match_id]=p;}setPmAll(pmM);
@@ -1821,6 +1946,7 @@ function App(){
     setKoMatches(km||[]);
     const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
     const kptM={};for(const k of(kpt||[]))kptM[k.round]=k.points;setKoPunten(kptM);
+    setFifaRanking(fr||[]);
     const cfgObj={};for(const c of(cfg||[]))cfgObj[c.key]=c.value;setConfig(cfgObj);
     setLoad(false);
   }
@@ -1860,11 +1986,11 @@ function App(){
       </div>
       <div className="content">
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
-        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
