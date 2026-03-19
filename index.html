@@ -1157,6 +1157,41 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,onRefresh}){
   async function delUser(id){await sb.from('users').delete().eq('id',id);onRefresh();}
   async function toggleBetaald(id,h){await sb.from('users').update({betaald:!h}).eq('id',id);onRefresh();}
   async function toggleTest(id,h){await sb.from('users').update({is_test:!h}).eq('id',id);onRefresh();}
+  const[hernoemVan,setHernoemVan]=useState(''),[hernoemNaar,setHernoemNaar]=useState(''),[hernoemBezig,setHernoemBezig]=useState(false),[hernoemMsg,setHernoemMsg]=useState('');
+
+  async function hernoemTeam(){
+    if(!hernoemVan||!hernoemNaar.trim())return;
+    setHernoemBezig(true);setHernoemMsg('');
+    const van=hernoemVan,naar=hernoemNaar.trim();
+    // 1. Wedstrijden — home en away velden
+    const homeMatches=matches.filter(m=>m.home===van);
+    const awayMatches=matches.filter(m=>m.away===van);
+    await Promise.all([
+      ...homeMatches.map(m=>sb.from('matches').update({home:naar}).eq('id',m.id)),
+      ...awayMatches.map(m=>sb.from('matches').update({away:naar}).eq('id',m.id)),
+    ]);
+    // 2. Fairplay — team veld bevat JSON array
+    const{data:fpRows}=await sb.from('fairplay').select('*');
+    const fpUpdates=(fpRows||[]).filter(f=>{
+      try{const arr=JSON.parse(f.team);return arr.includes(van);}catch{return f.team===van;}
+    });
+    await Promise.all(fpUpdates.map(f=>{
+      let nieuw;
+      try{const arr=JSON.parse(f.team);nieuw=JSON.stringify(arr.map(t=>t===van?naar:t));}
+      catch{nieuw=naar;}
+      return sb.from('fairplay').update({team:nieuw}).eq('id',f.id);
+    }));
+    // 3. Bijvragen correct_answer
+    const bvUpdates=bvs.filter(b=>b.correct_answer===van);
+    await Promise.all(bvUpdates.map(b=>sb.from('bijvragen').update({correct_answer:naar}).eq('id',b.id)));
+    // 4. Pronos_bijvragen antwoorden
+    const{data:pbRows}=await sb.from('pronos_bijvragen').select('*').eq('answer',van);
+    await Promise.all((pbRows||[]).map(p=>sb.from('pronos_bijvragen').update({answer:naar}).eq('id',p.id)));
+    setHernoemBezig(false);
+    setHernoemMsg(`✓ "${van}" hernoemd naar "${naar}" in alle tabellen!`);
+    setHernoemVan('');setHernoemNaar('');
+    onRefresh();
+  }
   async function saveUitleg(){await sb.from('config').upsert({key:'uitleg',value:uitlegTekst});setUitlegSaved(true);setTimeout(()=>setUitlegSaved(false),2000);onRefresh();}
   async function saveDeadline(){await sb.from('config').upsert({key:'bijvragen_deadline',value:deadline});onRefresh();}
   async function clearDeadline(){setDeadline('');await sb.from('config').upsert({key:'bijvragen_deadline',value:''});onRefresh();}
@@ -1184,6 +1219,33 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,onRefresh}){
     </div>}
 
     {tab==='matches'&&<div>
+      {/* Teamnaam hernoemen */}
+      <div className="card" style={{marginBottom:12}}>
+        <div className="card-title" style={{fontSize:15}}>🔄 Teamnaam hernoemen</div>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>
+          Hernoem een ploeg in alle tabellen tegelijk (wedstrijden, bijvragen, fairplay ranking).
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Huidige naam</div>
+            <select className="ii" style={{width:'100%'}} value={hernoemVan} onChange={e=>setHernoemVan(e.target.value)}>
+              <option value="">— Kies een ploeg —</option>
+              {[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort().map(t=>(
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Nieuwe naam</div>
+            <input className="ii" style={{width:'100%'}} value={hernoemNaar} onChange={e=>setHernoemNaar(e.target.value)} placeholder="bv. Italië"/>
+          </div>
+          <button className="btn btn-sm btn-outline" disabled={!hernoemVan||!hernoemNaar.trim()||hernoemBezig} onClick={hernoemTeam}>
+            {hernoemBezig?'Bezig...':'🔄 Hernoemen'}
+          </button>
+        </div>
+        {hernoemMsg&&<div style={{marginTop:8,fontSize:12,color:'var(--green)'}}>{hernoemMsg}</div>}
+      </div>
+
       <div className="groep-tabs" style={{marginBottom:10}}>{GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}</div>
       <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
       {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
