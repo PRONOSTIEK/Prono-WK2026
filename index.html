@@ -1584,7 +1584,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
 
 // ADMIN
 function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,onRefresh}){
-  const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
+  const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
 
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
   const adminFP=fpAll['admin']||{};
@@ -2144,7 +2144,14 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             <span style={{fontWeight:500}}>{u.name}{u.is_test&&<span className="badge-test" style={{marginLeft:5}}>TEST</span>}</span>
             <div style={{display:'flex',gap:4}}>
               <button className="btn btn-sm btn-test" onClick={()=>toggleTest(u.id,u.is_test)}>{u.is_test?'Echt':'Test'}</button>
-              <button className="btn btn-sm btn-danger" onClick={()=>delUser(u.id)}>✕</button>
+              {confirmDelete===u.id
+                ?<div style={{display:'flex',gap:4,alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'var(--red)'}}>Zeker?</span>
+                  <button className="btn btn-sm btn-danger" onClick={async()=>{await delUser(u.id);setConfirmDelete(null);}}>Ja, wis</button>
+                  <button className="btn btn-sm btn-outline" onClick={()=>setConfirmDelete(null)}>Annuleer</button>
+                </div>
+                :<button className="btn btn-sm btn-danger" onClick={()=>setConfirmDelete(u.id)}>✕</button>
+              }
             </div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,flexWrap:'wrap'}}>
