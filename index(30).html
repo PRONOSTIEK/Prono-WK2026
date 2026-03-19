@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>WK 2026 Pronostiek</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--green:#00c853;--green-dark:#009624;--red:#e53935;--gold:#ffd600;--dark:#0a0f0d;--dark2:#111714;--dark3:#1a2420;--card:#1e2b26;--border:#2a3d35;--text:#e8f5e9;--muted:#7a9e8a;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;-webkit-text-size-adjust:100%;}
+.app{display:flex;flex-direction:column;min-height:100vh;}
+
+/* TOPBAR */
+.topbar{background:var(--dark2);border-bottom:2px solid var(--green);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:200;}
+.topbar-title{font-family:'Bebas Neue';font-size:22px;color:var(--green);letter-spacing:2px;}
+.topbar-title span{color:var(--gold);}
+.user-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.user-badge strong{color:var(--text);}
+.btn-logout{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 9px;border-radius:5px;cursor:pointer;font-size:11px;}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
+
+/* LAYOUT */
+.main{display:flex;flex:1;position:relative;}
+.sidebar{width:185px;background:var(--dark2);border-right:1px solid var(--border);padding:12px 0;flex-shrink:0;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:11px 15px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--dark3);color:var(--text);}
+.nav-item.active{background:var(--dark3);color:var(--green);border-left-color:var(--green);}
+.content{flex:1;padding:18px;overflow-y:auto;max-width:960px;min-width:0;}
+
+/* BOTTOM NAV (mobile) */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--dark2);border-top:1px solid var(--border);z-index:200;padding:4px 0 env(safe-area-inset-bottom,4px);}
+.bottom-nav-items{display:flex;justify-content:space-around;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;cursor:pointer;color:var(--muted);font-size:9px;flex:1;border:none;background:none;}
+.bn-item.active{color:var(--green);}
+.bn-icon{font-size:18px;}
+
+/* MOBILE */
+@media(max-width:640px){
+  .sidebar{display:none;}
+  .bottom-nav{display:block;}
+  .content{padding:12px 10px 80px;}
+  .topbar{height:48px;}
+  .topbar-title{font-size:20px;}
+  .login-box{width:calc(100vw - 32px);padding:32px 20px;}
+}
+
+/* LOGIN */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:40px 32px;width:360px;max-width:100%;}
+.login-logo{font-family:'Bebas Neue';font-size:36px;color:var(--green);text-align:center;letter-spacing:3px;margin-bottom:2px;}
+.login-sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.field input,.field select{width:100%;background:var(--dark3);border:1px solid var(--border);border-radius:6px;padding:11px 12px;color:var(--text);font-size:16px;font-family:inherit;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--green);}
+.field select option{background:var(--dark3);}
+
+/* BUTTONS */
+.btn{width:100%;padding:13px;background:var(--green);color:#000;font-weight:600;border:none;border-radius:6px;cursor:pointer;font-size:15px;font-family:inherit;touch-action:manipulation;}
+.btn:hover{background:var(--green-dark);color:#fff;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-sm{width:auto;padding:7px 14px;font-size:12px;border-radius:5px;touch-action:manipulation;}
+.btn-outline{background:none;border:1px solid var(--green);color:var(--green);}
+.btn-outline:hover{background:var(--green);color:#000;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-betaald{background:var(--green);color:#000;}
+.btn-test{background:#7a9e8a22;border:1px solid var(--muted);color:var(--muted);}
+.err{color:var(--red);font-size:12px;margin-top:5px;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
+.card-title{font-family:'Bebas Neue';font-size:17px;color:var(--green);margin-bottom:10px;letter-spacing:1px;}
+.section-title{font-family:'Bebas Neue';font-size:22px;color:var(--text);margin-bottom:14px;letter-spacing:1px;}
+
+/* TABS */
+.tabs{display:flex;gap:3px;margin-bottom:16px;background:var(--dark2);border-radius:6px;padding:3px;width:fit-content;flex-wrap:wrap;}
+.tab{padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--muted);transition:all .15s;touch-action:manipulation;}
+.tab.active{background:var(--card);color:var(--text);}
+
+/* GROEPTABS */
+.groep-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.groep-tab{padding:7px 11px;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);background:var(--dark2);border:1px solid var(--border);font-family:'Bebas Neue';letter-spacing:1px;touch-action:manipulation;min-height:36px;}
+.groep-tab.active{background:var(--green);color:#000;border-color:var(--green);}
+.groep-tab.joker{border-color:var(--gold);color:var(--gold);}
+.groep-tab.joker.active{background:var(--gold);color:#000;}
+
+/* TAGS */
+.tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;}
+.tag-green{background:#00c85322;color:var(--green);}
+.tag-gold{background:#ffd60022;color:var(--gold);}
+.tag-red{background:#e5393522;color:var(--red);}
+.tag-gray{background:#2a3d35;color:var(--muted);}
+.tag-blue{background:#1565c022;color:#64b5f6;}
+.tag-niet-betaald{background:#e5393533;color:#ff6b6b;border:1px solid #e5393566;}
+.tag-test{background:#7a9e8a22;color:var(--muted);border:1px solid var(--border);}
+
+/* KLASSEMENT */
+.ranking{width:100%;border-collapse:collapse;}
+.ranking th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);letter-spacing:.3px;}
+.ranking td{padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;}
+.ranking tr:last-child td{border-bottom:none;}
+.rank-num{font-family:'Bebas Neue';font-size:19px;color:var(--muted);}
+.rank-1 .rank-num{color:var(--gold);}
+.rank-2 .rank-num{color:#ccc;}
+.rank-3 .rank-num{color:#cd7f32;}
+.pts{font-family:'Bebas Neue';font-size:19px;color:var(--green);}
+.pts.locked{color:var(--red);}
+
+/* MATCHES */
+.match-card{background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:9px;}
+.match-card.joker-on{border-color:var(--gold);box-shadow:0 0 8px #ffd60018;}
+.match-header{font-size:10px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.match-teams{display:flex;align-items:center;gap:8px;}
+.team-name{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.team-name.right{text-align:right;}
+.score-box{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.score-input{width:40px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:6px 4px;color:var(--text);font-size:18px;font-family:'Bebas Neue';outline:none;}
+.score-input:focus{border-color:var(--green);}
+.score-sep{font-family:'Bebas Neue';font-size:16px;color:var(--muted);}
+.score-display{font-family:'Bebas Neue';font-size:20px;color:var(--gold);min-width:44px;text-align:center;}
+.real-score{font-family:'Bebas Neue';font-size:14px;color:var(--muted);min-width:44px;text-align:center;}
+.match-result{font-size:10px;margin-top:5px;display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;}
+.joker-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:var(--muted);font-size:11px;font-family:inherit;cursor:pointer;touch-action:manipulation;}
+.joker-btn.on{border-color:var(--gold);color:var(--gold);background:#ffd60012;}
+.joker-btn:disabled{opacity:.3;cursor:not-allowed;}
+.locked-msg{font-size:10px;color:var(--red);margin-top:4px;}
+
+/* BIJVRAGEN */
+.bv-card{background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:9px;}
+.bv-q{font-size:13px;margin-bottom:8px;}
+.bv-a{display:flex;gap:6px;align-items:center;}
+.bv-a input,.bv-a select{flex:1;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:9px 10px;color:var(--text);font-family:inherit;outline:none;font-size:14px;min-width:0;}
+.bv-a input:focus,.bv-a select:focus{border-color:var(--green);}
+.bv-a select option{background:var(--dark2);}
+
+/* PUNTENVRAGEN */
+.pv-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:8px;}
+.pv-row:last-child{border:none;}
+.pv-num{font-family:'Bebas Neue';font-size:20px;min-width:36px;text-align:center;}
+input[type=range]{-webkit-appearance:none;width:90px;height:4px;border-radius:2px;background:var(--border);outline:none;flex-shrink:0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--gold);cursor:pointer;}
+
+/* GROEPSSTAND */
+.stand-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;}
+.stand-table th{text-align:center;padding:5px 4px;color:var(--muted);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.stand-table th:first-child{text-align:left;padding-left:6px;}
+.stand-table td{padding:6px 4px;border-bottom:1px solid var(--border);text-align:center;}
+.stand-table td:first-child{text-align:left;padding-left:6px;font-size:12px;}
+.stand-table tr:last-child td{border-bottom:none;}
+.stand-pos{font-family:'Bebas Neue';font-size:15px;color:var(--muted);margin-right:4px;}
+.stand-pos.q{color:var(--green);}
+.stand-pts{font-family:'Bebas Neue';font-size:15px;color:var(--green);}
+.saldo-pos{color:var(--green);}
+.saldo-neg{color:var(--red);}
+
+/* FAIRPLAY DRAG */
+.fp-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.fp-item{display:flex;align-items:center;gap:10px;background:var(--dark3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;cursor:grab;user-select:none;touch-action:none;}
+.fp-item.dragging{opacity:.5;border-color:var(--gold);}
+.fp-rank{font-family:'Bebas Neue';font-size:20px;color:var(--muted);width:24px;}
+.fp-rank.r1{color:var(--gold);}
+.fp-rank.r2{color:#ccc;}
+.fp-rank.r3{color:#cd7f32;}
+.fp-rank.r4{color:var(--muted);}
+.fp-name{flex:1;font-size:13px;}
+.fp-handle{color:var(--muted);font-size:18px;}
+
+/* MISC */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media(max-width:480px){.grid2{grid-template-columns:1fr;}.grid3{grid-template-columns:1fr 1fr;}}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:12px;text-align:center;}
+.stat-n{font-family:'Bebas Neue';font-size:32px;color:var(--green);line-height:1;}
+.stat-l{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px;}
+.saved{display:inline-flex;align-items:center;gap:3px;color:var(--green);font-size:11px;opacity:0;transition:opacity .4s;}
+.saved.show{opacity:1;}
+.pb{height:3px;background:var(--dark3);border-radius:2px;margin-top:4px;overflow:hidden;}
+.pb-fill{height:100%;background:var(--green);border-radius:2px;}
+.pts-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.pts-row:last-child{border:none;}
+.pp{color:var(--green);font-weight:600;}
+.pn{color:var(--red);font-weight:600;}
+.spinner{display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:18px;color:var(--muted);}
+.badge-admin{background:var(--gold);color:#000;font-size:9px;padding:2px 5px;border-radius:3px;font-weight:700;}
+.badge-test{background:var(--muted);color:#000;font-size:9px;padding:2px 5px;border-radius:3px;font-weight:700;}
+.ii{background:var(--dark3);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-family:inherit;outline:none;font-size:12px;}
+.ii:focus{border-color:var(--green);}
+.ii option{background:var(--dark2);}
+.info{background:var(--dark3);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+.info strong{color:var(--text);}
+.info-test{background:#7a9e8a11;border:1px solid var(--muted);border-radius:6px;padding:10px;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+.info-deadline{background:#e5393511;border:1px solid var(--red);border-radius:6px;padding:10px;font-size:11px;color:#ff6b6b;margin-bottom:10px;}
+.wt{width:100%;border-collapse:collapse;font-size:11px;}
+.wt th{text-align:left;padding:4px 7px;color:var(--muted);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.wt td{padding:5px 7px;border-bottom:1px solid var(--border);}
+.wt tr:last-child td{border:none;}
+.gh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;}
+.gt{font-size:11px;color:var(--muted);margin-top:2px;}
+.betaal-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px;flex-wrap:wrap;}
+.betaal-row:last-child{border:none;}
+.pw-show{color:var(--text);font-family:monospace;font-size:12px;}
+.pw-dot{color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback}=React;
+const SURL='https://aomckthckwmynanbymgj.supabase.co';
+const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvbWNrdGhja3dteW5hbmJ5bWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDE4NzIsImV4cCI6MjA4OTQxNzg3Mn0.juHys0xPFlSYh3OL3mKiA5x-1Fm5aeEEn__WUWAsLzg';
+const sb=supabase.createClient(SURL,SKEY);
+const GRP=['A','B','C','D','E','F','G','H','I','J','K','L'];
+const WK_LANDEN=['Algerije','Argentinië','Australië','België','Brazilië','Canada','Colombia','Curaçao','Duitsland','Ecuador','Egypte','Engeland','Frankrijk','Ghana','Haïti','IC-1 winner','IC-2 winner','Iran','Ivoorkust','Japan','Jordanië','Kaapverdië','Kroatië','Marokko','Mexico','Nederland','Nieuw-Zeeland','Noorwegen','Oezbekistan','Oostenrijk','Panama','Paraguay','PO-A winner','PO-B winner','PO-C winner','PO-D winner','Portugal','Qatar','Saudi-Arabië','Schotland','Senegal','Spanje','Tunesië','Uruguay','VS','Zuid-Afrika','Zuid-Korea','Zwitserland'].sort();
+
+function fmt(n){if(typeof n!=='number')return n;return Number.isInteger(n)?n.toFixed(2):n.toFixed(2);}
+function waaghals(h,a){if(h==null||a==null)return 0;const k=`${h}-${a}`;if(['1-0','0-1','1-1','2-1','1-2','2-0','0-2'].includes(k))return 0;if(['3-0','0-3','2-2','3-1','1-3','0-0'].includes(k))return 1;if(['4-0','0-4','3-2','2-3','4-1','1-4'].includes(k))return 2;return 4;}
+function catMatch(pH,pA,rH,rA){if(pH==null||pA==null)return null;pH=parseInt(pH);pA=parseInt(pA);const eH=pH===rH,eA=pA===rA,pW=pH>pA?'H':pH<pA?'A':'D',rW=rH>rA?'H':rH<rA?'A':'D',wOk=pW===rW;if(eH&&eA)return'alles_juist';if((eH||eA)&&wOk)return'een_juist_winnaar_juist';if(!eH&&!eA&&wOk)return'niets_juist_winnaar_juist';if((eH||eA)&&!wOk)return'een_juist_winnaar_fout';return'alles_fout';}
+function avgPT(pvs){const K=['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'],D={alles_juist:7,een_juist_winnaar_juist:5,niets_juist_winnaar_juist:4,een_juist_winnaar_fout:2,alles_fout:-2};if(!pvs||!pvs.length)return D;const r={};for(const k of K){const v=pvs.map(p=>p[k]).filter(x=>x!=null);r[k]=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):D[k];}return r;}
+function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum){
+  const telPunten=!teldatum||new Date()>=new Date(teldatum);
+  let tot=0;const det=[];
+  for(const m of matches){
+    if(m.home_score==null)continue;const p=pm[m.id];if(!p||p.home_pred==null)continue;
+    const isJ=jids.includes(m.id),isGF=GRP.includes(m.group),cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
+    if(!cat)continue;const wb=isGF?waaghals(p.home_pred,p.away_pred):0,pts=(pt[cat]+wb)*(isJ?2:1);
+    if(pts!==0){tot+=pts;det.push({label:`${m.home}–${m.away}`,pts,isJ,cat});}
+  }
+  if(telPunten){
+    for(const bv of bvs){
+      if(bv.type==='speler3'){
+        const namen=[pb[bv.id+'_1'],pb[bv.id+'_2'],pb[bv.id+'_3']].map(n=>n||'');
+        if(namen.every(n=>!n.trim()))continue;
+        let r;
+        if(bv.id==='bv_kee') r=calcKeeperPunten(bv.id,namen,spelerStats||[]);
+        else r=calcSpeler3Punten(bv.id,namen,spelerStats||[]);
+        if(r.tot!==0){tot+=r.tot;det.push({label:bv.question,pts:r.tot,cat:'speler3'});}
+      } else {
+        if(!bv.correct_answer)continue;
+        const a=pb[bv.id];
+        if(a&&a.toLowerCase().trim()===bv.correct_answer.toLowerCase().trim()){tot+=bv.points;det.push({label:bv.question,pts:bv.points,cat:'bijvraag'});}
+      }
+    }
+  }
+  return{tot,det,bijvragenGeteld:telPunten};
+}
+function isDeadlinePassed(d){if(!d)return false;return new Date()>new Date(d);}
+
+// ─── SPELER3 PUNTENTELLING ────────────────────────────────────────────────────
+// Topschutter & assistkoning: punten = som van doelpunten/assists van gekozen spelers
+function calcSpeler3Punten(bvId, gekozenNamen, spelerStats){
+  const stats=spelerStats.filter(s=>s.bv_id===bvId);
+  let tot=0;const det=[];
+  for(const naam of gekozenNamen){
+    if(!naam||!naam.trim())continue;
+    const st=stats.find(s=>s.naam.toLowerCase().trim()===naam.toLowerCase().trim());
+    if(st&&st.stat1){tot+=Number(st.stat1);det.push({naam,pts:Number(st.stat1)});}
+  }
+  return{tot,det};
+}
+
+// Keeper ranking: cleansheets - (tegendoelpunten / spelminuten)
+function calcKeeperRanking(spelerStats, bvId){
+  const stats=spelerStats.filter(s=>s.bv_id===bvId&&s.stat3>0);
+  return stats.map(s=>({
+    naam:s.naam,
+    score:Number(s.stat1)-(Number(s.stat2)/Number(s.stat3)),
+    cleansheets:Number(s.stat1),
+    tegendoelen:Number(s.stat2),
+    minuten:Number(s.stat3),
+  })).sort((a,b)=>b.score-a.score);
+}
+
+function calcKeeperPunten(bvId, gekozenNamen, spelerStats){
+  const ranking=calcKeeperRanking(spelerStats,bvId);
+  const top3=ranking.slice(0,3).map(r=>r.naam.toLowerCase().trim());
+  let tot=0;const det=[];
+  gekozenNamen.forEach((naam,pos)=>{
+    if(!naam||!naam.trim())return;
+    const nl=naam.toLowerCase().trim();
+    const inTop3=top3.includes(nl);
+    const exactPos=top3[pos]===nl;
+    let pts=0;
+    if(inTop3){pts+=5;if(exactPos){const bonus=[6,3,2][pos]||0;pts+=bonus;}}
+    if(pts>0){tot+=pts;det.push({naam,pts,inTop3,exactPos,pos});}
+  });
+  return{tot,det};
+}
+
+// Bouw basisstatistieken voor een set ploegen op basis van wedstrijden+scores
+function buildStats(teamList, matches, scores){
+  const st={};
+  for(const t of teamList)st[t]={team:t,pts:0,gs:0,ga:0,gd:0,w:0,d:0,l:0,played:0};
+  for(const m of matches){
+    if(!teamList.includes(m.home)||!teamList.includes(m.away))continue;
+    const s=scores[m.id];
+    if(!s||s.h==null||s.a==null)continue;
+    const h=parseInt(s.h),a=parseInt(s.a);
+    if(isNaN(h)||isNaN(a))continue;
+    st[m.home].played++;st[m.away].played++;
+    st[m.home].gs+=h;st[m.home].ga+=a;
+    st[m.away].gs+=a;st[m.away].ga+=h;
+    if(h>a){st[m.home].pts+=3;st[m.home].w++;st[m.away].l++;}
+    else if(h<a){st[m.away].pts+=3;st[m.away].w++;st[m.home].l++;}
+    else{st[m.home].pts+=1;st[m.away].pts+=1;st[m.home].d++;st[m.away].d++;}
+  }
+  for(const t of teamList)st[t].gd=st[t].gs-st[t].ga;
+  return st;
+}
+
+// Vergelijk twee ploegen op basis van onderlinge criteria (crit 3-5)
+function cmpUnderlinge(a,b,matches,scores){
+  const st=buildStats([a.team,b.team],matches,scores);
+  const sa=st[a.team],sb=st[b.team];
+  if(sb.pts!==sa.pts)return sb.pts-sa.pts;
+  if(sb.gd!==sa.gd)return sb.gd-sa.gd;
+  if(sb.gs!==sa.gs)return sb.gs-sa.gs;
+  return 0;
+}
+
+// Volledige FIFA groepsstand met fairplay ranking
+// fpRanking = array van teamnamen gesorteerd op fairplay (index 0 = beste)
+function buildStand(matches, scores, fpRanking){
+  const teams=new Set();
+  for(const m of matches){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
+  const teamList=[...teams];
+  const st=buildStats(teamList,matches,scores);
+  const rows=Object.values(st);
+
+  // Fairplay score: positie in fpRanking (lager = beter) → omgekeerd als getal
+  // index 0 (beste fairplay) krijgt hoogste score (teams.length)
+  function fpScore(team){
+    if(!fpRanking||!Array.isArray(fpRanking))return 0;
+    const idx=fpRanking.indexOf(team);
+    if(idx===-1)return 0;
+    return teamList.length-idx; // hoog getal = goede fairplay
+  }
+
+  rows.sort((a,b)=>{
+    // 1. Punten (alle groepswedstrijden)
+    if(b.pts!==a.pts)return b.pts-a.pts;
+    // 2. Doelsaldo (alle groepswedstrijden)
+    if(b.gd!==a.gd)return b.gd-a.gd;
+    // 3. Meeste goals gescoord (alle groepswedstrijden)
+    if(b.gs!==a.gs)return b.gs-a.gs;
+    // 4-6. Onderlinge criteria (punten, doelsaldo, goals) onder gelijk gerangschikte groep
+    const und=cmpUnderlinge(a,b,matches,scores);
+    if(und!==0)return und;
+    // 7. Fairplay rangschikking
+    const fpA=fpScore(a.team),fpB=fpScore(b.team);
+    if(fpB!==fpA)return fpB-fpA;
+    // 8. Lottrekking (willekeurig, stabiel gesorteerd op naam als fallback)
+    return a.team.localeCompare(b.team);
+  });
+
+  return rows;
+}
+
+// FAIRPLAY DRAG & DROP rangschikking
+function FairplayRanking({teams,value,onChange,locked}){
+  // value = array van teams gesorteerd op fairplay (beste eerst)
+  const [order,setOrder]=useState(value&&value.length===teams.length?value:[...teams]);
+  const dragIdx=useRef(null);
+  const touchStartY=useRef(null);
+  const touchItem=useRef(null);
+
+  useEffect(()=>{
+    if(value&&value.length===teams.length)setOrder(value);
+    else setOrder([...teams]);
+  },[JSON.stringify(teams),JSON.stringify(value)]);
+
+  function onDragStart(i){dragIdx.current=i;}
+  function onDragOver(e,i){
+    e.preventDefault();
+    if(dragIdx.current===null||dragIdx.current===i)return;
+    const newOrder=[...order];
+    const [moved]=newOrder.splice(dragIdx.current,1);
+    newOrder.splice(i,0,moved);
+    dragIdx.current=i;
+    setOrder(newOrder);
+  }
+  function onDragEnd(){dragIdx.current=null;onChange(order);}
+
+  // Touch support
+  function onTouchStart(e,i){
+    touchStartY.current=e.touches[0].clientY;
+    touchItem.current=i;
+  }
+  function onTouchMove(e){
+    e.preventDefault();
+    const dy=e.touches[0].clientY-touchStartY.current;
+    const itemH=48;
+    const steps=Math.round(dy/itemH);
+    if(steps===0||touchItem.current===null)return;
+    const newIdx=Math.max(0,Math.min(order.length-1,touchItem.current+steps));
+    if(newIdx===touchItem.current)return;
+    const newOrder=[...order];
+    const[moved]=newOrder.splice(touchItem.current,1);
+    newOrder.splice(newIdx,0,moved);
+    touchItem.current=newIdx;
+    touchStartY.current=e.touches[0].clientY;
+    setOrder(newOrder);
+  }
+  function onTouchEnd(){touchItem.current=null;onChange(order);}
+
+  const rankCls=['r1','r2','r3','r4'];
+  return(<div className="fp-list">
+    {order.map((t,i)=>(
+      <div key={t}
+        className={`fp-item${locked?' locked':''}`}
+        draggable={!locked}
+        onDragStart={()=>onDragStart(i)}
+        onDragOver={e=>onDragOver(e,i)}
+        onDragEnd={onDragEnd}
+        onTouchStart={e=>onTouchStart(e,i)}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{opacity:locked?.6:1,cursor:locked?'default':'grab'}}
+      >
+        <div className={`fp-rank ${rankCls[i]}`}>{i+1}</div>
+        <div className="fp-name">{t}</div>
+        {!locked&&<div className="fp-handle">⠿</div>}
+      </div>
+    ))}
+    {locked&&<div style={{fontSize:10,color:'var(--red)',marginTop:4}}>🔒 Groepsfase gestart — niet meer wijzigbaar</div>}
+  </div>);}
+
+// LOGIN
+function Login({onLogin}){
+  const[name,setName]=useState(''),[pass,setPass]=useState(''),[err,setErr]=useState(''),[load,setLoad]=useState(false),[reg,setReg]=useState(false);
+  async function doLogin(e){e.preventDefault();setLoad(true);setErr('');const{data,error}=await sb.from('users').select('*').ilike('name',name.trim()).eq('password',pass).single();setLoad(false);if(error||!data)setErr('Naam of wachtwoord klopt niet.');else onLogin(data);}
+  async function doReg(e){e.preventDefault();if(!name.trim()||!pass.trim()){setErr('Vul naam en wachtwoord in.');return;}setLoad(true);setErr('');const{data:ex}=await sb.from('users').select('id').ilike('name',name.trim()).maybeSingle();if(ex){setErr('Naam al in gebruik.');setLoad(false);return;}const{data,error}=await sb.from('users').insert({name:name.trim(),password:pass,is_admin:false,is_test:false,betaald:false}).select().single();setLoad(false);if(error)setErr('Fout: '+error.message);else onLogin(data);}
+  return(<div className="login-page"><div className="login-box">
+    <div className="login-logo">⚽ WK 2026</div>
+    <div className="login-sub">Pronostiek — VS · Canada · Mexico</div>
+    <div style={{background:'var(--dark3)',border:'1px solid var(--border)',borderRadius:6,padding:'8px 10px',fontSize:11,color:'var(--muted)',marginBottom:18,lineHeight:1.6}}>
+      ⚠️ <strong style={{color:'var(--text)'}}>Let op:</strong> Je wachtwoord is zichtbaar voor de admin. Gebruik geen wachtwoord dat je elders gebruikt.
+    </div>
+    <div className="tabs" style={{margin:'0 auto 18px',justifyContent:'center'}}>
+      <div className={`tab ${!reg?'active':''}`} onClick={()=>{setReg(false);setErr('');}}>Inloggen</div>
+      <div className={`tab ${reg?'active':''}`} onClick={()=>{setReg(true);setErr('');}}>Registreren</div>
+    </div>
+    <form onSubmit={reg?doReg:doLogin}>
+      <div className="field"><label>Naam</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Jouw naam" autoComplete="username"/></div>
+      <div className="field"><label>Wachtwoord</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••" autoComplete={reg?'new-password':'current-password'}/></div>
+      {err&&<div className="err">{err}</div>}
+      <br/>
+      <button className="btn" type="submit" disabled={load}>{load?'Even wachten...':(reg?'Registreren':'Inloggen')}</button>
+    </form>
+  </div></div>);}
+
+// KLASSEMENT
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,cur}){
+  const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
+  const echteUserIds=new Set(echteUsers.map(u=>u.id));
+  const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
+  const teldatum=config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum);
+  const st=echteUsers.map(u=>{
+    const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
+    const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum);
+    const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
+    return{...u,tot:u.betaald?tot:0,filled};
+  }).sort((a,b)=>b.tot-a.tot);
+  return(<div>
+    <div className="section-title">🏆 Live Klassement</div>
+    {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
+      ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
+    </div>}
+    <div className="grid2" style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n">{echteUsers.length}</div><div className="stat-l">Deelnemers</div></div>
+      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length}</div><div className="stat-l">Gespeeld</div></div>
+    </div>
+    <div className="card">
+      <table className="ranking">
+        <thead><tr><th>#</th><th>Naam</th><th>Ingevuld</th><th style={{textAlign:'right'}}>Punten</th></tr></thead>
+        <tbody>
+          {st.map((u,i)=>(<tr key={u.id} className={`rank-${i+1}`} style={u.id===cur.id?{background:'var(--dark3)'}:{}}>
+            <td><div className="rank-num">{i+1}</div></td>
+            <td>
+              <div style={{fontWeight:u.id===cur.id?600:400}}>{u.name}</div>
+              <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:2}}>
+                {u.id===cur.id&&<span className="tag tag-green">jij</span>}
+                {!u.betaald&&<span className="tag tag-niet-betaald">⚠ niet betaald</span>}
+              </div>
+            </td>
+            <td><div style={{fontSize:10,color:'var(--muted)'}}>{u.filled}/{matches.length}</div><div className="pb"><div className="pb-fill" style={{width:`${matches.length?u.filled/matches.length*100:0}%`}}/></div></td>
+            <td style={{textAlign:'right'}}>
+              <div className={`pts ${!u.betaald?'locked':''}`}>{fmt(u.tot)}</div>
+              {!u.betaald&&<div style={{fontSize:9,color:'var(--red)'}}>betaal eerst</div>}
+            </td>
+          </tr>))}
+          {st.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+    <div className="card">
+      <div className="card-title">📊 Puntentabel</div>
+      <table className="wt"><thead><tr><th>Categorie</th><th>Punten</th></tr></thead><tbody>
+        {[['alles_juist','Alles juist','var(--green)'],['een_juist_winnaar_juist','1 juist + winnaar juist','var(--green)'],['niets_juist_winnaar_juist','Niets juist + winnaar juist','var(--gold)'],['een_juist_winnaar_fout','1 juist + winnaar fout','var(--gold)'],['alles_fout','Alles fout','var(--red)']].map(([k,l,c])=>(
+          <tr key={k}><td>{l}</td><td><strong style={{color:c}}>{pt[k]>0?'+':''}{fmt(pt[k])}</strong></td></tr>
+        ))}
+      </tbody></table>
+    </div>
+  </div>);}
+
+// PRONOSTIEK
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,onRefresh}){
+  const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
+  // fairplay per groep: { grp: [team1,team2,team3,team4] }
+  const myFP=fpAll[cur.id]||{};
+  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState('bijvragen'),[saved,setSaved]=useState(false);
+  const timer=useRef(null);
+  const gfStart=new Date()>=new Date('2026-06-11');
+  const deadline=config.bijvragen_deadline||'';
+  const dlPassed=isDeadlinePassed(deadline);
+
+  useEffect(()=>setLPM(pmAll[cur.id]||{}),[pmAll,cur.id]);
+  useEffect(()=>setLPB(pbAll[cur.id]||{}),[pbAll,cur.id]);
+  useEffect(()=>setLJ((jAll[cur.id]||[]).map(j=>j.match_id)),[jAll,cur.id]);
+  useEffect(()=>setLFP(fpAll[cur.id]||{}),[fpAll,cur.id]);
+
+  function sv(){setSaved(true);setTimeout(()=>setSaved(false),1800);}
+  async function saveM(mid,h,a){await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
+  async function saveBv(bid,ans){
+    // bid kan 'bv_top_1', 'bv_top_2' etc. zijn voor speler3 vragen
+    await sb.from('pronos_bijvragen').upsert({user_id:cur.id,bv_id:bid,answer:ans},{onConflict:'user_id,bv_id'});
+    sv();onRefresh();
+  }
+  async function saveFP(grp,ranking){
+    // Sla op als JSON string in de fairplay tabel
+    await sb.from('fairplay').upsert({user_id:cur.id,group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
+    sv();onRefresh();
+  }
+  async function togJ(mid,grp){
+    if(gfStart)return;
+    const has=lJ.includes(mid);
+    if(has){await sb.from('jokers').delete().eq('user_id',cur.id).eq('match_id',mid);setLJ(j=>j.filter(x=>x!==mid));}
+    else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
+    sv();onRefresh();
+  }
+  function hM(mid,side,val){const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
+  function hB(bid,val){setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
+  function hFP(grp,ranking){setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
+
+  const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
+  const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
+  const CT={alles_juist:'tag-green',een_juist_winnaar_juist:'tag-green',niets_juist_winnaar_juist:'tag-gold',een_juist_winnaar_fout:'tag-gold',alles_fout:'tag-red'};
+
+  return(<div>
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+      <div className="section-title" style={{margin:0}}>📋 Mijn Pronostiek</div>
+      <span className={`saved ${saved?'show':''}`}>✓ Opgeslagen</span>
+      {cur.is_test&&<span className="tag tag-test">🧪 TEST</span>}
+    </div>
+    {cur.is_test&&<div className="info-test">🧪 <strong>Testmodus:</strong> Jouw inzendingen tellen niet mee.</div>}
+    {deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline bijvragen: <strong style={{color:dlPassed?'var(--red)':'var(--gold)'}}>{new Date(deadline).toLocaleString('nl-BE')}</strong></div>}
+
+    <div className="groep-tabs">
+      <div className={`groep-tab ${tab==='bijvragen'?'active':''}`} onClick={()=>setTab('bijvragen')}>⭐</div>
+      {GRP.map(g=><div key={g} className={`groep-tab ${tab===g?'active':''} ${jPG[g]?'joker':''}`} onClick={()=>setTab(g)}>{g}{jPG[g]?'🃏':''}</div>)}
+    </div>
+
+    {/* BIJVRAGEN */}
+    {tab==='bijvragen'&&<div>
+      {dlPassed&&<div className="info-deadline">🔒 Deadline verstreken — bijvragen zijn gesloten.</div>}
+      {bvs.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Nog geen bijvragen.</div>}
+      {bvs.map(bv=>{
+        const lk=!!bv.correct_answer||dlPassed;
+        const isLand=bv.type==='team';
+        const isSpeler=bv.type==='player';
+        const isGetal=bv.type==='number';
+        const isSpeler3=bv.type==='speler3';
+
+        if(isSpeler3){
+          const namen=[lPB[bv.id+'_1']||'',lPB[bv.id+'_2']||'',lPB[bv.id+'_3']||''];
+          const isKeeper=bv.id==='bv_kee';
+          const isTopschutter=bv.id==='bv_top';
+          const isAssist=bv.id==='bv_ass';
+          // Toon keeper ranking als stats beschikbaar zijn
+          const keeperRanking=isKeeper?calcKeeperRanking(spelerStats,bv.id):[];
+          return(<div className="bv-card" key={bv.id}>
+            <div className="bv-q">{bv.question}
+              {isTopschutter&&<span style={{fontSize:10,color:'var(--muted)',marginLeft:6}}>punten = som doelpunten</span>}
+              {isAssist&&<span style={{fontSize:10,color:'var(--muted)',marginLeft:6}}>punten = som assists</span>}
+              {isKeeper&&<span style={{fontSize:10,color:'var(--muted)',marginLeft:6}}>punten op basis van ranking</span>}
+            </div>
+            {[0,1,2].map(i=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <div style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--muted)',width:18,textAlign:'center'}}>{i+1}</div>
+                <input
+                  disabled={dlPassed}
+                  value={lPB[bv.id+`_${i+1}`]||''}
+                  onChange={e=>hB(bv.id+`_${i+1}`,e.target.value)}
+                  placeholder={`Naam ${i+1}`}
+                  style={{flex:1,background:'var(--card)',border:'1px solid var(--border)',borderRadius:5,padding:'7px 10px',color:'var(--text)',fontFamily:'inherit',outline:'none',fontSize:12}}
+                />
+              </div>
+            ))}
+            {isKeeper&&keeperRanking.length>0&&<div style={{marginTop:8,fontSize:11,color:'var(--muted)'}}>
+              <div style={{marginBottom:4,fontWeight:600,color:'var(--text)'}}>Huidige keeper ranking:</div>
+              {keeperRanking.slice(0,5).map((k,i)=><div key={k.naam} style={{display:'flex',gap:8,padding:'3px 0',borderBottom:'1px solid var(--border)'}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:14,color:i<3?'var(--gold)':'var(--muted)',width:16}}>{i+1}</span>
+                <span style={{flex:1}}>{k.naam}</span>
+                <span style={{color:'var(--muted)'}}>{k.score.toFixed(3)}</span>
+              </div>)}
+            </div>}
+            {dlPassed&&<div className="locked-msg">🔒 Deadline verstreken</div>}
+          </div>);
+        }
+
+        return(<div className="bv-card" key={bv.id}>
+          <div className="bv-q">{bv.question} <span className="tag tag-gold">{bv.points} pt</span></div>
+          <div className="bv-a">
+            {isLand&&!lk
+              ?<select value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)}><option value="">— Kies een land —</option>{WK_LANDEN.map(l=><option key={l} value={l}>{l}</option>)}</select>
+              :isGetal&&!lk
+                ?<input type="number" inputMode="numeric" min="0" value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder="Vul een getal in" style={{textAlign:'center'}}/>
+                :<input disabled={lk} value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder={isSpeler?'Spelersnaam':isGetal?'Getal':'Antwoord'}/>
+            }
+            {bv.correct_answer&&<span className="tag tag-green" style={{whiteSpace:'nowrap'}}>✓ {bv.correct_answer}</span>}
+          </div>
+          {bv.correct_answer&&<div className="locked-msg">🔒 Antwoord ingegeven door admin</div>}
+          {!bv.correct_answer&&dlPassed&&<div className="locked-msg">🔒 Deadline verstreken</div>}
+        </div>);
+      })}
+    </div>}
+
+    {/* GROEP TAB */}
+    {GRP.includes(tab)&&(()=>{
+      const grp=tab,gm=mbg[grp]||[],jMid=jPG[grp];
+      // Teams dynamisch uit de wedstrijden halen (geen hardcoded lijst nodig!)
+      const teamsSet=new Set();
+      for(const m of gm){if(m.home)teamsSet.add(m.home);if(m.away)teamsSet.add(m.away);}
+      const teams=[...teamsSet];
+
+      // Voorspelde stand
+      const scV={};for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
+      const stand=buildStand(gm,scV,fpRanking);
+
+      // Echte stand
+      const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
+      const standEcht=buildStand(gm,scE,null);
+      const heeftEcht=gm.some(m=>m.home_score!=null);
+
+      // Fairplay ranking voor deze groep
+      let fpRanking=lFP[grp];
+      if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length){
+        // Probeer JSON te parsen
+        if(typeof fpRanking==='string'){try{fpRanking=JSON.parse(fpRanking);}catch{fpRanking=null;}}
+        if(!Array.isArray(fpRanking)||fpRanking.length!==teams.length)fpRanking=[...teams];
+      }
+
+      return(<div>
+        <div className="gh">
+          <div>
+            <div style={{fontFamily:'Bebas Neue',fontSize:19,color:'var(--green)',letterSpacing:1}}>Groep {grp}</div>
+            <div className="gt">{teams.join(' · ')}</div>
+          </div>
+          {jMid?<span className="tag tag-gold" style={{flexShrink:0}}>🃏 {matches.find(m=>m.id===jMid)?.home} – {matches.find(m=>m.id===jMid)?.away}</span>:<span className="tag tag-gray">Geen joker</span>}
+        </div>
+        {!gfStart&&<div className="info">🃏 Kies <strong>1 joker</strong> per groep — dubbele punten. Kan tot 11 juni 2026.</div>}
+
+        {gm.map(m=>{
+          const p=lPM[m.id]||{home_pred:'',away_pred:''},lk=m.home_score!=null,isS=new Date(m.date)<now,isJ=lJ.includes(m.id),hp=p.home_pred,ap=p.away_pred;
+          return(<div className={`match-card ${isJ?'joker-on':''}`} key={m.id}>
+            <div className="match-header">
+              <span>{m.date}</span>
+              <div style={{display:'flex',gap:5,alignItems:'center'}}>
+                {isJ&&<span className="tag tag-gold">🃏×2</span>}
+                {!lk&&<button className={`joker-btn ${isJ?'on':''}`} disabled={gfStart} onClick={()=>togJ(m.id,m.group)}>🃏 {isJ?'Annuleer':'Joker'}</button>}
+              </div>
+            </div>
+            <div className="match-teams">
+              <div className="team-name">{m.home}</div>
+              {lk
+                ?<div style={{textAlign:'center',flexShrink:0}}>
+                  <div style={{fontSize:9,color:'var(--muted)'}}>mijn keuze</div>
+                  <div className="score-display">{hp??'–'} – {ap??'–'}</div>
+                  <div style={{fontSize:9,color:'var(--muted)'}}>uitslag</div>
+                  <div className="real-score">{m.home_score} – {m.away_score}</div>
+                </div>
+                :<div className="score-box">
+                  <input className="score-input" disabled={isS} value={hp??''} onChange={e=>hM(m.id,'home_pred',e.target.value)} placeholder="0"/>
+                  <span className="score-sep">–</span>
+                  <input className="score-input" disabled={isS} value={ap??''} onChange={e=>hM(m.id,'away_pred',e.target.value)} placeholder="0"/>
+                </div>
+              }
+              <div className="team-name right">{m.away}</div>
+            </div>
+            {lk&&(()=>{if(hp===''||hp==null)return<div className="match-result"><span className="tag tag-gray">Niet ingevuld</span></div>;const cat=catMatch(hp,ap,m.home_score,m.away_score),wb=waaghals(hp,ap);return<div className="match-result"><span className={`tag ${CT[cat]}`}>{CL[cat]}</span>{wb>0&&<span className="tag tag-blue">+{wb}w</span>}{isJ&&<span className="tag tag-gold">🃏×2</span>}</div>;})()}
+            {isS&&!lk&&<div className="locked-msg">🔒 Match begonnen</div>}
+          </div>);
+        })}
+
+        {/* Voorspelde stand */}
+        <div className="card" style={{marginTop:14}}>
+          <div className="card-title" style={{fontSize:15}}>📊 Mijn voorspelde stand</div>
+          <table className="stand-table">
+            <thead><tr><th>Ploeg</th><th>G</th><th>W</th><th>G</th><th>V</th><th>+</th><th>-</th><th>SD</th><th>Ptn</th></tr></thead>
+            <tbody>{stand.map((r,i)=><tr key={r.team}>
+              <td><span className={`stand-pos ${i<2?'q':''}`}>{i+1}</span>{r.team}</td>
+              <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
+              <td>{r.gs}</td><td>{r.ga}</td>
+              <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
+              <td><span className="stand-pts">{r.pts}</span></td>
+            </tr>)}</tbody>
+          </table>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 2 = gekwalificeerd</div>
+        </div>
+
+        {heeftEcht&&<div className="card">
+          <div className="card-title" style={{fontSize:15}}>🏆 Echte stand</div>
+          <table className="stand-table">
+            <thead><tr><th>Ploeg</th><th>G</th><th>W</th><th>G</th><th>V</th><th>+</th><th>-</th><th>SD</th><th>Ptn</th></tr></thead>
+            <tbody>{standEcht.map((r,i)=><tr key={r.team}>
+              <td><span className={`stand-pos ${i<2?'q':''}`}>{i+1}</span>{r.team}</td>
+              <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
+              <td>{r.gs}</td><td>{r.ga}</td>
+              <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
+              <td><span className="stand-pts">{r.pts}</span></td>
+            </tr>)}</tbody>
+          </table>
+        </div>}
+
+        {/* Fairplay rangschikking */}
+        <div className="card">
+          <div className="card-title" style={{fontSize:15}}>🟨 Fairplay Rangschikking</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
+            Sleep de ploegen in volgorde van beste fairplay (1 = beste). Dit is de tiebreaker bij gelijke stand.<br/>
+            <span style={{fontSize:10}}>(Gele kaart: −1 · Rood na 2 gelen: −3 · Direct rood: −4 · Geel + direct rood: −5)</span>
+          </div>
+          <FairplayRanking
+            teams={teams}
+            value={fpRanking}
+            onChange={ranking=>hFP(grp,ranking)}
+            locked={gfStart}
+          />
+        </div>
+      </div>);
+    })()}
+  </div>);}
+
+// PUNTENVRAGEN
+function PuntenVragen({cur,pvAll,users,onRefresh}){
+  const my=pvAll.find(p=>p.user_id===cur.id);
+  // null = niet ingevuld (telt niet mee voor gemiddelde)
+  const[vals,setVals]=useState({
+    alles_juist:my?my.alles_juist:null,
+    een_juist_winnaar_juist:my?my.een_juist_winnaar_juist:null,
+    niets_juist_winnaar_juist:my?my.niets_juist_winnaar_juist:null,
+    een_juist_winnaar_fout:my?my.een_juist_winnaar_fout:null,
+    alles_fout:my?my.alles_fout:null,
+  }),[saved,setSaved]=useState(false);
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
+  const avg=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
+  const vr=[
+    {k:'alles_juist',l:'Alles juist',min:4,max:10,c:'var(--green)'},
+    {k:'een_juist_winnaar_juist',l:'1 juist + winnaar juist',min:3,max:8,c:'var(--green)'},
+    {k:'niets_juist_winnaar_juist',l:'Niets juist + winnaar juist',min:2,max:6,c:'var(--gold)'},
+    {k:'een_juist_winnaar_fout',l:'1 juist + winnaar fout',min:1,max:4,c:'var(--gold)'},
+    {k:'alles_fout',l:'Alles fout',min:-5,max:0,c:'var(--red)'},
+  ];
+
+  // Bouw opties per categorie
+  function opties(min,max){
+    const opts=[];
+    for(let i=max;i>=min;i--)opts.push(i);
+    return opts;
+  }
+
+  async function save(nv){
+    // Sla enkel op als alle waarden ingevuld zijn
+    const alleIngevuld=Object.values(nv).every(v=>v!==null&&v!==undefined);
+    if(!alleIngevuld)return;
+    await sb.from('punten_vragen').upsert({user_id:cur.id,...nv},{onConflict:'user_id'});
+    setSaved(true);setTimeout(()=>setSaved(false),1800);onRefresh();
+  }
+
+  function hC(k,v){
+    const nv={...vals,[k]:v===''?null:parseInt(v)};
+    setVals(nv);
+    // Auto-save zodra alle velden ingevuld zijn
+    const alleIngevuld=Object.values(nv).every(x=>x!==null&&x!==undefined);
+    if(alleIngevuld)save(nv);
+  }
+
+  const alleIngevuld=Object.values(vals).every(v=>v!==null&&v!==undefined);
+  const aantalIngevuld=Object.values(vals).filter(v=>v!==null&&v!==undefined).length;
+
+  return(<div>
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+      <div className="section-title" style={{margin:0}}>🎚️ Puntenvragen</div>
+      <span className={`saved ${saved?'show':''}`}>✓ Opgeslagen</span>
+    </div>
+    {cur.is_test&&<div className="info-test">🧪 Jouw puntenverdeling telt niet mee voor het gemiddelde.</div>}
+    <div className="info">
+      <strong>Hoe werkt dit?</strong> Jij bepaalt hoeveel punten elke categorie waard is. Het gemiddelde van alle ingevulde deelnemers = de officiële puntentabel.<br/>
+      <strong>Belangrijk:</strong> Zolang je niet alle 5 vragen hebt ingevuld, telt jouw keuze <strong>niet</strong> mee voor het gemiddelde.
+    </div>
+
+    {!alleIngevuld&&<div className="info-deadline" style={{marginBottom:12}}>
+      ⚠️ {aantalIngevuld}/5 ingevuld — vul alle vragen in om mee te tellen voor het gemiddelde.
+    </div>}
+
+    <div className="card">
+      <div className="card-title">Jouw puntenverdeling</div>
+      {vr.map(v=>{
+        const opts=opties(v.min,v.max);
+        const val=vals[v.k];
+        return(
+          <div key={v.k} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--border)',gap:10}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13}}>{v.l}</div>
+              <div style={{fontSize:9,color:'var(--muted)'}}>Kies tussen {v.min} en {v.max}</div>
+            </div>
+            <select
+              value={val===null||val===undefined?'':val}
+              onChange={e=>hC(v.k,e.target.value)}
+              style={{background:'var(--dark3)',border:`1px solid ${val!==null?v.c:'var(--border)'}`,borderRadius:6,padding:'7px 10px',color:val!==null?v.c:'var(--muted)',fontFamily:'Bebas Neue',fontSize:18,outline:'none',flexShrink:0,width:80,textAlign:'center',cursor:'pointer'}}
+            >
+              <option value="">–</option>
+              {opts.map(o=><option key={o} value={o} style={{color:'var(--text)'}}>{o>0?'+':''}{o}</option>)}
+            </select>
+          </div>
+        );
+      })}
+      {alleIngevuld&&<div style={{marginTop:10,fontSize:12,color:'var(--green)'}}>✅ Alle vragen ingevuld — jouw keuze telt mee voor het gemiddelde.</div>}
+    </div>
+
+    <div className="card"><div className="card-title">Huidig gemiddelde</div>
+      <table className="wt"><thead><tr><th>Categorie</th><th>Jij</th><th>Gemiddelde</th></tr></thead><tbody>
+        {vr.map(v=>{
+          const val=vals[v.k];
+          return(<tr key={v.k}>
+            <td>{v.l}</td>
+            <td style={{color:val!==null?v.c:'var(--muted)'}}><strong>{val!==null?(val>0?'+':'')+fmt(val):'–'}</strong></td>
+            <td style={{color:'var(--muted)'}}>{avg[v.k]>0?'+':''}{fmt(avg[v.k])}</td>
+          </tr>);
+        })}
+      </tbody></table>
+    </div>
+
+    <div className="card"><div className="card-title">🎯 Waaghalsbonus</div>
+      <table className="wt"><thead><tr><th>Uitslagen</th><th>Bonus</th></tr></thead><tbody>
+        <tr><td>1-0 / 0-1 / 1-1 / 2-1 / 1-2 / 2-0 / 0-2</td><td><span className="tag tag-gray">+0</span></td></tr>
+        <tr><td>3-0 / 0-3 / 2-2 / 3-1 / 1-3 / 0-0</td><td><span className="tag tag-gold">+1</span></td></tr>
+        <tr><td>4-0 / 0-4 / 3-2 / 2-3 / 4-1 / 1-4</td><td><span className="tag tag-gold">+2</span></td></tr>
+        <tr><td>Alle andere (bv. 4-2 / 6-0 / ...)</td><td><span className="tag tag-green">+4</span></td></tr>
+      </tbody></table>
+    </div>
+  </div>);}
+
+// MIJN PUNTEN
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config,cur}){
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
+  const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
+  const teldatum=config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum);
+  const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
+  return(<div>
+    <div className="section-title">📊 Mijn Punten</div>
+    {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
+    {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
+      ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
+    </div>}
+    <div className="grid2" style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(tot)}</div><div className="stat-l">Totaal</div></div>
+      <div className="stat-box"><div className="stat-n">{det.length}</div><div className="stat-l">Correct</div></div>
+    </div>
+    <div className="card"><div className="card-title">Puntendetail</div>
+      {det.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Nog geen punten verdiend.</div>}
+      {det.map((d,i)=><div className="pts-row" key={i}><span>{d.label}{d.isJ&&<span className="tag tag-gold" style={{marginLeft:4}}>🃏×2</span>}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>)}
+    </div>
+  </div>);}
+
+// UITLEG PAGINA + CHECKLIST
+function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
+  const tekst=config.uitleg||'';
+  const paragrafen=tekst.split('\n').filter(r=>r.trim()!=='');
+
+  // ─── CHECKLIST BEREKENING ───────────────────────────────────────────────
+  const myPM=pmAll[cur.id]||{};
+  const myPB=pbAll[cur.id]||{};
+  const myJ=(jAll[cur.id]||[]);
+  const myFP=fpAll[cur.id]||{};
+  const myPV=pvAll.find(p=>p.user_id===cur.id);
+
+  // Wedstrijden & jokers & fairplay per groep
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+
+  const groepStatus=GRP.map(grp=>{
+    const gm=mbg[grp]||[];
+    if(gm.length===0)return null;
+    // Teams in deze groep
+    const teams=new Set();
+    for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
+    const aantalMatches=gm.length;
+    const ingevuld=gm.filter(m=>{const p=myPM[m.id];return p&&p.home_pred!=null&&p.away_pred!=null;}).length;
+    const heeftJoker=myJ.some(j=>j.group===grp);
+    // Fairplay: check of er een geldige ranking is voor deze groep
+    let fpVal=myFP[grp];
+    if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+    const heeftFP=Array.isArray(fpVal)&&fpVal.length===teams.size;
+    return{grp,aantalMatches,ingevuld,volledig:ingevuld===aantalMatches,heeftJoker,heeftFP};
+  }).filter(Boolean);
+
+  // Bijvragen
+  const aantalBv=bvs.length;
+  const ingevuldBv=bvs.filter(bv=>{
+    if(bv.type==='speler3'){
+      // Minstens 1 naam ingevuld telt als ingevuld
+      return [1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
+    }
+    const a=myPB[bv.id];
+    return a&&a.trim()!=='';
+  }).length;
+  const bvVolledig=aantalBv>0&&ingevuldBv===aantalBv;
+
+  // Puntenvragen
+  const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
+
+  // Betaalstatus
+  const betaald=cur.betaald;
+
+  // Totale voortgang
+  const checks=[
+    ...groepStatus.map(g=>g.volledig),
+    ...groepStatus.map(g=>g.heeftJoker),
+    ...groepStatus.map(g=>g.heeftFP),
+    bvVolledig,
+    pvIngevuld,
+    betaald,
+  ];
+  const totaalOk=checks.filter(Boolean).length;
+  const totaal=checks.length;
+  const pct=totaal>0?Math.round(totaalOk/totaal*100):0;
+
+  function CheckRow({ok,label,sub,onClick}){
+    return(
+      <div onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)',cursor:onClick?'pointer':'default'}}
+        onMouseEnter={e=>{if(onClick)e.currentTarget.style.background='var(--dark3)';}}
+        onMouseLeave={e=>{e.currentTarget.style.background='';}}
+      >
+        <div style={{fontSize:18,width:24,textAlign:'center',flexShrink:0}}>{ok?'✅':'⬜'}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,color:ok?'var(--text)':'var(--muted)',fontWeight:ok?400:400}}>{label}</div>
+          {sub&&<div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{sub}</div>}
+        </div>
+        {onClick&&<div style={{fontSize:11,color:'var(--green)',flexShrink:0}}>→</div>}
+      </div>
+    );
+  }
+
+  return(<div>
+    <div className="section-title">📖 Handleiding</div>
+
+    {/* UITLEG TEKST — bovenaan */}
+    {tekst&&<div className="card">
+      {paragrafen.map((p,i)=>(
+        <p key={i} style={{fontSize:13,lineHeight:1.7,marginBottom:i<paragrafen.length-1?10:0,color:'var(--text)'}}>{p}</p>
+      ))}
+    </div>}
+    {!tekst&&<div className="card" style={{color:'var(--muted)',fontSize:13}}>De admin heeft nog geen uitleg toegevoegd.</div>}
+
+    {/* VOORTGANGSBALK */}
+    <div className="card" style={{marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div className="card-title" style={{margin:0}}>✅ Mijn voortgang</div>
+        <div style={{fontFamily:'Bebas Neue',fontSize:22,color:pct===100?'var(--green)':'var(--gold)'}}>{pct}%</div>
+      </div>
+      <div style={{height:8,background:'var(--dark3)',borderRadius:4,overflow:'hidden',marginBottom:6}}>
+        <div style={{height:'100%',width:`${pct}%`,background:pct===100?'var(--green)':'var(--gold)',borderRadius:4,transition:'width .5s'}}/>
+      </div>
+      <div style={{fontSize:11,color:'var(--muted)'}}>{totaalOk} van {totaal} onderdelen voltooid</div>
+    </div>
+
+    {/* BETALING */}
+    <div className="card">
+      <div className="card-title" style={{fontSize:15}}>💶 Betaling</div>
+      <CheckRow ok={betaald} label={betaald?'Betaald ✓':'Nog niet betaald'} sub={betaald?'':'Contacteer de admin om je betaling te registreren'}/>
+    </div>
+
+    {/* PUNTENVRAGEN */}
+    <div className="card">
+      <div className="card-title" style={{fontSize:15}}>🎚️ Puntenvragen</div>
+      <CheckRow ok={pvIngevuld} label={pvIngevuld?'Puntenverdeling ingevuld':'Puntenverdeling nog niet ingevuld'} sub="Geef aan hoeveel punten elke categorie waard is" onClick={()=>setPage('pv')}/>
+    </div>
+
+    {/* BIJVRAGEN */}
+    <div className="card">
+      <div className="card-title" style={{fontSize:15}}>⭐ Bijvragen</div>
+      {aantalBv===0
+        ?<div style={{fontSize:12,color:'var(--muted)'}}>Nog geen bijvragen beschikbaar.</div>
+        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono')}/>
+      }
+    </div>
+
+    {/* PER GROEP */}
+    <div className="card">
+      <div className="card-title" style={{fontSize:15}}>📋 Wedstrijden, Jokers & Fairplay</div>
+      {groepStatus.map(g=>(
+        <div key={g.grp}>
+          <div style={{fontSize:11,fontFamily:'Bebas Neue',letterSpacing:1,color:'var(--muted)',padding:'8px 0 4px',borderTop:'1px solid var(--border)'}}>GROEP {g.grp}</div>
+          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono')}/>
+        </div>
+      ))}
+    </div>
+
+  </div>);}
+
+// SPELER STAT RIJ — lokale state om verspringen te voorkomen
+function SpelerStatRow({s,isKeeper,bvId,onSave,onDel}){
+  const[v1,setV1]=useState(String(s.stat1));
+  const[v2,setV2]=useState(String(s.stat2));
+  const[v3,setV3]=useState(String(s.stat3));
+  const score=v3>0?(Number(v1)-(Number(v2)/Number(v3))).toFixed(3):'-';
+  const td={textAlign:'center',padding:'5px 6px',borderBottom:'1px solid var(--border)'};
+  const inp={width:60,textAlign:'center'};
+  return(<tr>
+    <td style={{padding:'5px 6px',borderBottom:'1px solid var(--border)'}}>{s.naam}</td>
+    {isKeeper?(
+      <>
+        <td style={td}><input className="ii" type="number" style={inp} value={v1} onChange={e=>setV1(e.target.value)} onBlur={e=>onSave(bvId,s.naam,'stat1',e.target.value)} min="0"/></td>
+        <td style={td}><input className="ii" type="number" style={inp} value={v2} onChange={e=>setV2(e.target.value)} onBlur={e=>onSave(bvId,s.naam,'stat2',e.target.value)} min="0"/></td>
+        <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v3} onChange={e=>setV3(e.target.value)} onBlur={e=>onSave(bvId,s.naam,'stat3',e.target.value)} min="1"/></td>
+        <td style={{...td,color:'var(--gold)'}}>{score}</td>
+      </>
+    ):(
+      <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v1} onChange={e=>setV1(e.target.value)} onBlur={e=>onSave(bvId,s.naam,'stat1',e.target.value)} min="0"/></td>
+    )}
+    <td style={{padding:'5px 6px',borderBottom:'1px solid var(--border)'}}><button className="btn btn-sm btn-danger" onClick={()=>onDel(bvId,s.naam)}>✕</button></td>
+  </tr>);
+}
+
+// BIJVRAGEN SORTEERLIJST (admin)
+function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
+  const[order,setOrder]=useState(bvs.map(b=>b.id));
+  const dragIdx=useRef(null);
+  const touchStartY=useRef(null);
+  const touchItem=useRef(null);
+
+  useEffect(()=>setOrder(bvs.map(b=>b.id)),[JSON.stringify(bvs.map(b=>b.id))]);
+
+  function getOrdered(){return order.map(id=>bvs.find(b=>b.id===id)).filter(Boolean);}
+
+  function move(from,to){
+    const newOrder=[...order];
+    const[moved]=newOrder.splice(from,1);
+    newOrder.splice(to,0,moved);
+    setOrder(newOrder);
+    saveBvOrder(newOrder);
+  }
+
+  function onDragStart(i){dragIdx.current=i;}
+  function onDragOver(e,i){e.preventDefault();if(dragIdx.current===null||dragIdx.current===i)return;move(dragIdx.current,i);dragIdx.current=i;}
+  function onDragEnd(){dragIdx.current=null;}
+  function onTouchStart(e,i){touchStartY.current=e.touches[0].clientY;touchItem.current=i;}
+  function onTouchMove(e){
+    e.preventDefault();
+    const dy=e.touches[0].clientY-touchStartY.current;
+    const steps=Math.round(dy/70);
+    if(steps===0||touchItem.current===null)return;
+    const newIdx=Math.max(0,Math.min(order.length-1,touchItem.current+steps));
+    if(newIdx===touchItem.current)return;
+    move(touchItem.current,newIdx);
+    touchStartY.current=e.touches[0].clientY;
+    touchItem.current=newIdx;
+  }
+  function onTouchEnd(){touchItem.current=null;}
+
+  return(<div>
+    {getOrdered().map((bv,i)=>(
+      <div key={bv.id}
+        className="bv-card"
+        draggable
+        onDragStart={()=>onDragStart(i)}
+        onDragOver={e=>onDragOver(e,i)}
+        onDragEnd={onDragEnd}
+        onTouchStart={e=>onTouchStart(e,i)}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{marginBottom:8,cursor:'grab'}}
+      >
+        <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
+          {/* Sleep-handle + pijltjes */}
+          <div style={{display:'flex',flexDirection:'column',gap:1,flexShrink:0}}>
+            <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i>0&&move(i,i-1)} title="Omhoog">▲</button>
+            <div style={{color:'var(--muted)',fontSize:16,textAlign:'center',cursor:'grab',userSelect:'none'}}>⠿</div>
+            <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i<order.length-1&&move(i,i+1)} title="Omlaag">▼</button>
+          </div>
+          <input className="ii" style={{flex:1,minWidth:120,fontWeight:600}} defaultValue={bv.question} onBlur={e=>setBvField(bv.id,'question',e.target.value)} placeholder="Vraag..."/>
+          <input className="ii" style={{width:50}} type="number" defaultValue={bv.points} onBlur={e=>setBvField(bv.id,'points',parseInt(e.target.value)||bv.points)} min={1}/>
+          <select className="ii" defaultValue={bv.type} onBlur={e=>setBvField(bv.id,'type',e.target.value)}>
+            <option value="team">🌍 Land</option>
+            <option value="player">👤 Speler</option>
+            <option value="number">🔢 Getal</option>
+            <option value="text">📝 Vrij</option>
+          </select>
+          <button className="btn btn-sm btn-danger" onClick={()=>delBv(bv.id)}>✕</button>
+        </div>
+        {bv.type==='team'
+          ?<select className="ii" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)}>
+            <option value="">— Nog niet bekend —</option>
+            {WK_LANDEN.map(l=><option key={l} value={l}>{l}</option>)}
+          </select>
+          :bv.type==='number'
+            ?<input className="ii" type="number" inputMode="numeric" min="0" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)} placeholder="Correct antwoord (getal)"/>
+            :<input className="ii" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)} placeholder="Correct antwoord"/>
+        }
+        <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Klik buiten het veld om op te slaan.</div>
+      </div>
+    ))}
+  </div>);}
+
+// ADMIN
+function Admin({matches,bvs,users,config,spelerStats,pbAll,onRefresh}){
+  const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
+  async function saveSpelerStat(bvId,naam,field,val){
+    const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
+    if(existing){
+      await sb.from('speler_stats').update({[field]:val===''?0:Number(val)}).eq('bv_id',bvId).eq('naam',naam);
+    }else{
+      await sb.from('speler_stats').insert({bv_id:bvId,naam,stat1:0,stat2:0,stat3:0,[field]:val===''?0:Number(val)});
+    }
+    // Geen onRefresh hier — rij beheert zijn eigen state
+  }
+  async function delSpelerStat(bvId,naam){await sb.from('speler_stats').delete().eq('bv_id',bvId).eq('naam',naam);onRefresh();}
+  async function addSpelerStat(bvId,naam){
+    if(!naam.trim())return;
+    await sb.from('speler_stats').upsert({bv_id:bvId,naam:naam.trim(),stat1:0,stat2:0,stat3:0},{onConflict:'bv_id,naam'});
+    onRefresh();
+  }
+
+  const speler3Bvs=bvs.filter(b=>b.type==='speler3');
+  const[newSpelerNaam,setNewSpelerNaam]=useState({});
+  const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  const deelnemers=users.filter(u=>!u.is_admin),echteD=deelnemers.filter(u=>!u.is_test),testD=deelnemers.filter(u=>u.is_test),betaald=echteD.filter(u=>u.betaald).length;
+  async function addBv(){if(!newQ.trim())return;await sb.from('bijvragen').insert({id:'bv'+Date.now(),question:newQ,type:newType,points:parseInt(newPts)||5,correct_answer:''});setNewQ('');onRefresh();}
+  async function delBv(id){await sb.from('bijvragen').delete().eq('id',id);onRefresh();}
+  async function setBvField(id,field,val){await sb.from('bijvragen').update({[field]:val}).eq('id',id);onRefresh();}
+  async function setBvAns(id,v){await sb.from('bijvragen').update({correct_answer:v}).eq('id',id);onRefresh();}
+  async function saveBvOrder(orderedIds){
+    await Promise.all(orderedIds.map((id,i)=>sb.from('bijvragen').update({sort_order:i}).eq('id',id)));
+    onRefresh();
+  }
+  async function setMScore(id,f,v){await sb.from('matches').update({[f]:v===''?null:parseInt(v)}).eq('id',id);onRefresh();}
+  async function setMField(id,f,v){await sb.from('matches').update({[f]:v}).eq('id',id);onRefresh();}
+  async function delUser(id){await sb.from('users').delete().eq('id',id);onRefresh();}
+  async function toggleBetaald(id,h){await sb.from('users').update({betaald:!h}).eq('id',id);onRefresh();}
+  async function toggleTest(id,h){await sb.from('users').update({is_test:!h}).eq('id',id);onRefresh();}
+  const[hernoemVan,setHernoemVan]=useState(''),[hernoemNaar,setHernoemNaar]=useState(''),[hernoemBezig,setHernoemBezig]=useState(false),[hernoemMsg,setHernoemMsg]=useState('');
+
+  async function hernoemTeam(){
+    if(!hernoemVan||!hernoemNaar.trim())return;
+    setHernoemBezig(true);setHernoemMsg('');
+    const van=hernoemVan,naar=hernoemNaar.trim();
+    // 1. Wedstrijden — home en away velden
+    const homeMatches=matches.filter(m=>m.home===van);
+    const awayMatches=matches.filter(m=>m.away===van);
+    await Promise.all([
+      ...homeMatches.map(m=>sb.from('matches').update({home:naar}).eq('id',m.id)),
+      ...awayMatches.map(m=>sb.from('matches').update({away:naar}).eq('id',m.id)),
+    ]);
+    // 2. Fairplay — team veld bevat JSON array
+    const{data:fpRows}=await sb.from('fairplay').select('*');
+    const fpUpdates=(fpRows||[]).filter(f=>{
+      try{const arr=JSON.parse(f.team);return arr.includes(van);}catch{return f.team===van;}
+    });
+    await Promise.all(fpUpdates.map(f=>{
+      let nieuw;
+      try{const arr=JSON.parse(f.team);nieuw=JSON.stringify(arr.map(t=>t===van?naar:t));}
+      catch{nieuw=naar;}
+      return sb.from('fairplay').update({team:nieuw}).eq('id',f.id);
+    }));
+    // 3. Bijvragen correct_answer
+    const bvUpdates=bvs.filter(b=>b.correct_answer===van);
+    await Promise.all(bvUpdates.map(b=>sb.from('bijvragen').update({correct_answer:naar}).eq('id',b.id)));
+    // 4. Pronos_bijvragen antwoorden
+    const{data:pbRows}=await sb.from('pronos_bijvragen').select('*').eq('answer',van);
+    await Promise.all((pbRows||[]).map(p=>sb.from('pronos_bijvragen').update({answer:naar}).eq('id',p.id)));
+    setHernoemBezig(false);
+    setHernoemMsg(`✓ "${van}" hernoemd naar "${naar}" in alle tabellen!`);
+    setHernoemVan('');setHernoemNaar('');
+    onRefresh();
+  }
+  async function saveUitleg(){await sb.from('config').upsert({key:'uitleg',value:uitlegTekst});setUitlegSaved(true);setTimeout(()=>setUitlegSaved(false),2000);onRefresh();}
+  async function saveDeadline(){await sb.from('config').upsert({key:'bijvragen_deadline',value:deadline});onRefresh();}
+  async function clearDeadline(){setDeadline('');await sb.from('config').upsert({key:'bijvragen_deadline',value:''});onRefresh();}
+  async function saveTeldatum(){await sb.from('config').upsert({key:'bijvragen_teldatum',value:teldatum});onRefresh();}
+  async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
+  return(<div>
+    <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+
+    {tab==='uitleg'&&<div className="card">
+      <div className="card-title">📖 Handleiding bewerken</div>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Schrijf hier de uitleg voor de deelnemers. Gebruik een lege regel voor een nieuwe alinea. De tekst is meteen zichtbaar voor iedereen.</div>
+      <textarea
+        value={uitlegTekst}
+        onChange={e=>setUitlegTekst(e.target.value)}
+        placeholder={"Schrijf hier de uitleg, spelregels, puntensysteem, deadlines...\n\nGebruik een lege regel voor een nieuwe alinea."}
+        style={{width:'100%',minHeight:280,background:'var(--dark3)',border:'1px solid var(--border)',borderRadius:6,padding:'10px 12px',color:'var(--text)',fontFamily:'DM Sans, sans-serif',fontSize:13,outline:'none',resize:'vertical',lineHeight:1.7}}
+        onFocus={e=>e.target.style.borderColor='var(--green)'}
+        onBlur={e=>e.target.style.borderColor='var(--border)'}
+      />
+      <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
+        <button className="btn btn-sm btn-outline" onClick={saveUitleg}>💾 Opslaan</button>
+        <span style={{fontSize:11,color:'var(--green)',opacity:uitlegSaved?1:0,transition:'opacity .4s'}}>✓ Opgeslagen</span>
+      </div>
+    </div>}
+
+    {tab==='matches'&&<div>
+      {/* Teamnaam hernoemen */}
+      <div className="card" style={{marginBottom:12}}>
+        <div className="card-title" style={{fontSize:15}}>🔄 Teamnaam hernoemen</div>
+        <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>
+          Hernoem een ploeg in alle tabellen tegelijk (wedstrijden, bijvragen, fairplay ranking).
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Huidige naam</div>
+            <select className="ii" style={{width:'100%'}} value={hernoemVan} onChange={e=>setHernoemVan(e.target.value)}>
+              <option value="">— Kies een ploeg —</option>
+              {[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort().map(t=>(
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Nieuwe naam</div>
+            <input className="ii" style={{width:'100%'}} value={hernoemNaar} onChange={e=>setHernoemNaar(e.target.value)} placeholder="bv. Italië"/>
+          </div>
+          <button className="btn btn-sm btn-outline" disabled={!hernoemVan||!hernoemNaar.trim()||hernoemBezig} onClick={hernoemTeam}>
+            {hernoemBezig?'Bezig...':'🔄 Hernoemen'}
+          </button>
+        </div>
+        {hernoemMsg&&<div style={{marginTop:8,fontSize:12,color:'var(--green)'}}>{hernoemMsg}</div>}
+      </div>
+
+      <div className="groep-tabs" style={{marginBottom:10}}>{GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}</div>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
+      {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
+          <input className="ii" style={{width:108}} defaultValue={m.date} onBlur={e=>setMField(m.id,'date',e.target.value)} placeholder="Datum"/>
+          <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.home} onBlur={e=>setMField(m.id,'home',e.target.value)} placeholder="Thuis"/>
+          <span style={{color:'var(--muted)'}}>–</span>
+          <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.away} onBlur={e=>setMField(m.id,'away',e.target.value)} placeholder="Uit"/>
+        </div>
+        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'var(--muted)'}}>Uitslag:</span>
+          <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.home_score??''} onBlur={e=>setMScore(m.id,'home_score',e.target.value)} placeholder="–"/>
+          <span style={{color:'var(--muted)'}}>–</span>
+          <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
+        </div>
+      </div>)}
+    </div>}
+
+    {tab==='bijvragen'&&<div>
+      <div className="card"><div className="card-title">Nieuwe bijvraag</div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:8}}>
+          <input className="ii" style={{flex:1,minWidth:140}} value={newQ} onChange={e=>setNewQ(e.target.value)} placeholder="Vraag..."/>
+          <input className="ii" style={{width:50}} type="number" value={newPts} onChange={e=>setNewPts(e.target.value)} min={1}/>
+          <select className="ii" value={newType} onChange={e=>setNewType(e.target.value)}>
+            <option value="team">🌍 Land</option>
+            <option value="player">👤 Speler</option>
+            <option value="number">🔢 Getal</option>
+            <option value="text">📝 Vrij</option>
+          </select>
+        </div>
+        <button className="btn btn-sm btn-outline" onClick={addBv}>+ Toevoegen</button>
+      </div>
+      <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⠿ Sleep om de volgorde te wijzigen, of gebruik de pijltjes.</div>
+      <BvSortList bvs={bvs} setBvField={setBvField} setBvAns={setBvAns} delBv={delBv} saveBvOrder={saveBvOrder}/>
+    </div>}
+
+    {tab==='stats'&&<div>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
+        Voer hier de statistieken in per speler. De punten worden automatisch berekend.
+      </div>
+      {speler3Bvs.map(bv=>{
+        const isKeeper=bv.id==='bv_kee';
+        const isTopschutter=bv.id==='bv_top';
+        const stats=spelerStats.filter(s=>s.bv_id===bv.id);
+        const keeperRanking=isKeeper?calcKeeperRanking(spelerStats,bv.id):[];
+        const bestaandeNamen=new Set(stats.map(s=>s.naam.toLowerCase().trim()));
+
+        // Verzamel namen + telling per naam
+        const naamTelling={};
+        for(const uid of Object.keys(pbAll)){
+          const userPb=pbAll[uid]||{};
+          for(let i=1;i<=3;i++){
+            const key=bv.id+`_${i}`;
+            const n=userPb[key];
+            if(n&&typeof n==='string'&&n.trim()){
+              const norm=n.trim();
+              naamTelling[norm]=(naamTelling[norm]||0)+1;
+            }
+          }
+        }
+        const ingevoerdeNamen=new Set(Object.keys(naamTelling));
+        // Filter namen die nog niet in stats zitten
+        const nieuweNamen=Object.keys(naamTelling).filter(n=>!bestaandeNamen.has(n.toLowerCase().trim())).sort();
+        // Namen in stats die niemand meer gebruikt
+        const ongebruikteStats=stats.filter(s=>!Object.keys(naamTelling).some(n=>n.toLowerCase().trim()===s.naam.toLowerCase().trim()));
+
+        return(<div className="card" key={bv.id}>
+          <div className="card-title" style={{fontSize:16}}>{bv.question}</div>
+
+          {/* Namen ingevoerd door deelnemers */}
+          {ingevoerdeNamen.size>0&&<div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6}}>
+              📋 Namen ingevoerd door deelnemers ({ingevoerdeNamen.size} uniek):
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {Object.entries(naamTelling).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(([naam,count])=>{
+                const alInStats=bestaandeNamen.has(naam.toLowerCase().trim());
+                return(<div key={naam} style={{display:'flex',alignItems:'center',gap:4,background:alInStats?'var(--dark3)':'var(--dark2)',border:`1px solid ${alInStats?'var(--green)':'var(--border)'}`,borderRadius:5,padding:'4px 8px',fontSize:12}}>
+                  <span style={{color:alInStats?'var(--green)':'var(--text)'}}>{naam}</span>
+                  <span style={{fontSize:10,color:'var(--muted)',background:'var(--dark3)',borderRadius:3,padding:'1px 4px'}}>{count}×</span>
+                  {alInStats
+                    ?<span style={{fontSize:10,color:'var(--green)'}}>✓</span>
+                    :<button style={{background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontSize:14,padding:'0 2px',lineHeight:1}} onClick={()=>addSpelerStat(bv.id,naam)} title="Toevoegen aan stats">+</button>
+                  }
+                </div>);
+              })}
+            </div>
+            {nieuweNamen.length>0&&<button className="btn btn-sm btn-outline" style={{marginTop:8}} onClick={()=>Promise.all(nieuweNamen.map(n=>addSpelerStat(bv.id,n))).then(()=>onRefresh())}>
+              + Alle {nieuweNamen.length} ontbrekende namen toevoegen
+            </button>}
+          </div>}
+          {ingevoerdeNamen.size===0&&<div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Nog geen namen ingevoerd door deelnemers.</div>}
+
+          {/* Waarschuwing voor ongebruikte stats */}
+          {ongebruikteStats.length>0&&<div style={{fontSize:11,color:'var(--red)',marginBottom:10,background:'var(--dark3)',borderRadius:5,padding:'6px 10px'}}>
+            ⚠️ {ongebruikteStats.length} speler{ongebruikteStats.length>1?'s':''} in stats maar niet meer gekozen door deelnemers: {ongebruikteStats.map(s=>s.naam).join(', ')}
+          </div>}
+
+          {/* Nieuwe speler manueel toevoegen */}
+          <div style={{display:'flex',gap:6,marginBottom:12}}>
+            <input className="ii" style={{flex:1}} value={newSpelerNaam[bv.id]||''} onChange={e=>setNewSpelerNaam(p=>({...p,[bv.id]:e.target.value}))} placeholder="Spelersnaam manueel toevoegen..."/>
+            <button className="btn btn-sm btn-outline" onClick={()=>{addSpelerStat(bv.id,newSpelerNaam[bv.id]||'');setNewSpelerNaam(p=>({...p,[bv.id]:''}));}}>+ Toevoegen</button>
+          </div>
+          {/* Speler stats tabel */}
+          {stats.length>0&&<table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead><tr>
+              <th style={{textAlign:'left',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>Naam</th>
+              {isKeeper?(
+                <>
+                  <th style={{textAlign:'center',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>Clean sheets</th>
+                  <th style={{textAlign:'center',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>Tegendoelen</th>
+                  <th style={{textAlign:'center',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>Minuten</th>
+                  <th style={{textAlign:'center',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>Score</th>
+                </>
+              ):(
+                <th style={{textAlign:'center',padding:'4px 6px',color:'var(--muted)',borderBottom:'1px solid var(--border)'}}>{isTopschutter?'Doelpunten':'Assists'}</th>
+              )}
+              <th style={{borderBottom:'1px solid var(--border)'}}></th>
+            </tr></thead>
+            <tbody>
+              {stats.map(s=>(
+                <SpelerStatRow key={s.naam} s={s} isKeeper={isKeeper} bvId={bv.id} onSave={saveSpelerStat} onDel={delSpelerStat}/>
+              ))}
+            </tbody>
+          </table>}
+          {/* Keeper ranking preview */}
+          {isKeeper&&keeperRanking.length>0&&<div style={{marginTop:12}}>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ranking:</div>
+            {keeperRanking.slice(0,3).map((k,i)=>(
+              <div key={k.naam} style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{i+1}</span>
+                <span style={{flex:1}}>{k.naam}</span>
+                <span style={{color:'var(--muted)'}}>{k.score.toFixed(3)}</span>
+                <span style={{color:'var(--green)',fontSize:11}}>{i===0?'+11pt':i===1?'+8pt':'+7pt'}</span>
+              </div>
+            ))}
+          </div>}
+        </div>);
+      })}
+      {speler3Bvs.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Geen speler3-bijvragen gevonden.</div>}
+    </div>}
+
+    {tab==='deadline'&&<div>
+      <div className="card">
+        <div className="card-title">⏰ Deadline Bijvragen Invullen</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Na deze datum/tijd kunnen deelnemers geen bijvragen meer invullen of wijzigen.</div>
+        {config.bijvragen_deadline&&<div style={{marginBottom:10,fontSize:12}}>
+          Huidig: <strong style={{color:isDeadlinePassed(config.bijvragen_deadline)?'var(--red)':'var(--gold)'}}>{new Date(config.bijvragen_deadline).toLocaleString('nl-BE')}</strong>
+          {isDeadlinePassed(config.bijvragen_deadline)&&<span className="tag tag-red" style={{marginLeft:6}}>verstreken</span>}
+        </div>}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          <input className="ii" type="datetime-local" value={deadline} onChange={e=>setDeadline(e.target.value)} style={{flex:1,minWidth:180}}/>
+          <button className="btn btn-sm btn-outline" onClick={saveDeadline}>Opslaan</button>
+          {deadline&&<button className="btn btn-sm btn-danger" onClick={clearDeadline}>Wissen</button>}
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-title">📊 Teldatum Bijvraagpunten</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Vanaf deze datum/tijd worden de bijvraagpunten meegeteld in het klassement. Laat leeg om altijd te tellen.</div>
+        {config.bijvragen_teldatum&&<div style={{marginBottom:10,fontSize:12}}>
+          Huidig: <strong style={{color:new Date()>=new Date(config.bijvragen_teldatum)?'var(--green)':'var(--gold)'}}>{new Date(config.bijvragen_teldatum).toLocaleString('nl-BE')}</strong>
+          {new Date()>=new Date(config.bijvragen_teldatum)
+            ?<span className="tag tag-green" style={{marginLeft:6}}>actief</span>
+            :<span className="tag tag-gold" style={{marginLeft:6}}>nog niet actief</span>
+          }
+        </div>}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          <input className="ii" type="datetime-local" value={teldatum} onChange={e=>setTeldatum(e.target.value)} style={{flex:1,minWidth:180}}/>
+          <button className="btn btn-sm btn-outline" onClick={saveTeldatum}>Opslaan</button>
+          {teldatum&&<button className="btn btn-sm btn-danger" onClick={clearTeldatum}>Wissen</button>}
+        </div>
+      </div>
+    </div>}
+
+    {tab==='betaling'&&<div className="card">
+      <div className="card-title">💶 Betaling</div>
+      <div className="grid3" style={{marginBottom:12}}>
+        <div className="stat-box"><div className="stat-n" style={{color:'var(--green)'}}>{betaald}</div><div className="stat-l">Betaald</div></div>
+        <div className="stat-box"><div className="stat-n" style={{color:'var(--red)'}}>{echteD.length-betaald}</div><div className="stat-l">Niet betaald</div></div>
+        <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{testD.length}</div><div className="stat-l">Test</div></div>
+      </div>
+      {echteD.map(u=><div className="betaal-row" key={u.id}>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <span>{u.name}</span>
+          {u.betaald?<span className="tag tag-green">✓</span>:<span className="tag tag-niet-betaald">⚠</span>}
+        </div>
+        <button className={`btn btn-sm ${u.betaald?'btn-danger':'btn-betaald'}`} onClick={()=>toggleBetaald(u.id,u.betaald)}>{u.betaald?'Onbetaald':'Betaald'}</button>
+      </div>)}
+    </div>}
+
+    {tab==='users'&&<div className="card">
+      <div className="card-title">👥 Gebruikers ({deelnemers.length})</div>
+      {deelnemers.map(u=><div key={u.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:5}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <span style={{fontWeight:500}}>{u.name}{u.is_test&&<span className="badge-test" style={{marginLeft:5}}>TEST</span>}</span>
+          <div style={{display:'flex',gap:4}}>
+            <button className="btn btn-sm btn-test" onClick={()=>toggleTest(u.id,u.is_test)}>{u.is_test?'Echt':'Test'}</button>
+            <button className="btn btn-sm btn-danger" onClick={()=>delUser(u.id)}>✕</button>
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12}}>
+          <span style={{color:'var(--muted)'}}>Wachtwoord:</span>
+          {showPw[u.id]?<span className="pw-show">{u.password}</span>:<span className="pw-dot">••••••</span>}
+          <button style={{background:'none',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:4,padding:'2px 7px',cursor:'pointer',fontSize:10}} onClick={()=>setShowPw(p=>({...p,[u.id]:!p[u.id]}))}>
+            {showPw[u.id]?'Verberg':'Toon'}
+          </button>
+          {u.is_test?<span className="tag tag-test">🧪 test</span>:u.betaald?<span className="tag tag-green">✓ betaald</span>:<span className="tag tag-niet-betaald">⚠ niet betaald</span>}
+        </div>
+      </div>)}
+    </div>}
+  </div>);}
+
+// MAIN
+function App(){
+  const[user,setUser]=useState(null),[page,setPage]=useState('klassement'),[load,setLoad]=useState(true);
+  const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
+  const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
+  const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
+
+  async function loadAll(){
+    const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss}]=await Promise.all([
+      sb.from('users').select('*'),sb.from('matches').select('*').order('date'),sb.from('bijvragen').select('*').order('sort_order'),
+      sb.from('pronos_matches').select('*'),sb.from('pronos_bijvragen').select('*'),sb.from('jokers').select('*'),
+      sb.from('punten_vragen').select('*'),sb.from('fairplay').select('*'),sb.from('config').select('*'),
+      sb.from('speler_stats').select('*'),
+    ]);
+    setUsers(us||[]);setMatches(ma||[]);setBvs(bv||[]);
+    const pmM={};for(const p of(pm||[])){if(!pmM[p.user_id])pmM[p.user_id]={};pmM[p.user_id][p.match_id]=p;}setPmAll(pmM);
+    const pbM={};for(const p of(pb||[])){if(!pbM[p.user_id])pbM[p.user_id]={};pbM[p.user_id][p.bv_id]=p.answer;}setPbAll(pbM);
+    const jM={};for(const j of(jk||[])){if(!jM[j.user_id])jM[j.user_id]=[];jM[j.user_id].push(j);}setJAll(jM);
+    // fairplay: team-veld bevat JSON-array van ranking
+    const fpM={};for(const f of(fp||[])){
+      if(!fpM[f.user_id])fpM[f.user_id]={};
+      let val=f.team;try{val=JSON.parse(f.team);}catch{}
+      fpM[f.user_id][f.group]=val;
+    }setFpAll(fpM);
+    setPvAll(pv||[]);setSpelerStats(ss||[]);const cfgObj={};for(const c of(cfg||[]))cfgObj[c.key]=c.value;setConfig(cfgObj);
+    setLoad(false);
+  }
+  useEffect(()=>{loadAll();},[]);
+  useEffect(()=>{const t=setInterval(loadAll,30000);return()=>clearInterval(t);},[]);
+
+  if(load)return<div className="spinner">⚽ Laden...</div>;
+  if(!user)return<Login onLogin={u=>{setUser(u);setPage(u.is_admin?'admin':'uitleg');}}/>;
+
+  const freshUser=users.find(u=>u.id===user.id)||user;
+  const nav=[
+    {id:'uitleg',icon:'📖',label:'Handleiding'},
+    {id:'klassement',icon:'🏆',label:'Klassement'},
+    {id:'prono',icon:'📋',label:'Pronostiek'},
+    {id:'pv',icon:'🎚️',label:'Punten'},
+    {id:'mijnpunten',icon:'📊',label:'Mijn punten'},
+    ...(user.is_admin?[{id:'admin',icon:'⚙️',label:'Beheer'}]:[]),
+  ];
+
+  return(<div className="app">
+    <div className="topbar">
+      <div className="topbar-title">⚽ WK <span>2026</span></div>
+      <div className="user-badge">
+        <strong>{user.name}</strong>
+        {user.is_admin&&<span className="badge-admin">ADMIN</span>}
+        {freshUser.is_test&&<span className="badge-test">TEST</span>}
+        {!user.is_admin&&!freshUser.is_test&&!freshUser.betaald&&<span className="tag tag-niet-betaald">⚠</span>}
+        <button className="btn-logout" onClick={()=>setUser(null)}>Uit</button>
+      </div>
+    </div>
+    <div className="main">
+      {/* Desktop sidebar */}
+      <div className="sidebar">
+        {nav.map(n=><div key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>setPage(n.id)}>
+          <span style={{fontSize:15,width:18,textAlign:'center'}}>{n.icon}</span>{n.label}
+        </div>)}
+      </div>
+      <div className="content">
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} cur={freshUser}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} onRefresh={loadAll}/>}
+        {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} cur={freshUser}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} onRefresh={loadAll}/>}
+      </div>
+    </div>
+    {/* Mobile bottom nav */}
+    <nav className="bottom-nav">
+      <div className="bottom-nav-items">
+        {nav.map(n=><button key={n.id} className={`bn-item ${page===n.id?'active':''}`} onClick={()=>setPage(n.id)}>
+          <span className="bn-icon">{n.icon}</span>
+          <span>{n.label}</span>
+        </button>)}
+      </div>
+    </nav>
+  </div>);}
+
+ReactDOM.render(<App/>,document.getElementById('root'));
+</script>
+</body>
+</html>
