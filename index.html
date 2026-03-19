@@ -360,7 +360,74 @@ function buildStand(matches, scores, fpRanking){
   return rows;
 }
 
-// FAIRPLAY DRAG & DROP rangschikking
+// ─── KNOCK-OUT HELPERS ───────────────────────────────────────────────────────
+
+// Bereken winnaar/runner-up/derden voor alle groepen op basis van pronostiek
+function calcKOTeams(matches, lPM, lFP){
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+
+  const winnaars={},runners={},derden=[];
+  for(const grp of GRP){
+    const gm=mbg[grp]||[];
+    if(!gm.length)continue;
+    const scV={};
+    for(const m of gm){const p=lPM[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
+    const stand=buildStand(gm,scV,lFP[grp]);
+    if(stand.length>=1)winnaars[grp]=stand[0].team;
+    if(stand.length>=2)runners[grp]=stand[1].team;
+    if(stand.length>=3)derden.push({...stand[2],grp});
+  }
+
+  // Sorteer derden en pak top 8
+  const top8Derden=[...derden].sort((a,b)=>{
+    if(b.pts!==a.pts)return b.pts-a.pts;
+    if(b.gd!==a.gd)return b.gd-a.gd;
+    if(b.gs!==a.gs)return b.gs-a.gs;
+    if(b.w!==a.w)return b.w-a.w;
+    return a.team.localeCompare(b.team);
+  }).slice(0,8).map(d=>d.team);
+
+  return{winnaars,runners,top8Derden};
+}
+
+// Bereken de 2 mogelijke ploegen voor een R32 match op basis van ko_matches structuur
+function getR32Teams(matchId, winnaars, runners, top8Derden){
+  const m={
+    'ko_r32_1':[winnaars['A'],runners['B']],
+    'ko_r32_2':[winnaars['C'],runners['D']],
+    'ko_r32_3':[winnaars['E'],runners['F']],
+    'ko_r32_4':[winnaars['G'],runners['H']],
+    'ko_r32_5':[winnaars['I'],runners['J']],
+    'ko_r32_6':[winnaars['K'],runners['L']],
+    'ko_r32_7':[winnaars['B'],runners['A']],
+    'ko_r32_8':[winnaars['D'],runners['C']],
+    'ko_r32_9':[winnaars['F'],runners['E']],
+    'ko_r32_10':[winnaars['H'],runners['G']],
+    'ko_r32_11':[winnaars['J'],runners['I']],
+    'ko_r32_12':[winnaars['L'],runners['K']],
+    'ko_r32_13':[top8Derden[0],top8Derden[1]],
+    'ko_r32_14':[top8Derden[2],top8Derden[3]],
+    'ko_r32_15':[top8Derden[4],top8Derden[5]],
+    'ko_r32_16':[top8Derden[6],top8Derden[7]],
+  };
+  return(m[matchId]||[]).filter(Boolean);
+}
+
+// Bereken punten voor knock-out pronostieken
+function calcKOPts(koPronos, koMatches, koPunten){
+  let tot=0;const det=[];
+  for(const m of koMatches){
+    if(!m.winner)continue;
+    const p=koPronos[m.id];
+    if(!p)continue;
+    const pts=koPunten[m.round]||0;
+    if(p.toLowerCase().trim()===m.winner.toLowerCase().trim()){
+      tot+=pts;det.push({label:`${m.home} vs ${m.away}`,pts,round:m.round});
+    }
+  }
+  return{tot,det};
+}
 function FairplayRanking({teams,value,onChange,locked}){
   // value = array van teams gesorteerd op fairplay (beste eerst)
   const [order,setOrder]=useState(value&&value.length===teams.length?value:[...teams]);
@@ -454,17 +521,19 @@ function Login({onLogin}){
   </div></div>);}
 
 // KLASSEMENT
-function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,cur}){
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
+  const betaaldeUserIds=new Set(echteUsers.filter(u=>u.betaald).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const st=echteUsers.map(u=>{
     const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
     const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum);
+    const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
-    return{...u,tot:u.betaald?tot:0,filled};
+    return{...u,tot:u.betaald?(tot+koTot):0,filled};
   }).sort((a,b)=>b.tot-a.tot);
   return(<div>
     <div className="section-title">🏆 Live Klassement</div>
@@ -509,7 +578,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,onRefresh}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   // fairplay per groep: { grp: [team1,team2,team3,team4] }
   const myFP=fpAll[cur.id]||{};
@@ -543,11 +612,18 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,o
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
     sv();onRefresh();
   }
-  function hM(mid,side,val){const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
+  const myKO=koPronosAll[cur.id]||{};
+  const[lKO,setLKO]=useState(myKO);
+  useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
+  async function saveKO(matchId,winner){
+    setLKO(p=>({...p,[matchId]:winner}));
+    await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
+    sv();onRefresh();
+  }
   function hB(bid,val){setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
 
-  const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
+  function hM(mid,side,val){const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
   const CT={alles_juist:'tag-green',een_juist_winnaar_juist:'tag-green',niets_juist_winnaar_juist:'tag-gold',een_juist_winnaar_fout:'tag-gold',alles_fout:'tag-red'};
@@ -565,6 +641,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,o
       <div className={`groep-tab ${tab==='bijvragen'?'active':''}`} onClick={()=>setTab('bijvragen')}>⭐</div>
       {GRP.map(g=><div key={g} className={`groep-tab ${tab===g?'active':''} ${jPG[g]?'joker':''}`} onClick={()=>setTab(g)}>{g}{jPG[g]?'🃏':''}</div>)}
       <div className={`groep-tab ${tab==='3de'?'active':''}`} style={{borderColor:'var(--gold)',color:tab==='3de'?'#000':'var(--gold)',background:tab==='3de'?'var(--gold)':'transparent'}} onClick={()=>setTab('3de')}>3de</div>
+      <div className={`groep-tab ${tab==='ko'?'active':''}`} style={{borderColor:'var(--green)',color:tab==='ko'?'#000':'var(--green)',background:tab==='ko'?'var(--green)':'transparent'}} onClick={()=>setTab('ko')}>KO</div>
     </div>
 
     {/* BIJVRAGEN */}
@@ -687,9 +764,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,o
                   <div className="real-score">{m.home_score} – {m.away_score}</div>
                 </div>
                 :<div className="score-box">
-                  <input className="score-input" disabled={isS} value={hp??''} onChange={e=>hM(m.id,'home_pred',e.target.value)} placeholder="0"/>
+                  <input className="score-input" disabled={isS} value={hp??''} onChange={e=>hM(m.id,'home_pred',e.target.value)} placeholder="–"/>
                   <span className="score-sep">–</span>
-                  <input className="score-input" disabled={isS} value={ap??''} onChange={e=>hM(m.id,'away_pred',e.target.value)} placeholder="0"/>
+                  <input className="score-input" disabled={isS} value={ap??''} onChange={e=>hM(m.id,'away_pred',e.target.value)} placeholder="–"/>
                 </div>
               }
               <div className="team-name right">{m.away}</div>
@@ -817,7 +894,108 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,o
         </div>}
       </div>);
     })()}
-  </div>);}
+
+    {/* KNOCK-OUT FASE */}
+    {tab==='ko'&&(()=>{
+      const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP);
+      const ROUNDS=[
+        {id:'R32',label:'Ronde van 32',matches:koMatches.filter(m=>m.round==='R32')},
+        {id:'R16',label:'Ronde van 16',matches:koMatches.filter(m=>m.round==='R16')},
+        {id:'KF',label:'Kwartfinales',matches:koMatches.filter(m=>m.round==='KF')},
+        {id:'HF',label:'Halve finales',matches:koMatches.filter(m=>m.round==='HF')},
+        {id:'KF3',label:'Kleine finale',matches:koMatches.filter(m=>m.round==='KF3')},
+        {id:'F',label:'Finale',matches:koMatches.filter(m=>m.round==='F')},
+      ];
+
+      // Bereken beschikbare ploegen per ronde op basis van lKO keuzes
+      function getTeamsForRound(round){
+        if(round==='R32'){
+          // Alle 48 groepsploegen
+          const all=new Set();
+          for(const m of matches){if(m.home)all.add(m.home);if(m.away)all.add(m.away);}
+          return[...all].sort();
+        }
+        // Voor latere rondes: winnaars van vorige ronde op basis van lKO
+        const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[round];
+        const prevMatches=koMatches.filter(m=>m.round===prevRound);
+        return prevMatches.map(m=>lKO[m.id]).filter(Boolean).sort();
+      }
+
+      // Bereken de 2 specifieke ploegen voor een R32 match
+      function getMatchTeams(m){
+        if(m.round==='R32'){
+          return getR32Teams(m.id,winnaars,runners,top8Derden);
+        }
+        // Voor latere rondes: winnaars van de 2 vorige matches
+        const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
+        if(!prevRound)return[];
+        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+        // home = winnaar van match op positie 2*pos-2, away = positie 2*pos-1
+        const idx=(m.position-1)*2;
+        const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
+        // Voor KF3: verliezers van HF
+        if(m.round==='KF3'){
+          const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+          const hfWinners=hfMatches.map(hm=>lKO[hm.id]).filter(Boolean);
+          const hfTeams=hfMatches.flatMap(hm=>getMatchTeams(hm));
+          return hfTeams.filter(t=>!hfWinners.includes(t)).slice(0,2);
+        }
+        return[pm1?lKO[pm1.id]:null,pm2?lKO[pm2.id]:null].filter(Boolean);
+      }
+
+      return(<div>
+        <div style={{fontFamily:'Bebas Neue',fontSize:19,color:'var(--green)',letterSpacing:1,marginBottom:8}}>
+          🏆 Knock-out Fase
+        </div>
+        <div className="info" style={{marginBottom:12}}>
+          Kies per wedstrijd wie je verwacht te winnen. De opties zijn gebaseerd op jouw groepspronostiek.
+        </div>
+        {!Object.keys(winnaars).length&&<div style={{color:'var(--muted)',fontSize:13,marginBottom:12}}>
+          ⚠️ Vul eerst de groepswedstrijden in — dan verschijnen de ploegen automatisch.
+        </div>}
+        {ROUNDS.map(r=>(
+          <div key={r.id} style={{marginBottom:16}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+              {r.label}
+              <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans'}}>
+                {koPunten[r.id]||'?'} pt/correct
+              </span>
+            </div>
+            {r.matches.map(m=>{
+              const teams=getMatchTeams(m);
+              const gekozen=lKO[m.id]||'';
+              const isReal=!!m.winner;
+              const correct=isReal&&gekozen&&gekozen===m.winner;
+              const fout=isReal&&gekozen&&gekozen!==m.winner;
+              return(<div key={m.id} className="match-card" style={{marginBottom:6}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>{m.position}</div>
+                  {teams.length>=2?(
+                    <select
+                      value={gekozen}
+                      onChange={e=>saveKO(m.id,e.target.value)}
+                      style={{flex:1,background:'var(--card)',border:`1px solid ${correct?'var(--green)':fout?'var(--red)':'var(--border)'}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:'pointer'}}
+                    >
+                      <option value="">— Kies winnaar —</option>
+                      {teams.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  ):(
+                    <div style={{flex:1,fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>
+                      {teams.length===1?`${teams[0]} vs ?`:'Vul vorige ronde in'}
+                    </div>
+                  )}
+                  {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'} {m.winner}</span>}
+                  {!isReal&&gekozen&&<span style={{fontSize:11,color:'var(--gold)'}}>→ {gekozen}</span>}
+                </div>
+                {teams.length>=2&&<div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginTop:3,paddingLeft:28}}>
+                  <span>{teams[0]}</span><span>vs</span><span>{teams[1]}</span>
+                </div>}
+              </div>);
+            })}
+          </div>
+        ))}
+      </div>);
+    })()}
 
 // PUNTENVRAGEN
 function PuntenVragen({cur,pvAll,users,onRefresh}){
@@ -930,12 +1108,16 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
   </div>);}
 
 // MIJN PUNTEN
-function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config,cur}){
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
-  const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
+  const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
+  const totaal=tot+koTot;
+  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`}))];
+  const teldatum=config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum);
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
     {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
@@ -943,12 +1125,12 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
     <div className="grid2" style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(tot)}</div><div className="stat-l">Totaal</div></div>
-      <div className="stat-box"><div className="stat-n">{det.length}</div><div className="stat-l">Correct</div></div>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(totaal)}</div><div className="stat-l">Totaal</div></div>
+      <div className="stat-box"><div className="stat-n">{allDet.length}</div><div className="stat-l">Correct</div></div>
     </div>
     <div className="card"><div className="card-title">Puntendetail</div>
-      {det.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Nog geen punten verdiend.</div>}
-      {det.map((d,i)=><div className="pts-row" key={i}><span>{d.label}{d.isJ&&<span className="tag tag-gold" style={{marginLeft:4}}>🃏×2</span>}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>)}
+      {allDet.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Nog geen punten verdiend.</div>}
+      {allDet.map((d,i)=><div className="pts-row" key={i}><span>{d.label}{d.isJ&&<span className="tag tag-gold" style={{marginLeft:4}}>🃏×2</span>}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>)}
     </div>
   </div>);}
 
@@ -1195,7 +1377,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   </div>);}
 
 // ADMIN
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false);
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
@@ -1272,7 +1454,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,onRefresh}){
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['deadline','⏰'],['betaling','💶'],['users','👥']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -1461,6 +1643,55 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,onRefresh}){
       {speler3Bvs.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Geen speler3-bijvragen gevonden.</div>}
     </div>}
 
+    {tab==='ko'&&<div>
+      <div className="card">
+        <div className="card-title">🏆 Punten per KO-ronde</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Stel in hoeveel punten een correcte winnaarvoorspelling waard is per ronde.</div>
+        {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
+          <div key={round} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+            <div style={{flex:1,fontSize:13}}>{label}</div>
+            <input className="ii" type="number" min="1" style={{width:70,textAlign:'center'}}
+              defaultValue={koPunten[round]||2}
+              onBlur={async e=>{
+                await sb.from('ko_punten').upsert({round,points:parseInt(e.target.value)||2});
+                onRefresh();
+              }}
+            />
+            <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="card-title">📋 Uitslagen KO-fase invoeren</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Vul de winnaar in van elke KO-wedstrijd. Punten worden automatisch berekend.</div>
+        {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
+          const rMatches=koMatches.filter(m=>m.round===round);
+          if(!rMatches.length)return null;
+          return(<div key={round} style={{marginBottom:14}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>{label}</div>
+            {rMatches.map(m=>(
+              <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                <div style={{fontSize:12,flex:1,minWidth:120,color:'var(--text)'}}>{m.home} vs {m.away}</div>
+                <select className="ii" style={{minWidth:140}}
+                  defaultValue={m.winner||''}
+                  onBlur={async e=>{
+                    await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);
+                    onRefresh();
+                  }}
+                >
+                  <option value="">— Nog niet gespeeld —</option>
+                  {[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-')).map(t=>(
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                {m.winner&&<span className="tag tag-green">✓ {m.winner}</span>}
+              </div>
+            ))}
+          </div>);
+        })}
+      </div>
+    </div>}
+
     {tab==='deadline'&&<div>
       <div className="card">
         <div className="card-title">⏰ Deadline Bijvragen Invullen</div>
@@ -1564,13 +1795,17 @@ function App(){
   const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
+  const[koMatches,setKoMatches]=useState([]),[koPronosAll,setKoPronosAll]=useState({}),[koPunten,setKoPunten]=useState({});
 
   async function loadAll(){
-    const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss}]=await Promise.all([
+    const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt}]=await Promise.all([
       sb.from('users').select('*'),sb.from('matches').select('*').order('date'),sb.from('bijvragen').select('*').order('sort_order'),
       sb.from('pronos_matches').select('*'),sb.from('pronos_bijvragen').select('*'),sb.from('jokers').select('*'),
       sb.from('punten_vragen').select('*'),sb.from('fairplay').select('*'),sb.from('config').select('*'),
       sb.from('speler_stats').select('*'),
+      sb.from('ko_matches').select('*').order('round_order').order('position'),
+      sb.from('ko_pronos').select('*'),
+      sb.from('ko_punten').select('*'),
     ]);
     setUsers(us||[]);setMatches(ma||[]);setBvs(bv||[]);
     const pmM={};for(const p of(pm||[])){if(!pmM[p.user_id])pmM[p.user_id]={};pmM[p.user_id][p.match_id]=p;}setPmAll(pmM);
@@ -1582,7 +1817,11 @@ function App(){
       let val=f.team;try{val=JSON.parse(f.team);}catch{}
       fpM[f.user_id][f.group]=val;
     }setFpAll(fpM);
-    setPvAll(pv||[]);setSpelerStats(ss||[]);const cfgObj={};for(const c of(cfg||[]))cfgObj[c.key]=c.value;setConfig(cfgObj);
+    setPvAll(pv||[]);setSpelerStats(ss||[]);
+    setKoMatches(km||[]);
+    const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
+    const kptM={};for(const k of(kpt||[]))kptM[k.round]=k.points;setKoPunten(kptM);
+    const cfgObj={};for(const c of(cfg||[]))cfgObj[c.key]=c.value;setConfig(cfgObj);
     setLoad(false);
   }
   useEffect(()=>{loadAll();},[]);
@@ -1621,11 +1860,11 @@ function App(){
       </div>
       <div className="content">
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
-        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} cur={freshUser}/>}
-        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} onRefresh={loadAll}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
-        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} onRefresh={loadAll}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
