@@ -1812,26 +1812,54 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
           const rMatches=koMatches.filter(m=>m.round===round);
           if(!rMatches.length)return null;
+
+          // Bereken echte teamnamen per match op basis van ingevulde winnaars
+          function getEchteTeams(m){
+            if(m.round==='R32'){
+              // home en away staan rechtstreeks in de database
+              return[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-'));
+            }
+            // Voor latere rondes: winnaars van de 2 vorige matches
+            const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
+            if(!prevRound)return[];
+            if(m.round==='KF3'){
+              // Verliezers van de HF
+              const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+              const verliezers=hfMatches.flatMap(hm=>{
+                const [t1,t2]=getEchteTeams(hm);
+                return hm.winner?[t1,t2].filter(t=>t&&t!==hm.winner):[];
+              });
+              return verliezers.slice(0,2);
+            }
+            const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+            const idx=(m.position-1)*2;
+            const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
+            return[pm1?.winner,pm2?.winner].filter(Boolean);
+          }
+
           return(<div key={round} style={{marginBottom:14}}>
             <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>{label}</div>
-            {rMatches.map(m=>(
-              <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
-                <div style={{fontSize:12,flex:1,minWidth:120,color:'var(--text)'}}>{m.home} vs {m.away}</div>
-                <select className="ii" style={{minWidth:140}}
-                  defaultValue={m.winner||''}
-                  onBlur={async e=>{
-                    await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);
-                    onRefresh();
-                  }}
-                >
-                  <option value="">— Nog niet gespeeld —</option>
-                  {[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-')).map(t=>(
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                {m.winner&&<span className="tag tag-green">✓ {m.winner}</span>}
-              </div>
-            ))}
+            {rMatches.map(m=>{
+              const teams=getEchteTeams(m);
+              return(
+                <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                  <div style={{fontSize:12,flex:1,minWidth:120,color:teams.length<2?'var(--muted)':'var(--text)',fontStyle:teams.length<2?'italic':'normal'}}>
+                    {teams.length>=2?`${teams[0]} vs ${teams[1]}`:`Match ${m.position} — vorige ronde nog niet volledig`}
+                  </div>
+                  {teams.length>=2&&<select className="ii" style={{minWidth:140}}
+                    defaultValue={m.winner||''}
+                    onBlur={async e=>{
+                      await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);
+                      onRefresh();
+                    }}
+                  >
+                    <option value="">— Nog niet gespeeld —</option>
+                    {teams.map(t=>(<option key={t} value={t}>{t}</option>))}
+                  </select>}
+                  {m.winner&&<span className="tag tag-green">✓ {m.winner}</span>}
+                </div>
+              );
+            })}
           </div>);
         })}
       </div>
