@@ -578,11 +578,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,onRefresh,initialTab}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   // fairplay per groep: { grp: [team1,team2,team3,team4] }
   const myFP=fpAll[cur.id]||{};
-  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState('bijvragen'),[saved,setSaved]=useState(false);
+  const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'bijvragen'),[saved,setSaved]=useState(false);
+  useEffect(()=>{if(initialTab)setTab(initialTab);},[initialTab]);
   const timer=useRef(null);
   const gfStart=new Date()>=new Date('2026-06-11');
   const deadline=config.bijvragen_deadline||'';
@@ -1136,7 +1137,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config
   </div>);}
 
 // UITLEG PAGINA + CHECKLIST
-function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
+function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n').filter(r=>r.trim()!=='');
 
@@ -1182,6 +1183,24 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
   // Puntenvragen
   const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
 
+  // KO-fase status
+  const myKO=koPronosAll[cur.id]||{};
+  const ROUNDS_KO=[
+    {id:'R32',label:'Ronde van 32'},
+    {id:'R16',label:'Ronde van 16'},
+    {id:'KF',label:'Kwartfinales'},
+    {id:'HF',label:'Halve finales'},
+    {id:'KF3',label:'Kleine finale'},
+    {id:'F',label:'Finale'},
+  ];
+  const koRondStatus=ROUNDS_KO.map(r=>{
+    const rMatches=koMatches.filter(m=>m.round===r.id);
+    if(!rMatches.length)return null;
+    const ingevuld=rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length;
+    return{...r,totaal:rMatches.length,ingevuld,volledig:ingevuld===rMatches.length};
+  }).filter(Boolean);
+  const koVolledig=koRondStatus.length>0&&koRondStatus.every(r=>r.volledig);
+
   // Betaalstatus
   const betaald=cur.betaald;
 
@@ -1192,8 +1211,9 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
     ...groepStatus.map(g=>g.heeftFP),
     bvVolledig,
     pvIngevuld,
+    koRondStatus.length>0?koVolledig:null,
     betaald,
-  ];
+  ].filter(v=>v!==null);
   const totaalOk=checks.filter(Boolean).length;
   const totaal=checks.length;
   const pct=totaal>0?Math.round(totaalOk/totaal*100):0;
@@ -1254,7 +1274,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       <div className="card-title" style={{fontSize:15}}>⭐ Bijvragen</div>
       {aantalBv===0
         ?<div style={{fontSize:12,color:'var(--muted)'}}>Nog geen bijvragen beschikbaar.</div>
-        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono')}/>
+        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>{setPronoTab('bijvragen');setPage('prono');}}/>
       }
     </div>
 
@@ -1264,12 +1284,20 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       {groepStatus.map(g=>(
         <div key={g.grp}>
           <div style={{fontSize:11,fontFamily:'Bebas Neue',letterSpacing:1,color:'var(--muted)',padding:'8px 0 4px',borderTop:'1px solid var(--border)'}}>GROEP {g.grp}</div>
-          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono')}/>
-          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono')}/>
-          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono')}/>
+          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
+          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
+          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>{setPronoTab(g.grp);setPage('prono');}}/>
         </div>
       ))}
     </div>
+
+    {/* KO-FASE */}
+    {koRondStatus.length>0&&<div className="card">
+      <div className="card-title" style={{fontSize:15}}>🏆 Knock-out Fase</div>
+      {koRondStatus.map(r=>(
+        <CheckRow key={r.id} ok={r.volledig} label={`${r.label}: ${r.ingevuld}/${r.totaal} ingevuld`} sub={r.volledig?'Alle winnaars voorspeld':`Vul alle ${r.totaal} wedstrijden in`} onClick={()=>{setPronoTab('ko');setPage('prono');}}/>
+      ))}
+    </div>}
 
   </div>);}
 
@@ -1793,6 +1821,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 // MAIN
 function App(){
   const[user,setUser]=useState(null),[page,setPage]=useState('klassement'),[load,setLoad]=useState(true);
+  const[pronoTab,setPronoTab]=useState('bijvragen');
   const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
@@ -1860,9 +1889,9 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={setPage}/>}
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll}/>}
+        {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll} initialTab={pronoTab}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
