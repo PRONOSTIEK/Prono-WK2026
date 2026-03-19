@@ -223,12 +223,20 @@ function catMatch(pH,pA,rH,rA){if(pH==null||pA==null)return null;pH=parseInt(pH)
 function avgPT(pvs){const K=['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'],D={alles_juist:7,een_juist_winnaar_juist:5,niets_juist_winnaar_juist:4,een_juist_winnaar_fout:2,alles_fout:-2};if(!pvs||!pvs.length)return D;const r={};for(const k of K){const v=pvs.map(p=>p[k]).filter(x=>x!=null);r[k]=v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):D[k];}return r;}
 function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum){
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
-  let tot=0;const det=[];
+  let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
-    if(m.home_score==null)continue;const p=pm[m.id];if(!p||p.home_pred==null)continue;
-    const isJ=jids.includes(m.id),isGF=GRP.includes(m.group),cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
-    if(!cat)continue;const wb=isGF?waaghals(p.home_pred,p.away_pred):0,pts=(pt[cat]+wb)*(isJ?2:1);
-    if(pts!==0){tot+=pts;det.push({label:`${m.home}–${m.away}`,pts,isJ,cat});}
+    if(m.home_score==null)continue;
+    const p=pm[m.id];
+    const isJ=jids.includes(m.id),isGF=GRP.includes(m.group);
+    if(!p||p.home_pred==null){
+      if(isGF)matchDet.push({group:m.group,matchId:m.id,home:m.home,away:m.away,homePred:null,awayPred:null,homeScore:m.home_score,awayScore:m.away_score,pts:0,isJ,cat:null,wb:0});
+      continue;
+    }
+    const cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
+    if(!cat)continue;
+    const wb=isGF?waaghals(p.home_pred,p.away_pred):0,pts=(pt[cat]+wb)*(isJ?2:1);
+    if(isGF)matchDet.push({group:m.group,matchId:m.id,home:m.home,away:m.away,homePred:p.home_pred,awayPred:p.away_pred,homeScore:m.home_score,awayScore:m.away_score,pts,isJ,cat,wb});
+    if(pts!==0){tot+=pts;det.push({label:`${m.home}–${m.away}`,pts,isJ,cat,group:m.group,matchId:m.id,home:m.home,away:m.away,homePred:p.home_pred,awayPred:p.away_pred,homeScore:m.home_score,awayScore:m.away_score,wb});}
   }
   if(telPunten){
     for(const bv of bvs){
@@ -246,7 +254,7 @@ function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum){
       }
     }
   }
-  return{tot,det,bijvragenGeteld:telPunten};
+  return{tot,det,matchDet,bijvragenGeteld:telPunten};
 }
 function isDeadlinePassed(d){if(!d)return false;return new Date()>new Date(d);}
 
@@ -1319,26 +1327,137 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spel
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
-  const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
+  const jids=(jAll[cur.id]||[]).map(j=>j.match_id);
+  const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
   const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP);
   const totaal=tot+koTot+kwalTot;
-  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`})),...kwalDet.map(d=>({...d,label:`🎫 ${d.label}`}))];
+
+  // Statistieken
+  const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
+  const aantalAllesFout=matchDet.filter(m=>m.cat==='alles_fout').length;
+  const jokerPunten=matchDet.filter(m=>m.isJ).reduce((s,m)=>s+m.pts,0);
+  const bijvraagPunten=det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
+
+  // Categorielabels
+  const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
+  const CT={alles_juist:'tag-green',een_juist_winnaar_juist:'tag-green',niets_juist_winnaar_juist:'tag-gold',een_juist_winnaar_fout:'tag-gold',alles_fout:'tag-red'};
+
+  // Groepen met gespeelde wedstrijden
+  const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  const [openGroep,setOpenGroep]=useState(null);
+
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
     {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
     {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
-    <div className="grid2" style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(totaal)}</div><div className="stat-l">Totaal</div></div>
-      <div className="stat-box"><div className="stat-n">{allDet.length}</div><div className="stat-l">Correct</div></div>
+
+    {/* TOTAALOVERZICHT */}
+    <div className="card">
+      <div className="card-title">Totaaloverzicht</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
+        <span style={{fontWeight:600,fontSize:15}}>Totale punten</span>
+        <span style={{fontFamily:'Bebas Neue',fontSize:26,color:'var(--gold)'}}>{fmt(totaal)}</span>
+      </div>
+      <div className="pts-row"><span>🎯 Groepsfase wedstrijden</span><span className="pp">{fmt(tot - bijvraagPunten)}</span></div>
+      {bijvraagPunten!==0&&<div className="pts-row"><span>⭐ Bijvragen</span><span className="pp">{fmt(bijvraagPunten)}</span></div>}
+      {kwalTot!==0&&<div className="pts-row"><span>🎫 KO-kwalificatie</span><span className="pp">{fmt(kwalTot)}</span></div>}
+      {koTot!==0&&<div className="pts-row"><span>🏆 KO-fase</span><span className="pp">{fmt(koTot)}</span></div>}
     </div>
-    <div className="card"><div className="card-title">Puntendetail</div>
-      {allDet.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Nog geen punten verdiend.</div>}
-      {allDet.map((d,i)=><div className="pts-row" key={i}><span>{d.label}{d.isJ&&<span className="tag tag-gold" style={{marginLeft:4}}>🃏×2</span>}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>)}
+
+    {/* STATISTIEKEN */}
+    <div className="grid3" style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--green)'}}>{aantalAllesJuist}</div><div className="stat-l">Volledig juist</div></div>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--red)'}}>{aantalAllesFout}</div><div className="stat-l">Volledig fout</div></div>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(jokerPunten)}</div><div className="stat-l">Jokerpunten</div></div>
     </div>
-  </div>);}
+
+    {/* PER GROEP */}
+    {GRP.map(grp=>{
+      const gMatches=matchDet.filter(m=>m.group===grp);
+      if(!gMatches.length)return null;
+      const grpPts=gMatches.reduce((s,m)=>s+m.pts,0);
+      const isOpen=openGroep===grp;
+      return(<div className="card" key={grp} style={{padding:0,overflow:'hidden'}}>
+        {/* Header — klikbaar */}
+        <div
+          onClick={()=>setOpenGroep(isOpen?null:grp)}
+          style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',cursor:'pointer',background:isOpen?'var(--dark3)':'transparent'}}
+        >
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontFamily:'Bebas Neue',fontSize:17,color:'var(--green)',letterSpacing:1}}>Groep {grp}</span>
+            <span style={{fontSize:11,color:'var(--muted)'}}>{gMatches.length} wedstrijden</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontFamily:'Bebas Neue',fontSize:20,color:grpPts>0?'var(--green)':grpPts<0?'var(--red)':'var(--muted)'}}>{grpPts>0?'+':''}{fmt(grpPts)}</span>
+            <span style={{color:'var(--muted)',fontSize:14}}>{isOpen?'▲':'▼'}</span>
+          </div>
+        </div>
+        {/* Detail wedstrijden */}
+        {isOpen&&<div style={{borderTop:'1px solid var(--border)'}}>
+          {gMatches.map((m,i)=>(
+            <div key={m.matchId} style={{padding:'10px 14px',borderBottom:i<gMatches.length-1?'1px solid var(--border)':'none',background:'var(--dark3)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:500}}>{m.home} – {m.away}</div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2,display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {m.homePred!=null
+                      ?<><span>Jij: <strong style={{color:'var(--text)'}}>{m.homePred}–{m.awayPred}</strong></span>
+                        <span>Uitslag: <strong style={{color:'var(--text)'}}>{m.homeScore}–{m.awayScore}</strong></span>
+                      </>
+                      :<span style={{color:'var(--red)'}}>Niet ingevuld</span>
+                    }
+                  </div>
+                  <div style={{marginTop:4,display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {m.cat&&<span className={`tag ${CT[m.cat]}`}>{CL[m.cat]}</span>}
+                    {m.wb>0&&<span className="tag tag-blue">+{m.wb}w</span>}
+                    {m.isJ&&<span className="tag tag-gold">🃏×2</span>}
+                    {!m.cat&&m.homePred==null&&<span className="tag tag-gray">Niet ingevuld</span>}
+                  </div>
+                </div>
+                <div style={{fontFamily:'Bebas Neue',fontSize:20,color:m.pts>0?'var(--green)':m.pts<0?'var(--red)':'var(--muted)',flexShrink:0}}>
+                  {m.pts>0?'+':''}{fmt(m.pts)}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{display:'flex',justifyContent:'flex-end',padding:'8px 14px',borderTop:'1px solid var(--border)',background:'var(--dark2)'}}>
+            <span style={{fontSize:12,color:'var(--muted)',marginRight:8}}>Totaal groep {grp}:</span>
+            <span style={{fontFamily:'Bebas Neue',fontSize:16,color:grpPts>0?'var(--green)':grpPts<0?'var(--red)':'var(--muted)'}}>{grpPts>0?'+':''}{fmt(grpPts)}</span>
+          </div>
+        </div>}
+      </div>);
+    })}
+
+    {/* BIJVRAGEN */}
+    {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').length>0&&<div className="card">
+      <div className="card-title">⭐ Bijvragen</div>
+      {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').map((d,i)=>(
+        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
+      ))}
+    </div>}
+
+    {/* KO-KWALIFICATIE */}
+    {kwalDet.length>0&&<div className="card">
+      <div className="card-title">🎫 KO-kwalificatie</div>
+      {kwalDet.map((d,i)=>(
+        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
+      ))}
+    </div>}
+
+    {/* KO-FASE */}
+    {koDet.length>0&&<div className="card">
+      <div className="card-title">🏆 KO-fase</div>
+      {koDet.map((d,i)=>(
+        <div className="pts-row" key={i}><span>{d.label}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>
+      ))}
+    </div>}
+
+    {totaal===0&&matchDet.length===0&&<div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:20}}>Nog geen wedstrijden gespeeld.</div>}
+  </div>);
+}
 
 // UITLEG PAGINA + CHECKLIST
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
