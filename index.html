@@ -485,18 +485,20 @@ function calcKOPts(koPronos, koMatches, koPunten){
   return{tot,det};
 }
 function FairplayRanking({teams,value,onChange,locked}){
-  // value = array van teams gesorteerd op fairplay (beste eerst)
   const [order,setOrder]=useState(value&&value.length===teams.length?value:[...teams]);
   const dragIdx=useRef(null);
   const touchStartY=useRef(null);
   const touchItem=useRef(null);
+  const isDragging=useRef(false);
 
   useEffect(()=>{
+    // Niet resetten tijdens slepen
+    if(isDragging.current)return;
     if(value&&value.length===teams.length)setOrder(value);
     else setOrder([...teams]);
   },[JSON.stringify(teams),JSON.stringify(value)]);
 
-  function onDragStart(i){dragIdx.current=i;}
+  function onDragStart(i){dragIdx.current=i;isDragging.current=true;}
   function onDragOver(e,i){
     e.preventDefault();
     if(dragIdx.current===null||dragIdx.current===i)return;
@@ -506,12 +508,12 @@ function FairplayRanking({teams,value,onChange,locked}){
     dragIdx.current=i;
     setOrder(newOrder);
   }
-  function onDragEnd(){dragIdx.current=null;onChange(order);}
+  function onDragEnd(){dragIdx.current=null;isDragging.current=false;onChange(order);}
 
-  // Touch support
   function onTouchStart(e,i){
     touchStartY.current=e.touches[0].clientY;
     touchItem.current=i;
+    isDragging.current=true;
   }
   function onTouchMove(e){
     e.preventDefault();
@@ -528,7 +530,7 @@ function FairplayRanking({teams,value,onChange,locked}){
     touchStartY.current=e.touches[0].clientY;
     setOrder(newOrder);
   }
-  function onTouchEnd(){touchItem.current=null;onChange(order);}
+  function onTouchEnd(){touchItem.current=null;isDragging.current=false;onChange(order);}
 
   const rankCls=['r1','r2','r3','r4'];
   return(<div className="fp-list">
@@ -1439,10 +1441,17 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
   const adminFP=fpAll['admin']||{};
   const[adminLFP,setAdminLFP]=useState(adminFP);
-  useEffect(()=>setAdminLFP(fpAll['admin']||{}),[fpAll]);
+  const adminFPRef=useRef(false);
+  useEffect(()=>{
+    // Alleen updaten als we niet bezig zijn met slepen
+    if(!adminFPRef.current)setAdminLFP(fpAll['admin']||{});
+  },[fpAll]);
   async function saveAdminFP(grp,ranking){
+    adminFPRef.current=true;
+    setAdminLFP(p=>({...p,[grp]:ranking}));
     await sb.from('fairplay').upsert({user_id:'admin',group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
-    onRefresh();
+    setTimeout(()=>{adminFPRef.current=false;},1000);
+    // Geen onRefresh — lokale state beheert de ranking
   }
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
@@ -1590,6 +1599,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         if(!Object.keys(scE).length)return null;
         let adminFpRanking=adminLFP[ag];
         if(typeof adminFpRanking==='string'){try{adminFpRanking=JSON.parse(adminFpRanking);}catch{adminFpRanking=null;}}
+        if(!Array.isArray(adminFpRanking))adminFpRanking=null;
         const stand=buildStand(gm,scE,adminFpRanking,fifaRanking);
         return(<div className="card" style={{marginTop:12}}>
           <div className="card-title" style={{fontSize:14}}>📊 Huidige stand Groep {ag}</div>
