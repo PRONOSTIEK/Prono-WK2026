@@ -1113,12 +1113,11 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
   const totaal=tot+koTot;
   const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`}))];
-  const teldatum=config.bijvragen_teldatum||'';
-  const telPunten=!teldatum||new Date()>=new Date(teldatum);
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
     {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
