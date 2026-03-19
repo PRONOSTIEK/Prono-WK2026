@@ -428,6 +428,93 @@ function calcKOPts(koPronos, koMatches, koPunten){
   }
   return{tot,det};
 }
+// Bereken de echte KO-teams op basis van echte uitslagen
+function calcEchteKOTeams(matches, fpAll){
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  const winnaars={},runners={},derden=[];
+  for(const grp of GRP){
+    const gm=mbg[grp]||[];
+    if(!gm.length)continue;
+    // Enkel groepen waar alle wedstrijden gespeeld zijn
+    if(gm.some(m=>m.home_score==null))continue;
+    const scE={};for(const m of gm)scE[m.id]={h:m.home_score,a:m.away_score};
+    const stand=buildStand(gm,scE,null);
+    if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:1,grp};
+    if(stand.length>=2)runners[grp]={team:stand[1].team,pos:2,grp};
+    if(stand.length>=3)derden.push({...stand[2],pos:3,grp});
+  }
+  const top8Derden=[...derden].sort((a,b)=>{
+    if(b.pts!==a.pts)return b.pts-a.pts;
+    if(b.gd!==a.gd)return b.gd-a.gd;
+    if(b.gs!==a.gs)return b.gs-a.gs;
+    if(b.w!==a.w)return b.w-a.w;
+    return a.team.localeCompare(b.team);
+  }).slice(0,8);
+  // Bouw een map: teamnaam → {gekwalificeerd, pos ('1','2','3')}
+  const result={};
+  for(const g of Object.values(winnaars))result[g.team]={gekwalificeerd:true,pos:'1',grp:g.grp};
+  for(const g of Object.values(runners))result[g.team]={gekwalificeerd:true,pos:'2',grp:g.grp};
+  for(const d of top8Derden)result[d.team]={gekwalificeerd:true,pos:'3',grp:d.grp};
+  return result;
+}
+
+// Bereken voorspelde KO-teams voor één deelnemer
+function calcVoorspeldeKOTeams(matches, pm, fpData){
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  const winnaars={},runners={},derden=[];
+  for(const grp of GRP){
+    const gm=mbg[grp]||[];
+    if(!gm.length)continue;
+    const scV={};
+    for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
+    let fp=fpData[grp];
+    if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
+    const stand=buildStand(gm,scV,fp);
+    if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:'1',grp};
+    if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
+    if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
+  }
+  const top8Derden=[...derden].sort((a,b)=>{
+    if(b.pts!==a.pts)return b.pts-a.pts;
+    if(b.gd!==a.gd)return b.gd-a.gd;
+    if(b.gs!==a.gs)return b.gs-a.gs;
+    if(b.w!==a.w)return b.w-a.w;
+    return a.team.localeCompare(b.team);
+  }).slice(0,8);
+  const result={};
+  for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
+  for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
+  for(const d of top8Derden)result[d.team]={pos:'3',grp:d.grp};
+  return result;
+}
+
+// Bereken kwalificatiepunten voor een deelnemer
+function calcKwalPunten(pm, fpData, matches, koPunten){
+  const ptsJuist=koPunten['kwal_juist']??2;
+  const ptsAanwezig=koPunten['kwal_aanwezig']??1;
+  // Echte KO-teams afleiden uit echte uitslagen
+  const echteKO=calcEchteKOTeams(matches,{});
+  if(!Object.keys(echteKO).length)return{tot:0,det:[]};
+  const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData);
+  let tot=0;const det=[];
+  for(const [team,eInfo] of Object.entries(echteKO)){
+    const vInfo=voorspeld[team];
+    if(!vInfo)continue; // niet voorspeld als gekwalificeerd
+    if(vInfo.pos===eInfo.pos&&vInfo.grp===eInfo.grp){
+      // Juiste positie in juiste groep
+      tot+=ptsJuist;
+      det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist'});
+    } else {
+      // Wel naar KO maar verkeerde positie/groep
+      tot+=ptsAanwezig;
+      det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig'});
+    }
+  }
+  return{tot,det};
+}
+
 function FairplayRanking({teams,value,onChange,locked}){
   // value = array van teams gesorteerd op fairplay (beste eerst)
   const [order,setOrder]=useState(value&&value.length===teams.length?value:[...teams]);
@@ -521,7 +608,7 @@ function Login({onLogin}){
   </div></div>);}
 
 // KLASSEMENT
-function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const betaaldeUserIds=new Set(echteUsers.filter(u=>u.betaald).map(u=>u.id));
@@ -530,10 +617,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,spelerStats,config
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const st=echteUsers.map(u=>{
     const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
+    const fp=fpAll[u.id]||{};
     const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum);
     const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
+    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
-    return{...u,tot:u.betaald?(tot+koTot):0,filled};
+    return{...u,tot:u.betaald?(tot+koTot+kwalTot):0,filled};
   }).sort((a,b)=>b.tot-a.tot);
   return(<div>
     <div className="section-title">🏆 Live Klassement</div>
@@ -1111,15 +1200,16 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
   </div>);}
 
 // MIJN PUNTEN
-function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id),{tot,det}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
-  const totaal=tot+koTot;
-  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`}))];
+  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten);
+  const totaal=tot+koTot+kwalTot;
+  const allDet=[...det,...koDet.map(d=>({...d,label:`🏆 ${d.label}`})),...kwalDet.map(d=>({...d,label:`🎫 ${d.label}`}))];
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
     {cur.is_test&&<div className="info-test" style={{marginBottom:12}}>🧪 Testmodus — punten zijn ter illustratie.</div>}
@@ -1674,6 +1764,23 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 
     {tab==='ko'&&<div>
       <div className="card">
+        <div className="card-title">🎫 Punten KO-kwalificatie</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Punten voor het correct voorspellen welke teams zich plaatsen voor de KO-fase (top 2 per groep + beste 8 derden).</div>
+        {[['kwal_juist','Juiste positie (bv. groepswinnaar én 1e geworden)','var(--green)'],['kwal_aanwezig','Wel naar KO maar verkeerde positie','var(--gold)']].map(([round,label,color])=>(
+          <div key={round} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+            <div style={{flex:1,fontSize:13}}>{label}</div>
+            <input className="ii" type="number" min="0" style={{width:70,textAlign:'center',borderColor:color,color}}
+              defaultValue={koPunten[round]??( round==='kwal_juist'?2:1)}
+              onBlur={async e=>{
+                await sb.from('ko_punten').upsert({round,points:parseInt(e.target.value)||0});
+                onRefresh();
+              }}
+            />
+            <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+          </div>
+        ))}
+      </div>
+      <div className="card">
         <div className="card-title">🏆 Punten per KO-ronde</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Stel in hoeveel punten een correcte winnaarvoorspelling waard is per ronde.</div>
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
@@ -1890,10 +1997,10 @@ function App(){
       </div>
       <div className="content">
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
-        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} onRefresh={loadAll} initialTab={pronoTab}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
-        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} onRefresh={loadAll}/>}
       </div>
     </div>
