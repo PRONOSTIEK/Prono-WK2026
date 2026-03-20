@@ -2104,8 +2104,85 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         {hernoemMsg&&<div style={{marginTop:8,fontSize:12,color:'var(--green)'}}>{hernoemMsg}</div>}
       </div>
 
-      <div className="groep-tabs" style={{marginBottom:10}}>{GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}</div>
-      <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
+      <div className="groep-tabs" style={{marginBottom:10}}>
+        {GRP.map(g=><div key={g} className={`groep-tab ${ag===g?'active':''}`} onClick={()=>setAg(g)}>{g}</div>)}
+        <div className={`groep-tab ${ag==='3de'?'active':''}`} style={{borderColor:'var(--gold)',color:ag==='3de'?'#000':'var(--gold)',background:ag==='3de'?'var(--gold)':'transparent'}} onClick={()=>setAg('3de')}>3de</div>
+      </div>
+
+      {ag==='3de'?(()=>{
+        // Bereken derde van elke groep op basis van echte uitslagen
+        const derden=[];
+        for(const grp of GRP){
+          const gm=mbg[grp]||[];
+          if(!gm.length)continue;
+          const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
+          if(!Object.keys(scE).length)continue;
+          let afp=adminLFP[grp];
+          if(typeof afp==='string'){try{afp=JSON.parse(afp);}catch{afp=null;}}
+          const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null);
+          if(stand.length>=3)derden.push({...stand[2],grp});
+        }
+        const gesorteerd=[...derden].sort((a,b)=>{
+          if(b.pts!==a.pts)return b.pts-a.pts;
+          if(b.gd!==a.gd)return b.gd-a.gd;
+          if(b.gs!==a.gs)return b.gs-a.gs;
+          if(b.w!==a.w)return b.w-a.w;
+          return a.team.localeCompare(b.team);
+        });
+
+        // Fairplay ranking voor derden (aparte key '3de' in fairplay tabel)
+        let fpDerden=adminLFP['3de'];
+        if(typeof fpDerden==='string'){try{fpDerden=JSON.parse(fpDerden);}catch{fpDerden=null;}}
+        const derdenTeams=gesorteerd.map(d=>d.team);
+        if(!Array.isArray(fpDerden)||fpDerden.length!==derdenTeams.length)fpDerden=[...derdenTeams];
+
+        return(<div>
+          {derden.length===0&&<div style={{color:'var(--muted)',fontSize:13,padding:'12px 0'}}>Nog geen uitslagen beschikbaar voor derden.</div>}
+
+          {derdenTeams.length>0&&<div className="card">
+            <div className="card-title" style={{fontSize:14}}>🟨 Fairplay ranking derden</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>
+              Tiebreaker voor de 8 beste derden. Sleep de ploegen in volgorde van beste fairplay.
+            </div>
+            <FairplayRanking
+              teams={derdenTeams}
+              value={fpDerden}
+              onChange={ranking=>{setAdminLFP(p=>({...p,'3de':ranking}));saveAdminFP('3de',ranking);}}
+              locked={false}
+            />
+          </div>}
+
+          {gesorteerd.length>0&&<div className="card" style={{marginTop:12}}>
+            <div className="card-title" style={{fontSize:14}}>📊 Stand alle derden</div>
+            <table className="stand-table">
+              <thead><tr>
+                <th style={{textAlign:'left'}}>Pos</th>
+                <th style={{textAlign:'left'}}>Ploeg</th>
+                <th style={{textAlign:'left'}}>Grp</th>
+                <th>G</th><th>W</th><th>G</th><th>V</th>
+                <th>+</th><th>-</th><th>SD</th><th>Ptn</th>
+              </tr></thead>
+              <tbody>
+                {gesorteerd.map((r,i)=>(
+                  <tr key={r.team} style={{background:i<8?'var(--dark3)':'transparent'}}>
+                    <td><span className={`stand-pos ${i<8?'q':''}`}>{i+1}</span></td>
+                    <td style={{fontWeight:500}}>{r.team}</td>
+                    <td><span className="tag tag-gray">{r.grp}</span></td>
+                    <td>{r.played}</td><td>{r.w}</td><td>{r.d}</td><td>{r.l}</td>
+                    <td>{r.gs}</td><td>{r.ga}</td>
+                    <td className={r.gd>0?'saldo-pos':r.gd<0?'saldo-neg':''}>{r.gd>0?'+':''}{r.gd}</td>
+                    <td><span className="stand-pts">{r.pts}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 8 = gekwalificeerd voor R32</div>
+          </div>}
+        </div>);
+      })()
+      :(
+        <div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
       {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
           <input className="ii" style={{width:108}} defaultValue={m.date} onBlur={e=>setMField(m.id,'date',e.target.value)} placeholder="Datum"/>
@@ -2177,6 +2254,8 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </table>
         </div>);
       })()}
+        </div>
+      )}
     </div>}
 
     {tab==='bijvragen'&&<div>
