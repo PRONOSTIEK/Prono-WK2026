@@ -1992,19 +1992,26 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
 
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
-  const adminFP=fpAll['admin']||{};
-  const[adminLFP,setAdminLFP]=useState(adminFP);
-  const adminFPRef=useRef(false);
+  const[adminLFP,setAdminLFP]=useState(fpAll['admin']||{});
+  const adminLFPVersion=useRef(0); // versieteller: lokale wijzigingen winnen van refresh
+  const adminLFPSaved=useRef({}); // bijhouden wat al opgeslagen is
+
   useEffect(()=>{
-    // Alleen updaten als we niet bezig zijn met slepen
-    if(!adminFPRef.current)setAdminLFP(fpAll['admin']||{});
+    // Alleen overschrijven als er geen lokale wijzigingen zijn
+    const incoming=fpAll['admin']||{};
+    // Merge: lokale opgeslagen waarden winnen van incoming
+    const merged={...incoming};
+    for(const [grp,val] of Object.entries(adminLFPSaved.current)){
+      merged[grp]=val;
+    }
+    setAdminLFP(merged);
   },[fpAll]);
+
   async function saveAdminFP(grp,ranking){
-    adminFPRef.current=true;
     setAdminLFP(p=>({...p,[grp]:ranking}));
+    adminLFPSaved.current={...adminLFPSaved.current,[grp]:ranking};
     await sb.from('fairplay').upsert({user_id:'admin',group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
-    setTimeout(()=>{adminFPRef.current=false;},1000);
-    // Geen onRefresh — lokale state beheert de ranking
+    onRefresh(); // klassement en andere componenten bijwerken
   }
   async function saveSpelerStat(bvId,naam,field,val){
     const{data:existing}=await sb.from('speler_stats').select('*').eq('bv_id',bvId).eq('naam',naam).maybeSingle();
