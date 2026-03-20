@@ -1792,15 +1792,45 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
   async function invullenAlles(){
     setBezig(true);setMsg('');
     try{
-      await Promise.all(matches.filter(m=>GRP.includes(m.group)).map(m=>{
-        const td=testData.matches?.[m.id]||{h:2,a:1};
+      // Gevarieerde vaste uitslagen (cyclisch hergebruikt per wedstrijd)
+      const SCORES=[{h:2,a:1},{h:0,a:0},{h:3,a:1},{h:1,a:1},{h:0,a:2},{h:4,a:0},{h:1,a:2},{h:2,a:2},{h:3,a:0},{h:1,a:3},{h:0,a:1},{h:2,a:0},{h:1,a:0},{h:0,a:3},{h:3,a:2},{h:2,a:3},{h:1,a:4},{h:0,a:0}];
+      const grpMatches=matches.filter(m=>GRP.includes(m.group));
+      await Promise.all(grpMatches.map((m,i)=>{
+        const td=testData.matches?.[m.id]??SCORES[i%SCORES.length];
         return sb.from('matches').update({home_score:td.h,away_score:td.a}).eq('id',m.id);
       }));
+
+      // KO-winnaars: gebruik testData als ingesteld, anders eerste team van de twee
+      const rounds=['R32','R16','KF','HF','KF3','F'];
+      const winnerMap={};
+      for(const round of rounds){
+        const rMatches=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
+        for(const m of rMatches){
+          const ingesteld=testData.ko?.[m.id];
+          if(ingesteld){winnerMap[m.id]=ingesteld;continue;}
+          // Automatisch: bereken teams op basis van vorige ronde
+          let teams=[];
+          if(round==='R32'){
+            teams=[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-'));
+          } else if(round==='KF3'){
+            const hfMs=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+            teams=hfMs.flatMap(hm=>{const t=[hm.home,hm.away].filter(Boolean);return winnerMap[hm.id]?t.filter(x=>x!==winnerMap[hm.id]):[];}).slice(0,2);
+          } else {
+            const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
+            const prevMs=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+            const idx=(m.position-1)*2;
+            teams=[prevMs[idx]?winnerMap[prevMs[idx].id]:null,prevMs[idx+1]?winnerMap[prevMs[idx+1].id]:null].filter(Boolean);
+          }
+          // Afwisselend eerste of tweede team kiezen voor variatie
+          winnerMap[m.id]=teams[m.position%2===0?Math.min(1,teams.length-1):0]||teams[0]||null;
+        }
+      }
       await Promise.all(koMatches.map(m=>{
-        const w=testData.ko?.[m.id];
+        const w=winnerMap[m.id];
         if(!w)return null;
         return sb.from('ko_matches').update({winner:w}).eq('id',m.id);
       }).filter(Boolean));
+
       await Promise.all(bvs.filter(b=>testData.bvs?.[b.id]).map(b=>
         sb.from('bijvragen').update({correct_answer:testData.bvs[b.id]}).eq('id',b.id)
       ));
