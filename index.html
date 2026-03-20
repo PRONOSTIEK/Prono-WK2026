@@ -808,14 +808,6 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         </tbody>
       </table>
     </div>
-    <div className="card">
-      <div className="card-title">📊 Puntentabel</div>
-      <table className="wt"><thead><tr><th>Categorie</th><th>Punten</th></tr></thead><tbody>
-        {[['alles_juist','Alles juist','var(--green)'],['een_juist_winnaar_juist','1 juist + winnaar juist','var(--green)'],['niets_juist_winnaar_juist','Niets juist + winnaar juist','var(--gold)'],['een_juist_winnaar_fout','1 juist + winnaar fout','var(--gold)'],['alles_fout','Alles fout','var(--red)']].map(([k,l,c])=>(
-          <tr key={k}><td>{l}</td><td><strong style={{color:c}}>{pt[k]>0?'+':''}{fmt(pt[k])}</strong></td></tr>
-        ))}
-      </tbody></table>
-    </div>
   </div>);}
 
 // PRONOSTIEK
