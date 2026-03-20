@@ -2143,16 +2143,17 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           if(!Object.keys(scE).length)continue;
           let afp=adminLFP[grp];
           if(typeof afp==='string'){try{afp=JSON.parse(afp);}catch{afp=null;}}
-          const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null);
+          const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null,fifaRanking);
           if(stand.length>=3)derden.push({...stand[2],grp});
         }
-        const gesorteerd=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking);
 
         // Fairplay ranking voor derden (aparte key '3de' in fairplay tabel)
         let fpDerden=adminLFP['3de'];
         if(typeof fpDerden==='string'){try{fpDerden=JSON.parse(fpDerden);}catch{fpDerden=null;}}
-        const derdenTeams=gesorteerd.map(d=>d.team);
+        const derdenTeams=derden.map(d=>d.team);
         if(!Array.isArray(fpDerden)||fpDerden.length!==derdenTeams.length)fpDerden=[...derdenTeams];
+
+        const gesorteerd=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking);
 
         return(<div>
           {derden.length===0&&<div style={{color:'var(--muted)',fontSize:13,padding:'12px 0'}}>Nog geen uitslagen beschikbaar voor derden.</div>}
