@@ -2259,6 +2259,33 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
           const rMatches=koMatches.filter(m=>m.round===round);
           if(!rMatches.length)return null;
+
+          // Herken bijvragen op basis van trefwoorden
+          function findBv(woorden){
+            return bvs.find(b=>woorden.every(w=>b.question.toLowerCase().includes(w.toLowerCase())));
+          }
+
+          async function saveWinnerEnBijvragen(matchId,winner,matchRound,teams){
+            await sb.from('ko_matches').update({winner:winner||null}).eq('id',matchId);
+            if(!winner){onRefresh();return;}
+            const verliezer=teams.find(t=>t!==winner);
+            const updates=[];
+            if(matchRound==='F'){
+              const bvWK=findBv(['wereldkampioen'])||findBv(['winnaar','wereld'])||findBv(['kampioen']);
+              const bvVF=findBv(['verliezer','finale'])||findBv(['runner'])||findBv(['tweede','finale']);
+              if(bvWK)updates.push(sb.from('bijvragen').update({correct_answer:winner}).eq('id',bvWK.id));
+              if(bvVF&&verliezer)updates.push(sb.from('bijvragen').update({correct_answer:verliezer}).eq('id',bvVF.id));
+            }
+            if(matchRound==='KF3'){
+              const bvWKF3=findBv(['winnaar','kleine'])||findBv(['derde','plaats'])||findBv(['bronzen']);
+              const bvVKF3=findBv(['verliezer','kleine'])||findBv(['vierde','plaats']);
+              if(bvWKF3)updates.push(sb.from('bijvragen').update({correct_answer:winner}).eq('id',bvWKF3.id));
+              if(bvVKF3&&verliezer)updates.push(sb.from('bijvragen').update({correct_answer:verliezer}).eq('id',bvVKF3.id));
+            }
+            await Promise.all(updates);
+            onRefresh();
+          }
+
           function getEchteTeams(m){
             if(m.round==='R32')return[m.home,m.away].filter(t=>t&&!t.startsWith('W-')&&!t.startsWith('VL-'));
             if(m.round==='KF3'){
@@ -2275,8 +2302,12 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             const idx=(m.position-1)*2;
             return[prevMatches[idx]?.winner,prevMatches[idx+1]?.winner].filter(Boolean);
           }
+
           return(<div key={round} style={{marginBottom:14}}>
-            <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>{label}</div>
+            <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>
+              {label}
+              {(round==='F'||round==='KF3')&&<span style={{fontSize:10,color:'var(--gold)',fontFamily:'DM Sans',marginLeft:8}}>→ vult bijvragen automatisch in</span>}
+            </div>
             {rMatches.map(m=>{
               const teams=getEchteTeams(m);
               return(<div key={m.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
@@ -2285,7 +2316,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
                 </div>
                 {teams.length>=2&&<select className="ii" style={{minWidth:140}}
                   defaultValue={m.winner||''}
-                  onBlur={async e=>{await sb.from('ko_matches').update({winner:e.target.value||null}).eq('id',m.id);onRefresh();}}
+                  onBlur={async e=>saveWinnerEnBijvragen(m.id,e.target.value,round,teams)}
                 >
                   <option value="">— Nog niet gespeeld —</option>
                   {teams.map(t=>(<option key={t} value={t}>{t}</option>))}
