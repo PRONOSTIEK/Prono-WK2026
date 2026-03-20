@@ -1632,6 +1632,7 @@ function SpelerStatRow({s,isKeeper,bvId,onSave,onDel}){
 
 // BIJVRAGEN SORTEERLIJST (admin)
 function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
+  const LOCKED=4; // eerste 4 bijvragen zijn vergrendeld
   const[order,setOrder]=useState(bvs.map(b=>b.id));
   const dragIdx=useRef(null);
   const touchStartY=useRef(null);
@@ -1642,6 +1643,8 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   function getOrdered(){return order.map(id=>bvs.find(b=>b.id===id)).filter(Boolean);}
 
   function move(from,to){
+    // Vergrendelde items mogen niet verplaatst worden
+    if(from<LOCKED||to<LOCKED)return;
     const newOrder=[...order];
     const[moved]=newOrder.splice(from,1);
     newOrder.splice(to,0,moved);
@@ -1649,16 +1652,16 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
     saveBvOrder(newOrder);
   }
 
-  function onDragStart(i){dragIdx.current=i;}
-  function onDragOver(e,i){e.preventDefault();if(dragIdx.current===null||dragIdx.current===i)return;move(dragIdx.current,i);dragIdx.current=i;}
+  function onDragStart(i){if(i<LOCKED)return;dragIdx.current=i;}
+  function onDragOver(e,i){e.preventDefault();if(dragIdx.current===null||dragIdx.current===i||i<LOCKED)return;move(dragIdx.current,i);dragIdx.current=i;}
   function onDragEnd(){dragIdx.current=null;}
-  function onTouchStart(e,i){touchStartY.current=e.touches[0].clientY;touchItem.current=i;}
+  function onTouchStart(e,i){if(i<LOCKED)return;touchStartY.current=e.touches[0].clientY;touchItem.current=i;}
   function onTouchMove(e){
     e.preventDefault();
     const dy=e.touches[0].clientY-touchStartY.current;
     const steps=Math.round(dy/70);
     if(steps===0||touchItem.current===null)return;
-    const newIdx=Math.max(0,Math.min(order.length-1,touchItem.current+steps));
+    const newIdx=Math.max(LOCKED,Math.min(order.length-1,touchItem.current+steps));
     if(newIdx===touchItem.current)return;
     move(touchItem.current,newIdx);
     touchStartY.current=e.touches[0].clientY;
@@ -1666,26 +1669,35 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
   }
   function onTouchEnd(){touchItem.current=null;}
 
+  const KO_LABELS=['🏆 Wereldkampioen','🥈 Verliezer finale','🥉 Winnaar kleine finale','4️⃣ Verliezer kleine finale'];
+
   return(<div>
-    {getOrdered().map((bv,i)=>(
-      <div key={bv.id}
+    {getOrdered().map((bv,i)=>{
+      const locked=i<LOCKED;
+      return(<div key={bv.id}
         className="bv-card"
-        draggable
+        draggable={!locked}
         onDragStart={()=>onDragStart(i)}
         onDragOver={e=>onDragOver(e,i)}
         onDragEnd={onDragEnd}
         onTouchStart={e=>onTouchStart(e,i)}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        style={{marginBottom:8,cursor:'grab'}}
+        onTouchMove={locked?undefined:onTouchMove}
+        onTouchEnd={locked?undefined:onTouchEnd}
+        style={{marginBottom:8,cursor:locked?'default':'grab',borderColor:locked?'var(--gold)':undefined}}
       >
+        {locked&&<div style={{fontSize:10,color:'var(--gold)',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+          🔒 Vastgezet — {KO_LABELS[i]} — automatisch ingevuld via KO-fase
+        </div>}
         <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
-          {/* Sleep-handle + pijltjes */}
-          <div style={{display:'flex',flexDirection:'column',gap:1,flexShrink:0}}>
-            <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i>0&&move(i,i-1)} title="Omhoog">▲</button>
-            <div style={{color:'var(--muted)',fontSize:16,textAlign:'center',cursor:'grab',userSelect:'none'}}>⠿</div>
-            <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i<order.length-1&&move(i,i+1)} title="Omlaag">▼</button>
-          </div>
+          {/* Sleep-handle + pijltjes — alleen voor niet-vergrendelde items */}
+          {locked
+            ?<div style={{width:24,flexShrink:0}}/>
+            :<div style={{display:'flex',flexDirection:'column',gap:1,flexShrink:0}}>
+              <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i>LOCKED&&move(i,i-1)} title="Omhoog">▲</button>
+              <div style={{color:'var(--muted)',fontSize:16,textAlign:'center',cursor:'grab',userSelect:'none'}}>⠿</div>
+              <button style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',padding:'1px 4px',fontSize:11,lineHeight:1}} onClick={()=>i<order.length-1&&move(i,i+1)} title="Omlaag">▼</button>
+            </div>
+          }
           <input className="ii" style={{flex:1,minWidth:120,fontWeight:600}} defaultValue={bv.question} onBlur={e=>setBvField(bv.id,'question',e.target.value)} placeholder="Vraag..."/>
           <input className="ii" style={{width:50}} type="number" defaultValue={bv.points} onBlur={e=>setBvField(bv.id,'points',parseInt(e.target.value)||bv.points)} min={1}/>
           <select className="ii" defaultValue={bv.type} onBlur={e=>setBvField(bv.id,'type',e.target.value)}>
@@ -1694,7 +1706,8 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
             <option value="number">🔢 Getal</option>
             <option value="text">📝 Vrij</option>
           </select>
-          <button className="btn btn-sm btn-danger" onClick={()=>delBv(bv.id)}>✕</button>
+          {!locked&&<button className="btn btn-sm btn-danger" onClick={()=>delBv(bv.id)}>✕</button>}
+          {locked&&<div style={{width:32}}/>}
         </div>
         {bv.type==='team'
           ?<select className="ii" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)}>
@@ -1705,9 +1718,9 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
             ?<input className="ii" type="number" inputMode="numeric" min="0" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)} placeholder="Correct antwoord (getal)"/>
             :<input className="ii" style={{width:'100%'}} defaultValue={bv.correct_answer||''} onBlur={e=>setBvAns(bv.id,e.target.value)} placeholder="Correct antwoord"/>
         }
-        <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Klik buiten het veld om op te slaan.</div>
-      </div>
-    ))}
+        {!locked&&<div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Klik buiten het veld om op te slaan.</div>}
+      </div>);
+    })}
   </div>);}
 
 // ADMIN
@@ -2260,10 +2273,9 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           const rMatches=koMatches.filter(m=>m.round===round);
           if(!rMatches.length)return null;
 
-          // Herken bijvragen op basis van trefwoorden
-          function findBv(woorden){
-            return bvs.find(b=>woorden.every(w=>b.question.toLowerCase().includes(w.toLowerCase())));
-          }
+          // Eerste 4 bijvragen op volgorde
+          const bvsSorted=bvs.filter(b=>b.type!=='speler3').slice(0,4);
+          const [bvWK,bvVF,bvWKF3,bvVKF3]=bvsSorted;
 
           async function saveWinnerEnBijvragen(matchId,winner,matchRound,teams){
             await sb.from('ko_matches').update({winner:winner||null}).eq('id',matchId);
@@ -2271,14 +2283,10 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             const verliezer=teams.find(t=>t!==winner);
             const updates=[];
             if(matchRound==='F'){
-              const bvWK=findBv(['wereldkampioen'])||findBv(['winnaar','wereld'])||findBv(['kampioen']);
-              const bvVF=findBv(['verliezer','finale'])||findBv(['runner'])||findBv(['tweede','finale']);
               if(bvWK)updates.push(sb.from('bijvragen').update({correct_answer:winner}).eq('id',bvWK.id));
               if(bvVF&&verliezer)updates.push(sb.from('bijvragen').update({correct_answer:verliezer}).eq('id',bvVF.id));
             }
             if(matchRound==='KF3'){
-              const bvWKF3=findBv(['winnaar','kleine'])||findBv(['derde','plaats'])||findBv(['bronzen']);
-              const bvVKF3=findBv(['verliezer','kleine'])||findBv(['vierde','plaats']);
               if(bvWKF3)updates.push(sb.from('bijvragen').update({correct_answer:winner}).eq('id',bvWKF3.id));
               if(bvVKF3&&verliezer)updates.push(sb.from('bijvragen').update({correct_answer:verliezer}).eq('id',bvVKF3.id));
             }
