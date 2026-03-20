@@ -447,7 +447,35 @@ function buildStand(matches, scores, fpRanking, fifaRanking){
 // ─── KNOCK-OUT HELPERS ───────────────────────────────────────────────────────
 
 // Bereken winnaar/runner-up/derden voor alle groepen op basis van pronostiek
-function calcKOTeams(matches, lPM, lFP, fifaRanking){
+// Sorteer derden volgens officiële FIFA-criteria
+// fpDerden = array van teamnamen gesorteerd op fairplay beste eerst (admin ranking voor derden)
+// fifaRanking = array van {team, rank} objecten
+function sortDerden(derden, fpDerden, fifaRanking){
+  function fpScore(team){
+    if(!fpDerden||!Array.isArray(fpDerden))return 0;
+    const idx=fpDerden.indexOf(team);
+    if(idx===-1)return 0;
+    return derden.length-idx; // hoger = betere fairplay
+  }
+  function fifaScore(team){
+    if(!fifaRanking||!Array.isArray(fifaRanking))return 9999;
+    const entry=fifaRanking.find(r=>r.team===team);
+    return entry?entry.rank:9999; // lager = beter
+  }
+  return[...derden].sort((a,b)=>{
+    if(b.pts!==a.pts)return b.pts-a.pts;       // 1. Punten
+    if(b.gd!==a.gd)return b.gd-a.gd;           // 2. Doelsaldo
+    if(b.gs!==a.gs)return b.gs-a.gs;           // 3. Goals voor
+    if(b.w!==a.w)return b.w-a.w;               // 4. Overwinningen
+    const fpA=fpScore(a.team),fpB=fpScore(b.team);
+    if(fpB!==fpA)return fpB-fpA;               // 5. Fairplay
+    const frA=fifaScore(a.team),frB=fifaScore(b.team);
+    if(frA!==frB)return frA-frB;               // 6. FIFA ranking
+    return a.team.localeCompare(b.team);        // 7. Alfabetisch
+  });
+}
+
+function calcKOTeams(matches, lPM, lFP, fifaRanking, fpDerden){
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
 
@@ -463,15 +491,7 @@ function calcKOTeams(matches, lPM, lFP, fifaRanking){
     if(stand.length>=3)derden.push({...stand[2],grp});
   }
 
-  // Sorteer derden en pak top 8
-  const top8Derden=[...derden].sort((a,b)=>{
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    if(b.w!==a.w)return b.w-a.w;
-    return a.team.localeCompare(b.team);
-  }).slice(0,8).map(d=>d.team);
-
+  const top8Derden=sortDerden(derden,fpDerden,fifaRanking).slice(0,8).map(d=>d.team);
   return{winnaars,runners,top8Derden};
 }
 
@@ -557,7 +577,7 @@ function calcKOPts(koPronos, koMatches, koPunten){
 }
 
 // Bereken de echte KO-teams op basis van echte uitslagen + admin fairplay
-function calcEchteKOTeams(matches, adminFP){
+function calcEchteKOTeams(matches, adminFP, fifaRanking){
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const winnaars={},runners={},derden=[];
@@ -567,18 +587,14 @@ function calcEchteKOTeams(matches, adminFP){
     const scE={};for(const m of gm)scE[m.id]={h:m.home_score,a:m.away_score};
     let fp=adminFP?.[grp];
     if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-    const stand=buildStand(gm,scE,Array.isArray(fp)?fp:null);
+    const stand=buildStand(gm,scE,Array.isArray(fp)?fp:null,fifaRanking);
     if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:'1',grp};
     if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
     if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
   }
-  const top8Derden=[...derden].sort((a,b)=>{
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    if(b.w!==a.w)return b.w-a.w;
-    return a.team.localeCompare(b.team);
-  }).slice(0,8);
+  let fpDerden=adminFP?.['3de'];
+  if(typeof fpDerden==='string'){try{fpDerden=JSON.parse(fpDerden);}catch{fpDerden=null;}}
+  const top8Derden=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking).slice(0,8);
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
@@ -587,7 +603,7 @@ function calcEchteKOTeams(matches, adminFP){
 }
 
 // Bereken voorspelde KO-teams voor één deelnemer
-function calcVoorspeldeKOTeams(matches, pm, fpData){
+function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const winnaars={},runners={},derden=[];
@@ -598,18 +614,15 @@ function calcVoorspeldeKOTeams(matches, pm, fpData){
     for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
     let fp=fpData[grp];
     if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-    const stand=buildStand(gm,scV,Array.isArray(fp)?fp:null);
+    const stand=buildStand(gm,scV,Array.isArray(fp)?fp:null,fifaRanking);
     if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:'1',grp};
     if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
     if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
   }
-  const top8Derden=[...derden].sort((a,b)=>{
-    if(b.pts!==a.pts)return b.pts-a.pts;
-    if(b.gd!==a.gd)return b.gd-a.gd;
-    if(b.gs!==a.gs)return b.gs-a.gs;
-    if(b.w!==a.w)return b.w-a.w;
-    return a.team.localeCompare(b.team);
-  }).slice(0,8);
+  // Voor deelnemers: gebruik hun eigen fairplay van derden (groep '3de') als die bestaat
+  let fpDerden=fpData['3de'];
+  if(typeof fpDerden==='string'){try{fpDerden=JSON.parse(fpDerden);}catch{fpDerden=null;}}
+  const top8Derden=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking).slice(0,8);
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
@@ -618,12 +631,12 @@ function calcVoorspeldeKOTeams(matches, pm, fpData){
 }
 
 // Bereken kwalificatiepunten (groepsfase → KO)
-function calcKwalPunten(pm, fpData, matches, koPunten, adminFP){
+function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking){
   const ptsJuist=koPunten['kwal_juist']??2;
   const ptsAanwezig=koPunten['kwal_aanwezig']??1;
-  const echteKO=calcEchteKOTeams(matches,adminFP||{});
+  const echteKO=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
   if(!Object.keys(echteKO).length)return{tot:0,det:[]};
-  const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData);
+  const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData,fifaRanking);
   let tot=0;const det=[];
   for(const [team,eInfo] of Object.entries(echteKO)){
     const vInfo=voorspeld[team];
@@ -761,7 +774,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const fp=fpAll[u.id]||{};
     const{tot}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches);
     const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
-    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP);
+    const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     const totaal=tot+koTot+kwalTot;
     return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled};
@@ -1108,22 +1121,32 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         }
       }
 
-      // Sorteer derden: punten → doelsaldo → goals → overwinningen
-      const gesorteerd=[...derden].sort((a,b)=>{
-        if(b.pts!==a.pts)return b.pts-a.pts;
-        if(b.gd!==a.gd)return b.gd-a.gd;
-        if(b.gs!==a.gs)return b.gs-a.gs;
-        if(b.w!==a.w)return b.w-a.w;
-        return a.team.localeCompare(b.team);
-      });
+      // Sorteer derden: officiële FIFA-criteria
+      const fpDerden3de=lFP['3de'];
+      const gesorteerd=sortDerden(derden,Array.isArray(fpDerden3de)?fpDerden3de:null,fifaRanking);
 
       return(<div>
         <div style={{fontFamily:'Bebas Neue',fontSize:19,color:'var(--gold)',letterSpacing:1,marginBottom:12}}>
           Ranking 3de gerangschikte ploegen
         </div>
         <div className="info">
-          Top 8 van de 12 derden gaan door naar de volgende ronde. Criteria: 1) Punten · 2) Doelsaldo · 3) Goals voor · 4) Overwinningen
+          Top 8 van de 12 derden gaan door naar de volgende ronde. Criteria: 1) Punten · 2) Doelsaldo · 3) Goals voor · 4) Overwinningen · 5) Fairplay · 6) FIFA-ranking
         </div>
+
+        {/* Fairplay ranking voor derden */}
+        {derden.length>0&&<div className="card">
+          <div className="card-title" style={{fontSize:15}}>🟨 Fairplay Rangschikking derden</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
+            Sleep de derden in volgorde van beste fairplay (1 = beste). Tiebreaker bij gelijke stand.
+          </div>
+          <FairplayRanking
+            teams={derden.map(d=>d.team)}
+            value={Array.isArray(fpDerden3de)&&fpDerden3de.length===derden.length?fpDerden3de:derden.map(d=>d.team)}
+            onChange={ranking=>hFP('3de',ranking)}
+            locked={gfStart}
+          />
+        </div>}
+
         {derden.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Vul eerst wedstrijden in bij de groepstabs.</div>}
         {gesorteerd.length>0&&<div className="card">
           <table className="stand-table">
@@ -1167,7 +1190,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
 
     {/* KNOCK-OUT FASE */}
     {tab==='ko'&&(()=>{
-      const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP,fifaRanking);
+      const fpDerden3de=lFP['3de'];
+      const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP,fifaRanking,Array.isArray(fpDerden3de)?fpDerden3de:null);
       const ROUNDS=[
         {id:'R32',label:'Ronde van 32',matches:koMatches.filter(m=>m.round==='R32')},
         {id:'R16',label:'Ronde van 16',matches:koMatches.filter(m=>m.round==='R16')},
@@ -1381,7 +1405,7 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
   </div>);}
 
 // MIJN PUNTEN
-function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
+function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRanking,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
@@ -1389,7 +1413,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,users,spel
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id);
   const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
-  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP);
+  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP,fifaRanking);
   const totaal=tot+koTot+kwalTot;
 
   // Statistieken
@@ -2122,13 +2146,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           const stand=buildStand(gm,scE,Array.isArray(afp)?afp:null);
           if(stand.length>=3)derden.push({...stand[2],grp});
         }
-        const gesorteerd=[...derden].sort((a,b)=>{
-          if(b.pts!==a.pts)return b.pts-a.pts;
-          if(b.gd!==a.gd)return b.gd-a.gd;
-          if(b.gs!==a.gs)return b.gs-a.gs;
-          if(b.w!==a.w)return b.w-a.w;
-          return a.team.localeCompare(b.team);
-        });
+        const gesorteerd=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking);
 
         // Fairplay ranking voor derden (aparte key '3de' in fairplay tabel)
         let fpDerden=adminLFP['3de'];
@@ -2737,7 +2755,7 @@ function App(){
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser}/>}
         {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
-        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
+        {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} fifaRanking={fifaRanking} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} onRefresh={loadAll}/>}
       </div>
     </div>
