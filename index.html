@@ -1598,10 +1598,16 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
   const totaal=checks.length;
   const pct=totaal>0?Math.round(totaalOk/totaal*100):0;
 
+  function scrollTop(){
+    const el=document.querySelector('.content');
+    if(el)el.scrollTo({top:0,behavior:'smooth'});
+    else window.scrollTo({top:0,behavior:'smooth'});
+  }
+
   function navTo(page,tab){
     setPage(page);
     if(tab)setPronoTab(tab);
-    window.scrollTo({top:0,behavior:'smooth'});
+    setTimeout(scrollTop,150);
   }
 
   function CheckRow({ok,label,sub,onClick}){
