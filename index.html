@@ -1823,7 +1823,8 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder}){
           <input className="ii" style={{width:50}} type="number" defaultValue={bv.points} onBlur={e=>setBvField(bv.id,'points',parseInt(e.target.value)||bv.points)} min={1}/>
           <select className="ii" defaultValue={bv.type} onBlur={e=>setBvField(bv.id,'type',e.target.value)}>
             <option value="team">🌍 Land</option>
-            <option value="player">👤 Speler</option>
+            <option value="player">👤 Speler (1)</option>
+            <option value="speler3">👥 Speler (3)</option>
             <option value="number">🔢 Getal</option>
             <option value="text">📝 Vrij</option>
           </select>
@@ -2338,7 +2339,8 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" style={{width:50}} type="number" value={newPts} onChange={e=>setNewPts(e.target.value)} min={1}/>
           <select className="ii" value={newType} onChange={e=>setNewType(e.target.value)}>
             <option value="team">🌍 Land</option>
-            <option value="player">👤 Speler</option>
+            <option value="player">👤 Speler (1)</option>
+            <option value="speler3">👥 Speler (3)</option>
             <option value="number">🔢 Getal</option>
             <option value="text">📝 Vrij</option>
           </select>
@@ -2787,7 +2789,7 @@ function App(){
     ...(user.is_admin?[{id:'admin',icon:'⚙️',label:'Beheer'}]:[]),
   ];
 
-  return(<div className="app" style={!freshUser.is_admin&&!freshUser.is_test&&!freshUser.betaald?{outline:'3px solid var(--red)',outlineOffset:'-3px'}:{}}>
+  return(<div className="app">
     <div className="topbar">
       <div className="topbar-title">⚽ WK <span>2026</span></div>
       <div className="user-badge">
@@ -2798,6 +2800,11 @@ function App(){
         <button className="btn-logout" onClick={()=>setUser(null)}>Uit</button>
       </div>
     </div>
+    {!user.is_admin&&!freshUser.is_test&&!freshUser.betaald&&(
+      <div style={{background:'var(--red)',color:'#fff',fontSize:12,fontWeight:600,textAlign:'center',padding:'7px 16px',letterSpacing:.3}}>
+        ⚠️ Je hebt nog niet betaald — contacteer de admin om je betaling te registreren.
+      </div>
+    )}
     <div className="main">
       {/* Desktop sidebar */}
       <div className="sidebar">
