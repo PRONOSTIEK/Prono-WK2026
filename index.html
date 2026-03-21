@@ -964,14 +964,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                 />
               </div>
             ))}
-            {isKeeper&&keeperRanking.length>0&&<div style={{marginTop:8,fontSize:11,color:'var(--muted)'}}>
-              <div style={{marginBottom:4,fontWeight:600,color:'var(--text)'}}>Huidige keeper ranking:</div>
-              {keeperRanking.slice(0,5).map((k,i)=><div key={k.naam} style={{display:'flex',gap:8,padding:'3px 0',borderBottom:'1px solid var(--border)'}}>
-                <span style={{fontFamily:'Bebas Neue',fontSize:14,color:i<3?'var(--gold)':'var(--muted)',width:16}}>{i+1}</span>
-                <span style={{flex:1}}>{k.naam}</span>
-                <span style={{color:'var(--muted)'}}>{k.score.toFixed(3)}</span>
-              </div>)}
-            </div>}
             {dlPassed&&<div className="locked-msg">🔒 Deadline verstreken</div>}
           </div>);
         }
@@ -1060,7 +1052,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         })}
 
         {/* Fairplay rangschikking */}
-        <div className="card">
+        <div className="card" id={`fairplay-${grp}`}>
           <div className="card-title" style={{fontSize:15}}>🟨 Fairplay Rangschikking</div>
           <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
             Sleep de ploegen in volgorde van beste fairplay (1 = beste). Dit is de tiebreaker bij gelijke stand.<br/>
@@ -1087,7 +1079,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               <td><span className="stand-pts">{r.pts}</span></td>
             </tr>)}</tbody>
           </table>
-          <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 2 = gekwalificeerd</div>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>🟢 top 2 = gekwalificeerd. Voor de stand van de zie <span style={{color:'var(--gold)',cursor:'pointer',textDecoration:'underline'}} onClick={()=>setTab('3de')}>tabblad 3des</span>.</div>
         </div>
 
         {heeftEcht&&<div className="card">
@@ -1543,67 +1535,74 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 }
 
 // UITLEG PAGINA + CHECKLIST
-function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
+function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n').filter(r=>r.trim()!=='');
 
-  // ─── CHECKLIST BEREKENING ───────────────────────────────────────────────
   const myPM=pmAll[cur.id]||{};
   const myPB=pbAll[cur.id]||{};
   const myJ=(jAll[cur.id]||[]);
   const myFP=fpAll[cur.id]||{};
   const myPV=pvAll.find(p=>p.user_id===cur.id);
+  const myKO=koPronosAll[cur.id]||{};
 
-  // Wedstrijden & jokers & fairplay per groep
   const mbg={};
   for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
 
   const groepStatus=GRP.map(grp=>{
     const gm=mbg[grp]||[];
     if(gm.length===0)return null;
-    // Teams in deze groep
     const teams=new Set();
     for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
     const aantalMatches=gm.length;
     const ingevuld=gm.filter(m=>{const p=myPM[m.id];return p&&p.home_pred!=null&&p.away_pred!=null;}).length;
     const heeftJoker=myJ.some(j=>j.group===grp);
-    // Fairplay: check of er een geldige ranking is voor deze groep
     let fpVal=myFP[grp];
     if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
     const heeftFP=Array.isArray(fpVal)&&fpVal.length===teams.size;
     return{grp,aantalMatches,ingevuld,volledig:ingevuld===aantalMatches,heeftJoker,heeftFP};
   }).filter(Boolean);
 
-  // Bijvragen
   const aantalBv=bvs.length;
   const ingevuldBv=bvs.filter(bv=>{
-    if(bv.type==='speler3'){
-      // Minstens 1 naam ingevuld telt als ingevuld
-      return [1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
-    }
-    const a=myPB[bv.id];
-    return a&&a.trim()!=='';
+    if(bv.type==='speler3')return[1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
+    const a=myPB[bv.id];return a&&a.trim()!=='';
   }).length;
   const bvVolledig=aantalBv>0&&ingevuldBv===aantalBv;
-
-  // Puntenvragen
   const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
-
-  // Betaalstatus
   const betaald=cur.betaald;
 
-  // Totale voortgang
+  // KO-rondes status
+  const ROUNDS_KO=[
+    {id:'R32',label:'Ronde van 32'},{id:'R16',label:'Ronde van 16'},
+    {id:'KF',label:'Kwartfinales'},{id:'HF',label:'Halve finales'},
+    {id:'KF3',label:'Kleine finale'},{id:'F',label:'Finale'},
+  ];
+  const koRondStatus=ROUNDS_KO.map(r=>{
+    const rMatches=koMatches.filter(m=>m.round===r.id);
+    if(!rMatches.length)return null;
+    const ingevuld=rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length;
+    return{...r,totaal:rMatches.length,ingevuld,volledig:ingevuld===rMatches.length};
+  }).filter(Boolean);
+  const koVolledig=koRondStatus.length>0&&koRondStatus.every(r=>r.volledig);
+
   const checks=[
     ...groepStatus.map(g=>g.volledig),
     ...groepStatus.map(g=>g.heeftJoker),
     ...groepStatus.map(g=>g.heeftFP),
-    bvVolledig,
-    pvIngevuld,
+    bvVolledig,pvIngevuld,
+    koRondStatus.length>0?koVolledig:null,
     betaald,
-  ];
+  ].filter(v=>v!==null);
   const totaalOk=checks.filter(Boolean).length;
   const totaal=checks.length;
   const pct=totaal>0?Math.round(totaalOk/totaal*100):0;
+
+  function navTo(page,tab){
+    setPage(page);
+    if(tab)setPronoTab(tab);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
 
   function CheckRow({ok,label,sub,onClick}){
     return(
@@ -1613,7 +1612,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       >
         <div style={{fontSize:18,width:24,textAlign:'center',flexShrink:0}}>{ok?'✅':'⬜'}</div>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,color:ok?'var(--text)':'var(--muted)',fontWeight:ok?400:400}}>{label}</div>
+          <div style={{fontSize:13,color:ok?'var(--text)':'var(--muted)'}}>{label}</div>
           {sub&&<div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{sub}</div>}
         </div>
         {onClick&&<div style={{fontSize:11,color:'var(--green)',flexShrink:0}}>→</div>}
@@ -1624,7 +1623,6 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
   return(<div>
     <div className="section-title">📖 Handleiding</div>
 
-    {/* UITLEG TEKST — bovenaan */}
     {tekst&&<div className="card">
       {paragrafen.map((p,i)=>(
         <p key={i} style={{fontSize:13,lineHeight:1.7,marginBottom:i<paragrafen.length-1?10:0,color:'var(--text)'}}>{p}</p>
@@ -1653,7 +1651,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
     {/* PUNTENVRAGEN */}
     <div className="card">
       <div className="card-title" style={{fontSize:15}}>🎚️ Puntenvragen</div>
-      <CheckRow ok={pvIngevuld} label={pvIngevuld?'Puntenverdeling ingevuld':'Puntenverdeling nog niet ingevuld'} sub="Geef aan hoeveel punten elke categorie waard is" onClick={()=>setPage('pv')}/>
+      <CheckRow ok={pvIngevuld} label={pvIngevuld?'Puntenverdeling ingevuld':'Puntenverdeling nog niet ingevuld'} sub="Geef aan hoeveel punten elke categorie waard is" onClick={()=>navTo('pv')}/>
     </div>
 
     {/* BIJVRAGEN */}
@@ -1661,22 +1659,64 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,setPage}){
       <div className="card-title" style={{fontSize:15}}>⭐ Bijvragen</div>
       {aantalBv===0
         ?<div style={{fontSize:12,color:'var(--muted)'}}>Nog geen bijvragen beschikbaar.</div>
-        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>setPage('prono','bijvragen')}/>
+        :<CheckRow ok={bvVolledig} label={`${ingevuldBv} van ${aantalBv} bijvragen ingevuld`} sub={bvVolledig?'Alle bijvragen zijn ingevuld':'Vul alle bijvragen in voor de deadline'} onClick={()=>navTo('prono','bijvragen')}/>
       }
     </div>
 
-    {/* PER GROEP */}
+    {/* PER GROEP — twee rijen */}
     <div className="card">
       <div className="card-title" style={{fontSize:15}}>📋 Wedstrijden, Jokers & Fairplay</div>
       {groepStatus.map(g=>(
-        <div key={g.grp}>
-          <div style={{fontSize:11,fontFamily:'Bebas Neue',letterSpacing:1,color:'var(--muted)',padding:'8px 0 4px',borderTop:'1px solid var(--border)'}}>GROEP {g.grp}</div>
-          <CheckRow ok={g.volledig} label={`Wedstrijden: ${g.ingevuld}/${g.aantalMatches} ingevuld`} onClick={()=>setPage('prono',g.grp)}/>
-          <CheckRow ok={g.heeftJoker} label={g.heeftJoker?'Joker gekozen ✓':'Joker nog niet gekozen'} sub="Kies 1 wedstrijd als joker (dubbele punten)" onClick={()=>setPage('prono',g.grp)}/>
-          <CheckRow ok={g.heeftFP} label={g.heeftFP?'Fairplay ranking ingevuld ✓':'Fairplay ranking nog niet ingevuld'} sub="Sleep de ploegen in volgorde van beste fairplay" onClick={()=>setPage('prono',g.grp)}/>
+        <div key={g.grp} style={{borderTop:'1px solid var(--border)',paddingTop:8,paddingBottom:8}}>
+          {/* Rij 1: Groepsnaam */}
+          <div style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--green)',letterSpacing:1,marginBottom:6}}>Groep {g.grp}</div>
+          {/* Rij 2: Drie checkboxen naast elkaar */}
+          <div style={{display:'flex',gap:6}}>
+            {/* Wedstrijden */}
+            <div onClick={()=>navTo('prono',g.grp)}
+              style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'8px 4px',background:'var(--dark3)',borderRadius:7,cursor:'pointer',border:`1px solid ${g.volledig?'var(--green)':'var(--border)'}`}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--green)'}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=g.volledig?'var(--green)':'var(--border)'}
+            >
+              <div style={{fontSize:16}}>{g.volledig?'✅':'⬜'}</div>
+              <div style={{fontSize:10,color:g.volledig?'var(--green)':'var(--muted)',textAlign:'center'}}>{g.ingevuld}/{g.aantalMatches}</div>
+            </div>
+            {/* Joker */}
+            <div onClick={()=>navTo('prono',g.grp)}
+              style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'8px 4px',background:'var(--dark3)',borderRadius:7,cursor:'pointer',border:`1px solid ${g.heeftJoker?'var(--gold)':'var(--border)'}`}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=g.heeftJoker?'var(--gold)':'var(--border)'}
+            >
+              <div style={{fontSize:16}}>{g.heeftJoker?'✅':'⬜'}</div>
+              <div style={{fontSize:10,color:g.heeftJoker?'var(--gold)':'var(--muted)',textAlign:'center'}}>JOKER</div>
+            </div>
+            {/* Fairplay */}
+            <div onClick={()=>{
+                navTo('prono',g.grp);
+                setTimeout(()=>{
+                  const el=document.getElementById(`fairplay-${g.grp}`);
+                  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+                },300);
+              }}
+              style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'8px 4px',background:'var(--dark3)',borderRadius:7,cursor:'pointer',border:`1px solid ${g.heeftFP?'var(--gold)':'var(--border)'}`}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=g.heeftFP?'var(--gold)':'var(--border)'}
+            >
+              <div style={{fontSize:16}}>{g.heeftFP?'✅':'⬜'}</div>
+              <div style={{fontSize:10,color:g.heeftFP?'var(--gold)':'var(--muted)',textAlign:'center'}}>FAIRPLAY</div>
+            </div>
+          </div>
         </div>
       ))}
     </div>
+
+    {/* KO-FASE */}
+    {koRondStatus.length>0&&<div className="card">
+      <div className="card-title" style={{fontSize:15}}>🏆 Knock-out Fase</div>
+      {koRondStatus.map(r=>(
+        <CheckRow key={r.id} ok={r.volledig} label={`${r.label}: ${r.ingevuld}/${r.totaal} ingevuld`} sub={r.volledig?'Alle winnaars voorspeld':`Vul alle ${r.totaal} wedstrijden in`} onClick={()=>navTo('prono','ko')}/>
+      ))}
+    </div>}
 
   </div>);}
 
@@ -2740,7 +2780,7 @@ function App(){
     ...(user.is_admin?[{id:'admin',icon:'⚙️',label:'Beheer'}]:[]),
   ];
 
-  return(<div className="app">
+  return(<div className="app" style={!freshUser.is_admin&&!freshUser.is_test&&!freshUser.betaald?{outline:'3px solid var(--red)',outlineOffset:'-3px'}:{}}>
     <div className="topbar">
       <div className="topbar-title">⚽ WK <span>2026</span></div>
       <div className="user-badge">
@@ -2759,7 +2799,7 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} setPage={(p,t)=>{setPage(p);if(t)setPronoTab(t);}}/>}
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser}/>}
         {page==='prono'&&<Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={freshUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll}/>}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
