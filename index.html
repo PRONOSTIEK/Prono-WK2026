@@ -901,8 +901,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         const isGetal=bv.type==='number';
         const isSpeler3=bv.type==='speler3';
 
-        // Eerste 4 bijvragen automatisch afleiden uit KO-fase
-        if(bvIdx<4){
+        // Eerste 4 niet-speler3 bijvragen automatisch afleiden uit KO-fase
+        const bvIdxNietSpeler3=bvs.filter((b,i)=>i<=bvIdx&&b.type!=='speler3').length-1;
+        if(bvIdx<4&&!isSpeler3){
           const fMatch=koMatches.find(m=>m.round==='F');
           const kf3Match=koMatches.find(m=>m.round==='KF3');
           const fTeams=(()=>{
