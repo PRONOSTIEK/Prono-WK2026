@@ -1501,7 +1501,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   // Statistieken
   const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
   const aantalAllesFout=matchDet.filter(m=>m.cat==='alles_fout').length;
-  const jokerPunten=matchDet.filter(m=>m.isJ).reduce((s,m)=>s+m.pts,0);
+  const jokerPunten=matchDet.filter(m=>m.isJ).reduce((s,m)=>s+m.pts,0)/2;
   const bijvraagPunten=det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
 
   // Categorielabels
