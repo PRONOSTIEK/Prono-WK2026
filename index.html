@@ -913,7 +913,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,initialTab,onRefresh}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,initialTab,onRefresh,readOnly}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   const myFP=fpAll[cur.id]||{};
   const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'bijvragen'),[saved,setSaved]=useState(false);
@@ -927,20 +927,20 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   useEffect(()=>setLJ((jAll[cur.id]||[]).map(j=>j.match_id)),[jAll,cur.id]);
   useEffect(()=>setLFP(fpAll[cur.id]||{}),[fpAll,cur.id]);
 
-  function sv(){setSaved(true);setTimeout(()=>setSaved(false),1800);}
-  async function saveM(mid,h,a){await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
+  function sv(){if(readOnly)return;setSaved(true);setTimeout(()=>setSaved(false),1800);}
+  async function saveM(mid,h,a){if(readOnly)return;await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
   async function saveBv(bid,ans){
-    // bid kan 'bv_top_1', 'bv_top_2' etc. zijn voor speler3 vragen
+    if(readOnly)return;
     await sb.from('pronos_bijvragen').upsert({user_id:cur.id,bv_id:bid,answer:ans},{onConflict:'user_id,bv_id'});
     sv();onRefresh();
   }
   async function saveFP(grp,ranking){
-    // Sla op als JSON string in de fairplay tabel
+    if(readOnly)return;
     await sb.from('fairplay').upsert({user_id:cur.id,group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
     sv();onRefresh();
   }
   async function togJ(mid,grp){
-    if(gfStart)return;
+    if(gfStart||readOnly)return;
     const has=lJ.includes(mid);
     if(has){await sb.from('jokers').delete().eq('user_id',cur.id).eq('match_id',mid);setLJ(j=>j.filter(x=>x!==mid));}
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
@@ -950,14 +950,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const[lKO,setLKO]=useState(myKO);
   useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
   async function saveKO(matchId,winner){
+    if(readOnly)return;
     setLKO(p=>({...p,[matchId]:winner}));
     await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     sv();onRefresh();
   }
-  function hB(bid,val){setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
-  function hFP(grp,ranking){setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
+  function hB(bid,val){if(readOnly)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
+  function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
 
-  function hM(mid,side,val){const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
+  function hM(mid,side,val){if(readOnly)return;const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
   const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
@@ -1046,7 +1047,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                 <div style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--muted)',width:18,textAlign:'center'}}>{i+1}</div>
                 <input
-                  disabled={dlPassed}
+                  disabled={dlPassed||readOnly}
                   value={lPB[bv.id+`_${i+1}`]||''}
                   onChange={e=>hB(bv.id+`_${i+1}`,e.target.value)}
                   placeholder={`Naam ${i+1}`}
@@ -1062,10 +1063,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           <div className="bv-q">{bv.question} <span className="tag tag-gold">{bv.points} pt</span></div>
           <div className="bv-a">
             {isLand&&!lk
-              ?<select value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)}><option value="">— Kies een land —</option>{WK_LANDEN.map(l=><option key={l} value={l}>{l}</option>)}</select>
+              ?<select disabled={readOnly} value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)}><option value="">— Kies een land —</option>{WK_LANDEN.map(l=><option key={l} value={l}>{l}</option>)}</select>
               :isGetal&&!lk
-                ?<input type="number" inputMode="numeric" min="0" value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder="Vul een getal in" style={{textAlign:'center'}}/>
-                :<input disabled={lk} value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder={isSpeler?'Spelersnaam':isGetal?'Getal':'Antwoord'}/>
+                ?<input type="number" inputMode="numeric" min="0" disabled={lk||readOnly} value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder="Vul een getal in" style={{textAlign:'center'}}/>
+                :<input disabled={lk||readOnly} value={lPB[bv.id]||''} onChange={e=>hB(bv.id,e.target.value)} placeholder={isSpeler?'Spelersnaam':isGetal?'Getal':'Antwoord'}/>
             }
             {bv.correct_answer&&<span className="tag tag-green" style={{whiteSpace:'nowrap'}}>✓ {bv.correct_answer}</span>}
           </div>
@@ -1116,7 +1117,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               <span>{m.date}</span>
               <div style={{display:'flex',gap:5,alignItems:'center'}}>
                 {isJ&&<span className="tag tag-gold">🃏×2</span>}
-                {!lk&&<button className={`joker-btn ${isJ?'on':''}`} disabled={gfStart} onClick={()=>togJ(m.id,m.group)}>🃏 {isJ?'Annuleer':'Joker'}</button>}
+                {!lk&&<button className={`joker-btn ${isJ?'on':''}`} disabled={gfStart||readOnly} onClick={()=>togJ(m.id,m.group)}>🃏 {isJ?'Annuleer':'Joker'}</button>}
               </div>
             </div>
             <div className="match-teams">
@@ -1129,9 +1130,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   <div className="real-score">{m.home_score} – {m.away_score}</div>
                 </div>
                 :<div className="score-box">
-                  <input className="score-input" disabled={isS} value={hp??''} onChange={e=>hM(m.id,'home_pred',e.target.value)} placeholder="–"/>
+                  <input className="score-input" disabled={isS||readOnly} value={hp??''} onChange={e=>hM(m.id,'home_pred',e.target.value)} placeholder="–"/>
                   <span className="score-sep">–</span>
-                  <input className="score-input" disabled={isS} value={ap??''} onChange={e=>hM(m.id,'away_pred',e.target.value)} placeholder="–"/>
+                  <input className="score-input" disabled={isS||readOnly} value={ap??''} onChange={e=>hM(m.id,'away_pred',e.target.value)} placeholder="–"/>
                 </div>
               }
               <div className="team-name right">{m.away}</div>
@@ -1152,7 +1153,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             teams={teams}
             value={fpRanking}
             onChange={ranking=>hFP(grp,ranking)}
-            locked={gfStart}
+            locked={gfStart||readOnly}
           />
         </div>
 
@@ -1225,11 +1226,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             teams={derden.map(d=>d.team)}
             value={Array.isArray(fpDerden3de)&&fpDerden3de.length===derden.length?fpDerden3de:derden.map(d=>d.team)}
             onChange={ranking=>hFP('3de',ranking)}
-            locked={gfStart}
+            locked={gfStart||readOnly}
           />
         </div>}
 
-        {derden.length===0&&<div style={{color:'var(--muted)',fontSize:13}}>Vul eerst wedstrijden in bij de groepstabs.</div>}
         {gesorteerd.length>0&&<div className="card">
           <table className="stand-table">
             <thead><tr>
@@ -1350,9 +1350,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   <div style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>{m.position}</div>
                   {teams.length>=2?(
                     <select
+                      disabled={readOnly}
                       value={gekozen}
                       onChange={e=>saveKO(m.id,e.target.value)}
-                      style={{flex:1,background:'var(--card)',border:`1px solid ${correct?'var(--green)':fout?'var(--red)':'var(--border)'}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:'pointer'}}
+                      style={{flex:1,background:'var(--card)',border:`1px solid ${correct?'var(--green)':fout?'var(--red)':'var(--border)'}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:readOnly?'default':'pointer'}}
                     >
                       <option value="">— Kies winnaar —</option>
                       {teams.map(t=><option key={t} value={t}>{t}</option>)}
@@ -2918,7 +2919,7 @@ function App(){
               <span style={{fontSize:12,color:'var(--gold)'}}>👁 Admin-weergave: pronostiek van <strong>{viewAsUser.name}</strong></span>
               <button style={{background:'none',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:5,padding:'3px 8px',cursor:'pointer',fontSize:11}} onClick={()=>setViewAsUser(null)}>✕ Eigen pronostiek</button>
             </div>}
-            <Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll}/>
+            <Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)}/>
           </div>);
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
