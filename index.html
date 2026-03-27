@@ -1025,7 +1025,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             <div className="bv-a">
               <input disabled value={echteWaarde} placeholder="Vul eerst de KO-fase in"
                 style={{flex:1,opacity:echteWaarde?1:0.5}}/>
-              {echteWaarde&&<span className="tag tag-gold" style={{whiteSpace:'nowrap'}}>{echteWaarde}</span>}
+              {bv.correct_answer&&<span className="tag tag-gold" style={{whiteSpace:'nowrap'}}>{bv.correct_answer}</span>}
             </div>
             {bv.correct_answer&&<div className="locked-msg">✓ Bevestigd door admin: {bv.correct_answer}</div>}
           </div>);
@@ -1275,8 +1275,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       const fpDerden3de=lFP['3de'];
       const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP,fifaRanking,Array.isArray(fpDerden3de)?fpDerden3de:null);
       const ROUNDS=[
-        {id:'R32',label:'Ronde van 32',matches:koMatches.filter(m=>m.round==='R32')},
-        {id:'R16',label:'Ronde van 16',matches:koMatches.filter(m=>m.round==='R16')},
+        {id:'R32',label:'16e finales',matches:koMatches.filter(m=>m.round==='R32')},
+        {id:'R16',label:'8e finales',matches:koMatches.filter(m=>m.round==='R16')},
         {id:'KF',label:'Kwartfinales',matches:koMatches.filter(m=>m.round==='KF')},
         {id:'HF',label:'Halve finales',matches:koMatches.filter(m=>m.round==='HF')},
         {id:'KF3',label:'Kleine finale',matches:koMatches.filter(m=>m.round==='KF3')},
@@ -1654,8 +1654,10 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
     return{grp,aantalMatches,ingevuld,volledig:ingevuld===aantalMatches,heeftJoker,heeftFP};
   }).filter(Boolean);
 
-  const aantalBv=bvs.length;
-  const ingevuldBv=bvs.filter(bv=>{
+  // Eerste 4 niet-speler3 bijvragen zijn automatisch via KO-fase — tellen niet mee in voortgang
+  let _ac=0;const telBareBvs=bvs.filter(bv=>{if(bv.type==='speler3')return true;if(_ac<4){_ac++;return false;}return true;});
+  const aantalBv=telBareBvs.length;
+  const ingevuldBv=telBareBvs.filter(bv=>{
     if(bv.type==='speler3')return[1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
     const a=myPB[bv.id];return a&&a.trim()!=='';
   }).length;
@@ -1665,7 +1667,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
 
   // KO-rondes status
   const ROUNDS_KO=[
-    {id:'R32',label:'Ronde van 32'},{id:'R16',label:'Ronde van 16'},
+    {id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},
     {id:'KF',label:'Kwartfinales'},{id:'HF',label:'Halve finales'},
     {id:'KF3',label:'Kleine finale'},{id:'F',label:'Finale'},
   ];
@@ -1682,7 +1684,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
     ...groepStatus.map(g=>g.heeftJoker),
     ...groepStatus.map(g=>g.heeftFP),
     bvVolledig,pvIngevuld,
-    koRondStatus.length>0?koVolledig:null,
+    ...koRondStatus.map(r=>r.volledig),
     betaald,
   ].filter(v=>v!==null);
   const totaalOk=checks.filter(Boolean).length;
@@ -1808,12 +1810,15 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
     </div>
 
     {/* KO-FASE */}
-    {koRondStatus.length>0&&<div className="card">
-      <div className="card-title" style={{fontSize:15}}>🏆 Knock-out Fase</div>
-      {koRondStatus.map(r=>(
-        <CheckRow key={r.id} ok={r.volledig} label={`${r.label}: ${r.ingevuld}/${r.totaal} ingevuld`} sub={r.volledig?'Alle winnaars voorspeld':`Vul alle ${r.totaal} wedstrijden in`} onClick={()=>navTo('prono','ko')}/>
-      ))}
-    </div>}
+    {koRondStatus.length>0&&(()=>{
+      const KO_AFR={R32:'F/16',R16:'F/8',KF:'F/4',HF:'F/2',KF3:'f',F:'F'};
+      return(<div className="card">
+        <div className="card-title" style={{fontSize:15}}>🏆 Knock-out Fase</div>
+        {koRondStatus.map(r=>(
+          <CheckRow key={r.id} ok={r.volledig} label={`${KO_AFR[r.id]||r.label}: ${r.ingevuld}/${r.totaal} ingevuld`} sub={r.volledig?'Alle winnaars voorspeld':`Vul alle ${r.totaal} wedstrijden in`} onClick={()=>navTo('prono','ko')}/>
+        ))}
+      </div>);
+    })()}
 
   </div>);}
 
@@ -2071,7 +2076,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
     {koMatches.length>0&&<div className="card">
       <div className="card-title">🏆 Test KO-winnaars</div>
       <div style={{fontSize:11,color:'var(--muted)',marginBottom:10}}>Stel per KO-wedstrijd de testwinnaar in.</div>
-      {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
+      {[['R32','16e finales'],['R16','8e finales'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
         const rMatches=koMatches.filter(m=>m.round===round);
         if(!rMatches.length)return null;
         return(<div key={round} style={{marginBottom:12}}>
@@ -2576,7 +2581,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Juiste match</div>
           <div style={{fontSize:10,color:'var(--gold)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Wel in ronde</div>
         </div>
-        {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
+        {[['R32','16e finales'],['R16','8e finales'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
           <div key={round} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',padding:'6px 0',borderTop:'1px solid var(--border)'}}>
             <div style={{fontSize:13}}>{label}</div>
             <input className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
@@ -2593,7 +2598,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       <div className="card">
         <div className="card-title">📋 Uitslagen KO-fase invoeren</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Vul de winnaar in van elke KO-wedstrijd. Punten worden automatisch berekend.</div>
-        {[['R32','Ronde van 32'],['R16','Ronde van 16'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
+        {[['R32','16e finales'],['R16','8e finales'],['KF','Kwartfinales'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>{
           const rMatches=koMatches.filter(m=>m.round===round);
           if(!rMatches.length)return null;
 
