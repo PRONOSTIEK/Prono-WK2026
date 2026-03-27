@@ -1376,8 +1376,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                       {teams.length===1?`${teams[0]} vs ?`:'Vul vorige ronde in'}
                     </div>
                   )}
-                  {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'} {m.winner}</span>}
-                  {!isReal&&gekozen&&!readOnly&&<span style={{fontSize:11,color:'var(--gold)'}}>→ {gekozen}</span>}
+                  {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'}</span>}
+                  {isReal&&<span style={{fontSize:11,color:'var(--gold)',marginLeft:2}}>→ {m.winner}</span>}
+
                 </div>
                 {teams.length>=2&&<div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginTop:3,paddingLeft:28}}>
                   <span>{teams[0]}</span><span>vs</span><span>{teams[1]}</span>
