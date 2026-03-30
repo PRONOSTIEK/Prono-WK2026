@@ -368,9 +368,9 @@ function buildStand(matches, scores, fpRanking, fifaRanking){
   }
 
   function fifaScore(team){
-    if(!fifaRanking||!Array.isArray(fifaRanking))return 9999;
+    if(!fifaRanking||!Array.isArray(fifaRanking))return 0;
     const entry=fifaRanking.find(r=>r.team===team);
-    return entry?entry.rank:9999; // lager = beter
+    return entry?entry.points:0; // hoger = beter
   }
 
   function getUnderlinge(group){
@@ -430,9 +430,9 @@ function buildStand(matches, scores, fpRanking, fifaRanking){
         // 7. Fairplay drag & drop
         const fpA=fpScore(a.team),fpB=fpScore(b.team);
         if(fpB!==fpA)return fpB-fpA;
-        // 8. FIFA wereldranking (lager getal = beter)
+        // 8. FIFA punten (hoger = beter)
         const frA=fifaScore(a.team),frB=fifaScore(b.team);
-        if(frA!==frB)return frA-frB;
+        if(frA!==frB)return frB-frA;
         // 9. Alfabetisch
         return a.team.localeCompare(b.team);
       });
@@ -458,9 +458,9 @@ function sortDerden(derden, fpDerden, fifaRanking){
     return derden.length-idx; // hoger = betere fairplay
   }
   function fifaScore(team){
-    if(!fifaRanking||!Array.isArray(fifaRanking))return 9999;
+    if(!fifaRanking||!Array.isArray(fifaRanking))return 0;
     const entry=fifaRanking.find(r=>r.team===team);
-    return entry?entry.rank:9999; // lager = beter
+    return entry?entry.points:0; // hoger = beter
   }
   return[...derden].sort((a,b)=>{
     if(b.pts!==a.pts)return b.pts-a.pts;       // 1. Punten
@@ -470,7 +470,7 @@ function sortDerden(derden, fpDerden, fifaRanking){
     const fpA=fpScore(a.team),fpB=fpScore(b.team);
     if(fpB!==fpA)return fpB-fpA;               // 5. Fairplay
     const frA=fifaScore(a.team),frB=fifaScore(b.team);
-    if(frA!==frB)return frA-frB;               // 6. FIFA ranking
+    if(frA!==frB)return frB-frA;               // 6. FIFA punten (hoger = beter)
     return a.team.localeCompare(b.team);        // 7. Alfabetisch
   });
 }
@@ -2695,7 +2695,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       <div className="card">
         <div className="card-title">🌍 FIFA Wereldranking</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
-          Vul de FIFA wereldranking in per ploeg. Dit wordt gebruikt als tiebreaker in de groepsstand (na fairplay). Lager nummer = hogere ranking.
+          Vul de FIFA-punten in per ploeg. Dit wordt gebruikt als tiebreaker in de groepsstand (na fairplay). Hoger = beter.
         </div>
         {/* Alle ploegen uit de wedstrijden */}
         {(()=>{
@@ -2709,16 +2709,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
                 type="number"
                 min="1"
                 style={{width:80,textAlign:'center'}}
-                defaultValue={entry?entry.rank:''}
-                placeholder="Rang"
+                defaultValue={entry?entry.points:''}
+                placeholder="Punten"
                 onBlur={async e=>{
                   const val=parseInt(e.target.value);
                   if(!val)return;
-                  await sb.from('fifa_ranking').upsert({team,rank:val},{onConflict:'team'});
+                  await sb.from('fifa_ranking').upsert({team,points:val},{onConflict:'team'});
                   onRefresh();
                 }}
               />
-              {entry&&<span style={{fontSize:11,color:'var(--gold)',minWidth:30}}>#{entry.rank}</span>}
+              {entry&&<span style={{fontSize:11,color:'var(--gold)',minWidth:30}}>{entry.points}pt</span>}
             </div>);
           });
         })()}
@@ -2875,7 +2875,7 @@ function App(){
       sb.from('ko_matches').select('*').order('round_order').order('position'),
       sb.from('ko_pronos').select('*'),
       sb.from('ko_punten').select('*'),
-      sb.from('fifa_ranking').select('*').order('rank'),
+      sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
     ]);
     setUsers(us||[]);setMatches(ma||[]);setBvs(bv||[]);
     const pmM={};for(const p of(pm||[])){if(!pmM[p.user_id])pmM[p.user_id]={};pmM[p.user_id][p.match_id]=p;}setPmAll(pmM);
