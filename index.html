@@ -2846,45 +2846,61 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       </div>
     </div>}
 
-    {tab==='fifa'&&<div>
-      <div className="card">
-        <div className="card-title">🌍 FIFA Wereldranking</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
-          Vul de FIFA-punten in per ploeg. Dit wordt gebruikt als tiebreaker in de groepsstand (na fairplay). Hoger = beter.
-        </div>
-        {/* Alle ploegen uit de wedstrijden */}
-        {(()=>{
-          const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort((a,b)=>{
-            const pa=(fifaRanking.find(r=>r.team===a)||{}).points||0;
-            const pb2=(fifaRanking.find(r=>r.team===b)||{}).points||0;
-            if(pb2!==pa)return pb2-pa; // hoger = beter, bovenaan
-            return a.localeCompare(b); // alfabetisch bij gelijke punten
-          });
-          return alleTeams.map(team=>{
-            const entry=fifaRanking.find(r=>r.team===team);
-            return(<div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+    {tab==='fifa'&&(()=>{
+      const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))];
+      const[fifaVals,setFifaVals]=useState(()=>{
+        const init={};
+        for(const t of alleTeams){const e=fifaRanking.find(r=>r.team===t);if(e)init[t]=String(e.points);}
+        return init;
+      });
+      const[fifaSaved,setFifaSaved]=useState(false);
+      const gesorteerd=[...alleTeams].sort((a,b)=>{
+        const pa=parseInt(fifaVals[a])||0;
+        const pb2=parseInt(fifaVals[b])||0;
+        if(pb2!==pa)return pb2-pa;
+        return a.localeCompare(b);
+      });
+      async function slaAllesOp(){
+        const updates=Object.entries(fifaVals).filter(([,v])=>v&&parseInt(v)).map(([team,v])=>
+          sb.from('fifa_ranking').upsert({team,points:parseInt(v)},{onConflict:'team'})
+        );
+        await Promise.all(updates);
+        setFifaSaved(true);setTimeout(()=>setFifaSaved(false),2000);
+        onRefresh();
+      }
+      return(<div>
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}}>
+            <div className="card-title" style={{margin:0}}>🌍 FIFA Wereldranking</div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <span style={{fontSize:11,color:'var(--green)',opacity:fifaSaved?1:0,transition:'opacity .3s'}}>✓ Opgeslagen</span>
+              <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
+            </div>
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
+            Vul de FIFA-punten in per ploeg. Hoger = beter. Klik daarna op "Alles opslaan".
+          </div>
+          {gesorteerd.map(team=>(
+            <div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
               <div style={{flex:1,fontSize:13}}>{team}</div>
               <input
                 className="ii"
                 type="number"
-                min="1"
-                style={{width:80,textAlign:'center'}}
-                defaultValue={entry?entry.points:''}
+                min="0"
+                style={{width:90,textAlign:'center'}}
+                value={fifaVals[team]||''}
                 placeholder="Punten"
-                onBlur={async e=>{
-                  const val=parseInt(e.target.value);
-                  if(!val)return;
-                  await sb.from('fifa_ranking').upsert({team,points:val},{onConflict:'team'});
-                  onRefresh();
-                }}
+                onChange={e=>setFifaVals(v=>({...v,[team]:e.target.value}))}
               />
-              {entry&&<span style={{fontSize:11,color:'var(--gold)',minWidth:30}}>{entry.points}pt</span>}
-            </div>);
-          });
-        })()}
-        {matches.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Voer eerst wedstrijden in om ploegen te zien.</div>}
-      </div>
-    </div>}
+            </div>
+          ))}
+          {matches.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Voer eerst wedstrijden in om ploegen te zien.</div>}
+          <div style={{marginTop:12}}>
+            <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
+          </div>
+        </div>
+      </div>);
+    })()}
 
     {tab==='deadline'&&<div>
       <div className="card">
