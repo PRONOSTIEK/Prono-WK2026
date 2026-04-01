@@ -221,7 +221,7 @@ function fmt(n){if(typeof n!=='number')return n;return Number.isInteger(n)?n.toF
 function waaghals(h,a){if(h==null||a==null)return 0;const k=`${h}-${a}`;if(['1-0','0-1','1-1','2-1','1-2','2-0','0-2'].includes(k))return 0;if(['3-0','0-3','2-2','3-1','1-3','0-0'].includes(k))return 1;if(['4-0','0-4','3-2','2-3','4-1','1-4'].includes(k))return 2;return 4;}
 function catMatch(pH,pA,rH,rA){if(pH==null||pA==null)return null;pH=parseInt(pH);pA=parseInt(pA);const eH=pH===rH,eA=pA===rA,pW=pH>pA?'H':pH<pA?'A':'D',rW=rH>rA?'H':rH<rA?'A':'D',wOk=pW===rW;if(eH&&eA)return'alles_juist';if((eH||eA)&&wOk)return'een_juist_winnaar_juist';if(!eH&&!eA&&wOk)return'niets_juist_winnaar_juist';if((eH||eA)&&!wOk)return'een_juist_winnaar_fout';return'alles_fout';}
 function avgPT(pvs){const K=['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'],D={alles_juist:7,een_juist_winnaar_juist:5,niets_juist_winnaar_juist:4,een_juist_winnaar_fout:2,alles_fout:-2};if(!pvs||!pvs.length)return D;const r={};for(const k of K){const v=pvs.map(p=>p[k]).filter(x=>x!=null);r[k]=v.length?Math.trunc(v.reduce((a,b)=>a+b,0)/v.length*100)/100:D[k];}return r;}
-function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches){
+function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches,fifaRanking,config,allKoPronos){
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
@@ -269,7 +269,40 @@ function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatch
         // Eerste 4 bijvragen: gebruik auto-antwoord uit KO-pronostiek
         const antwoord=bvIdx<4?(autoAntwoorden[bvIdx]||''):( pb[bv.id]||'');
         if(antwoord&&antwoord.toLowerCase().trim()===bv.correct_answer.toLowerCase().trim()){
-          tot+=bv.points;det.push({label:bv.question,pts:bv.points,cat:'bijvraag'});
+          if(bvIdx<4&&fifaRanking&&config&&allKoPronos){
+            // Nieuwe formule: (A + B/N) * (FIFA_land / FIFA_max)
+            const plaatsKeys=[['finaleA','finaleB'],['finalistA','finalistB'],['kf3A','kf3B'],['kf3verlA','kf3verlB']];
+            const[aKey,bKey]=plaatsKeys[bvIdx];
+            const A=parseFloat(config['hf_'+aKey]||0);
+            const B=parseFloat(config['hf_'+bKey]||0);
+            // Tel hoeveel deelnemers dit land hebben gekozen voor deze positie
+            const fMatch=koMatches.find(m=>m.round==='F');
+            const kf3Match=koMatches.find(m=>m.round==='KF3');
+            const hfMatches=(koMatches||[]).filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+            const kfMatches=(koMatches||[]).filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+            const echteUserIds=Object.keys(allKoPronos);
+            let N=0;
+            for(const uid of echteUserIds){
+              const uKO=allKoPronos[uid]||{};
+              const fW=fMatch?uKO[fMatch.id]:null;
+              const fTeams=hfMatches.map(m=>uKO[m.id]).filter(Boolean);
+              const fV=fTeams.find(t=>t!==fW)||null;
+              const kf3W=kf3Match?uKO[kf3Match.id]:null;
+              const hfW=hfMatches.map(m=>uKO[m.id]).filter(Boolean);
+              const hfAll=hfMatches.flatMap(m=>{const idx=(m.position-1)*2;return[kfMatches[idx]?uKO[kfMatches[idx].id]:null,kfMatches[idx+1]?uKO[kfMatches[idx+1].id]:null].filter(Boolean);});
+              const kf3V=hfAll.find(t=>!hfW.includes(t))||null;
+              const gekozen=[fW,fV,kf3W,kf3V][bvIdx];
+              if(gekozen&&gekozen.toLowerCase().trim()===antwoord.toLowerCase().trim())N++;
+            }
+            if(N===0)N=1;
+            const fifaMax=fifaRanking.length?Math.max(...fifaRanking.map(r=>r.points||0)):1;
+            const fifaLand=(fifaRanking.find(r=>r.team===antwoord)||{}).points||0;
+            const C=fifaMax>0?fifaLand/fifaMax:0;
+            const pts=Math.round((A+B/N)*C*100)/100;
+            if(pts!==0){tot+=pts;det.push({label:bv.question,pts,cat:'bijvraag',formule:{A,B,N,C,fifaLand,fifaMax}});}
+          } else {
+            tot+=bv.points;det.push({label:bv.question,pts:bv.points,cat:'bijvraag'});
+          }
         }
       }
     }
@@ -775,7 +808,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const st=echteUsers.map(u=>{
     const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
     const fp=fpAll[u.id]||{};
-    const{tot,matchDet}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches);
+    const{tot,matchDet}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll);
     const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten);
     const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
@@ -1539,7 +1572,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id);
-  const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches);
+  const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches,fifaRanking,config,koPronosAll);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten);
   const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP,fifaRanking);
   const totaal=tot+koTot+kwalTot;
@@ -2187,7 +2220,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
   </div>);
 }
 
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,viewPronoOf,onRefresh}){
+function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
 
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
@@ -2724,6 +2757,90 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>);
         })}
       </div>
+      <div className="card">
+        <div className="card-title">🧮 Puntformule Eindklassement (A + B/N) × C</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
+          Stel A (basispunten) en B (bonuspool) in per eindplaats. N = aantal deelnemers dat dit land koos. C = FIFA-punten land / hoogste FIFA-punten.
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',marginBottom:6}}>
+          <div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.5}}>Plaats</div>
+          <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center',minWidth:60}}>A</div>
+          <div style={{fontSize:10,color:'var(--gold)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center',minWidth:60}}>B</div>
+        </div>
+        {[['finaleA','finaleB','🏆 Winnaar finale'],['finalistA','finalistB','🥈 Verliezer finale'],['kf3A','kf3B','🥉 Winnaar kleine finale'],['kf3verlA','kf3verlB','4️⃣ Verliezer kleine finale']].map(([aKey,bKey,label])=>(
+          <div key={aKey} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',padding:'6px 0',borderTop:'1px solid var(--border)'}}>
+            <div style={{fontSize:13}}>{label}</div>
+            <input className="ii" type="number" min="0" step="0.1" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
+              defaultValue={config['hf_'+aKey]||0}
+              onBlur={async e=>{await sb.from('config').upsert({key:'hf_'+aKey,value:e.target.value});onRefresh();}}
+            />
+            <input className="ii" type="number" min="0" step="0.1" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
+              defaultValue={config['hf_'+bKey]||0}
+              onBlur={async e=>{await sb.from('config').upsert({key:'hf_'+bKey,value:e.target.value});onRefresh();}}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="card-title">📊 Gekozen landen eindplaatsen</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Overzicht van gekozen landen per eindplaats door alle deelnemers.</div>
+        {(()=>{
+          const echteU=users.filter(u=>!u.is_admin&&!u.is_avg);
+          const fMatch=koMatches.find(m=>m.round==='F');
+          const kf3Match=koMatches.find(m=>m.round==='KF3');
+          const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+          const kfMatches=koMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+          const plaatsen=['🏆 Winnaar finale','🥈 Verliezer finale','🥉 Winnaar kleine finale','4️⃣ Verliezer kleine finale'];
+          const fifaMax=fifaRanking.length?Math.max(...fifaRanking.map(r=>r.points||0)):1;
+          return plaatsen.map((pl,idx)=>{
+            const freq={};
+            for(const u of echteU){
+              const uKO=koPronosAll[u.id]||{};
+              const fW=fMatch?uKO[fMatch.id]:null;
+              const fTeams=hfMatches.map(m=>uKO[m.id]).filter(Boolean);
+              const fV=fTeams.find(t=>t!==fW)||null;
+              const kf3W=kf3Match?uKO[kf3Match.id]:null;
+              const hfW=hfMatches.map(m=>uKO[m.id]).filter(Boolean);
+              const hfAll=hfMatches.flatMap(m=>{const i2=(m.position-1)*2;return[kfMatches[i2]?uKO[kfMatches[i2].id]:null,kfMatches[i2+1]?uKO[kfMatches[i2+1].id]:null].filter(Boolean);});
+              const kf3V=hfAll.find(t=>!hfW.includes(t))||null;
+              const gekozen=[fW,fV,kf3W,kf3V][idx];
+              if(gekozen)freq[gekozen]=(freq[gekozen]||0)+1;
+            }
+            const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+            const aKey=['finaleA','finalistA','kf3A','kf3verlA'][idx];
+            const bKey=['finaleB','finalistB','kf3B','kf3verlB'][idx];
+            const A=parseFloat(config['hf_'+aKey]||0);
+            const B=parseFloat(config['hf_'+bKey]||0);
+            return(<div key={idx} style={{marginBottom:14}}>
+              <div style={{fontFamily:'Bebas Neue',fontSize:14,color:'var(--green)',letterSpacing:1,marginBottom:6}}>{pl}</div>
+              {sorted.length===0?<div style={{fontSize:12,color:'var(--muted)'}}>Nog niemand gekozen.</div>:(
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead><tr>
+                    <th style={{textAlign:'left',padding:'3px 6px',color:'var(--muted)',fontSize:10,borderBottom:'1px solid var(--border)'}}>Land</th>
+                    <th style={{textAlign:'center',padding:'3px 6px',color:'var(--muted)',fontSize:10,borderBottom:'1px solid var(--border)'}}>N</th>
+                    <th style={{textAlign:'right',padding:'3px 6px',color:'var(--muted)',fontSize:10,borderBottom:'1px solid var(--border)'}}>FIFA</th>
+                    <th style={{textAlign:'right',padding:'3px 6px',color:'var(--gold)',fontSize:10,borderBottom:'1px solid var(--border)'}}>Punten</th>
+                  </tr></thead>
+                  <tbody>
+                    {sorted.map(([land,n])=>{
+                      const fifaPts=(fifaRanking.find(r=>r.team===land)||{}).points||0;
+                      const C=fifaMax>0?fifaPts/fifaMax:0;
+                      const pts=Math.round((A+B/n)*C*100)/100;
+                      return(<tr key={land}>
+                        <td style={{padding:'4px 6px',borderBottom:'1px solid var(--border)'}}>{land}</td>
+                        <td style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',textAlign:'center',color:'var(--muted)'}}>{n}</td>
+                        <td style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',color:'var(--muted)'}}>{fifaPts}</td>
+                        <td style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)'}}>{pts}</td>
+                      </tr>);
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>);
+          });
+        })()}
+      </div>
+
     </div>}
 
     {tab==='fifa'&&<div>
@@ -3072,7 +3189,7 @@ function App(){
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} fifaRanking={fifaRanking} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
