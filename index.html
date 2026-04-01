@@ -2228,6 +2228,41 @@ function FifaTab({matches,fifaRanking,onRefresh}){
     return init;
   });
   const[fifaSaved,setFifaSaved]=useState(false);
+  const[fifaLoading,setFifaLoading]=useState(false);
+  const[fifaMsg,setFifaMsg]=useState('');
+
+  async function laadAutomatisch(){
+    setFifaLoading(true);setFifaMsg('');
+    try{
+      const prompt=`Geef me de huidige FIFA-punten (niet de ranking, maar de puntenscore) voor deze landen: ${alleTeams.join(', ')}. 
+Antwoord ENKEL met een JSON-object zoals {"België":1765,"Brazilië":1840,...} zonder uitleg of markdown. Gebruik de meest recente officiële FIFA-punten.`;
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1000,
+          tools:[{type:'web_search_20250305',name:'web_search'}],
+          messages:[{role:'user',content:prompt}]
+        })
+      });
+      const data=await res.json();
+      const text=data.content.map(b=>b.type==='text'?b.text:'').join('');
+      const clean=text.replace(/```json|```/g,'').trim();
+      const parsed=JSON.parse(clean);
+      const nieuweVals={...fifaVals};
+      for(const [team,pts] of Object.entries(parsed)){
+        // Match op teamnaam (ook als er kleine verschillen zijn)
+        const gevonden=alleTeams.find(t=>t.toLowerCase()===team.toLowerCase()||t.toLowerCase().includes(team.toLowerCase())||team.toLowerCase().includes(t.toLowerCase()));
+        if(gevonden&&pts)nieuweVals[gevonden]=String(Math.round(pts));
+      }
+      setFifaVals(nieuweVals);
+      setFifaMsg('✓ Punten ingeladen — controleer en sla op!');
+    }catch(e){
+      setFifaMsg('⚠ Kon punten niet ophalen: '+e.message);
+    }
+    setFifaLoading(false);
+  }
   const gesorteerd=[...alleTeams].sort((a,b)=>{
     const pa=parseInt(fifaVals[a])||0;
     const pb2=parseInt(fifaVals[b])||0;
@@ -2251,8 +2286,14 @@ function FifaTab({matches,fifaRanking,onRefresh}){
           <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
         </div>
       </div>
-      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>
         Vul de FIFA-punten in per ploeg. Hoger = beter. Klik daarna op "Alles opslaan".
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+        <button className="btn btn-sm btn-outline" onClick={laadAutomatisch} disabled={fifaLoading} style={{borderColor:'var(--gold)',color:'var(--gold)'}}>
+          {fifaLoading?'⏳ Bezig...':'🌐 Automatisch inladen'}
+        </button>
+        {fifaMsg&&<span style={{fontSize:11,color:fifaMsg.startsWith('✓')?'var(--green)':'var(--red)'}}>{fifaMsg}</span>}
       </div>
       {gesorteerd.map(team=>(
         <div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
