@@ -2321,7 +2321,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -2757,6 +2757,10 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>);
         })}
       </div>
+
+    </div>}
+
+    {tab==='formule'&&<div>
       <div className="card">
         <div className="card-title">🧮 Puntformule Eindklassement (A + B/N) × C</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>
@@ -2785,7 +2789,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         <div className="card-title">📊 Gekozen landen eindplaatsen</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Overzicht van gekozen landen per eindplaats door alle deelnemers.</div>
         {(()=>{
-          const echteU=users.filter(u=>!u.is_admin&&!u.is_avg);
+          const echteU=users.filter(u=>!u.is_admin&&!u.is_avg&&!u.is_test);
           const fMatch=koMatches.find(m=>m.round==='F');
           const kf3Match=koMatches.find(m=>m.round==='KF3');
           const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
@@ -2840,7 +2844,6 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           });
         })()}
       </div>
-
     </div>}
 
     {tab==='fifa'&&<div>
@@ -2851,7 +2854,12 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         </div>
         {/* Alle ploegen uit de wedstrijden */}
         {(()=>{
-          const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort();
+          const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))].sort((a,b)=>{
+            const pa=(fifaRanking.find(r=>r.team===a)||{}).points||0;
+            const pb2=(fifaRanking.find(r=>r.team===b)||{}).points||0;
+            if(pb2!==pa)return pb2-pa; // hoger = beter, bovenaan
+            return a.localeCompare(b); // alfabetisch bij gelijke punten
+          });
           return alleTeams.map(team=>{
             const entry=fifaRanking.find(r=>r.team===team);
             return(<div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
@@ -3073,8 +3081,24 @@ function calcJaanMehdi(users,matches,bvs,pmAll,pbAll,jAll,koPronosAll,koMatches,
     jaanKO[m.id]=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
   }
 
+  // ── Jokers: meest gejokerde match per groep ──
+  const jaanJ=[];
+  for(const grp of GRP){
+    const grpMatches=matches.filter(m=>m.group===grp);
+    if(!grpMatches.length)continue;
+    const freq={};
+    for(const u of echteUsers){
+      const uJokers=jAll[u.id]||[];
+      const jMatch=uJokers.find(j=>j.group===grp);
+      if(jMatch)freq[jMatch.match_id]=(freq[jMatch.match_id]||0)+1;
+    }
+    if(!Object.keys(freq).length)continue;
+    const meestGejokerd=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+    jaanJ.push({match_id:meestGejokerd,group:grp});
+  }
+
   const jaanUser={id:JAAN_ID,name:naam||JAAN_NAME,is_admin:false,is_test:false,betaald:true,is_avg:true};
-  return{jaanUser,jaanPM,jaanPB,jaanKO};
+  return{jaanUser,jaanPM,jaanPB,jaanKO,jaanJ};
 }
 // MAIN
 function App(){
@@ -3121,11 +3145,13 @@ function App(){
     const pbM2={};for(const p of(pb||[])){if(!pbM2[p.user_id])pbM2[p.user_id]={};pbM2[p.user_id][p.bv_id]=p.answer;}
     const kpM2={};for(const p of(kp||[])){if(!kpM2[p.user_id])kpM2[p.user_id]={};kpM2[p.user_id][p.match_id]=p.winner_pred;}
     const jaanNaam=cfgObj['avg_naam']||'Jaan Mehdi';
-    const{jaanUser,jaanPM,jaanPB,jaanKO}=calcJaanMehdi(usArr,maArr,bvArr,pmM2,pbM2,{},kpM2,kmArr,ss||[],jaanNaam);
+    const jM2={};for(const j of(jk||[])){if(!jM2[j.user_id])jM2[j.user_id]=[];jM2[j.user_id].push(j);}
+    const{jaanUser,jaanPM,jaanPB,jaanKO,jaanJ}=calcJaanMehdi(usArr,maArr,bvArr,pmM2,pbM2,jM2,kpM2,kmArr,ss||[],jaanNaam);
     setUsers([...usArr.filter(u=>u.id!==JAAN_ID),jaanUser]);
     const pmMFinal={...pmM};pmMFinal[JAAN_ID]=jaanPM;setPmAll(pmMFinal);
     const pbMFinal={...pbM};pbMFinal[JAAN_ID]=jaanPB;setPbAll(pbMFinal);
     kpM[JAAN_ID]=jaanKO;setKoPronosAll(kpM);
+    const jMFinal={...jM};jMFinal[JAAN_ID]=jaanJ;setJAll(jMFinal);
 
     if(!silent)setLoad(false);
   }
