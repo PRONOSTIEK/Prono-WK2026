@@ -2222,26 +2222,21 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
 
 function FifaTab({matches,fifaRanking,onRefresh}){
   const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))];
-  const[fifaVals,setFifaVals]=useState(()=>{
-    const init={};
-    for(const t of alleTeams){const e=fifaRanking.find(r=>r.team===t);if(e&&e.points)init[t]=String(e.points);}
-    return init;
-  });
-  // Sync met database telkens fifaRanking verandert (na opslaan of tab-wissel)
-  useEffect(()=>{
-    setFifaVals(prev=>{
-      const updated={...prev};
-      for(const t of alleTeams){
-        const e=fifaRanking.find(r=>r.team===t);
-        if(e&&e.points&&!updated[t])updated[t]=String(e.points);
-        else if(e&&e.points)updated[t]=String(e.points);
-      }
-      return updated;
-    });
-  },[fifaRanking]);
+  // Initialiseer vanuit fifaRanking prop, met lokale overschrijvingen bijhouden
+  const[lokaalVals,setLokaalVals]=useState({});
   const[fifaSaved,setFifaSaved]=useState(false);
   const[fifaMsg,setFifaMsg]=useState('');
 
+  // Combineer: lokale wijzigingen hebben voorrang, anders gebruik database-waarde
+  const fifaVals={};
+  for(const t of alleTeams){
+    if(lokaalVals[t]!==undefined){
+      fifaVals[t]=lokaalVals[t];
+    } else {
+      const e=fifaRanking.find(r=>r.team===t);
+      fifaVals[t]=e&&e.points?String(e.points):'';
+    }
+  }
 
   const gesorteerd=[...alleTeams].sort((a,b)=>{
     const pa=parseInt(fifaVals[a])||0;
@@ -2251,6 +2246,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
   });
   async function slaAllesOp(){
     const teOpslagen=Object.entries(fifaVals).filter(([,v])=>v&&parseInt(v)>0).map(([team,v])=>({team,points:parseInt(v)}));
+    setLokaalVals({});
     if(!teOpslagen.length){setFifaMsg('⚠ Geen punten om op te slaan');return;}
     setFifaMsg('⏳ Bezig...');
     const{error:delErr}=await sb.from('fifa_ranking').delete().neq('team','__nooit__');
@@ -2289,7 +2285,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
               style={{width:90,textAlign:'center'}}
               value={fifaVals[team]||''}
               placeholder="Punten"
-              onChange={e=>setFifaVals(v=>({...v,[team]:e.target.value}))}
+              onChange={e=>setLokaalVals(v=>({...v,[team]:e.target.value}))}
             />
             <div style={{fontSize:11,color:'var(--gold)',minWidth:50,textAlign:'right'}}>{pts>0?`C=${C}`:''}</div>
           </div>);
