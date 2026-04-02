@@ -2240,6 +2240,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
     });
   },[fifaRanking]);
   const[fifaSaved,setFifaSaved]=useState(false);
+  const[fifaMsg,setFifaMsg]=useState('');
 
 
   const gesorteerd=[...alleTeams].sort((a,b)=>{
@@ -2250,11 +2251,14 @@ function FifaTab({matches,fifaRanking,onRefresh}){
   });
   async function slaAllesOp(){
     const teOpslagen=Object.entries(fifaVals).filter(([,v])=>v&&parseInt(v)>0).map(([team,v])=>({team,points:parseInt(v)}));
-    if(!teOpslagen.length)return;
-    // Verwijder alle bestaande rijen en voeg opnieuw in
-    await sb.from('fifa_ranking').delete().neq('team','__nooit__');
-    await sb.from('fifa_ranking').insert(teOpslagen);
-    setFifaSaved(true);setTimeout(()=>setFifaSaved(false),2000);
+    if(!teOpslagen.length){setFifaMsg('⚠ Geen punten om op te slaan');return;}
+    setFifaMsg('⏳ Bezig...');
+    const{error:delErr}=await sb.from('fifa_ranking').delete().neq('team','__nooit__');
+    if(delErr){setFifaMsg('⚠ Delete fout: '+delErr.message);return;}
+    const{error:insErr}=await sb.from('fifa_ranking').insert(teOpslagen);
+    if(insErr){setFifaMsg('⚠ Insert fout: '+insErr.message);return;}
+    setFifaMsg('✓ '+teOpslagen.length+' landen opgeslagen!');
+    setTimeout(()=>setFifaMsg(''),3000);
     onRefresh();
   }
   return(<div>
@@ -2262,7 +2266,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,flexWrap:'wrap',gap:8}}>
         <div className="card-title" style={{margin:0}}>🌍 FIFA Wereldranking</div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <span style={{fontSize:11,color:'var(--green)',opacity:fifaSaved?1:0,transition:'opacity .3s'}}>✓ Opgeslagen</span>
+          {fifaMsg&&<span style={{fontSize:11,color:fifaMsg.startsWith('✓')?'var(--green)':'var(--red)'}}>{fifaMsg}</span>}
           <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
         </div>
       </div>
