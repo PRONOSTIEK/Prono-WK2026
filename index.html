@@ -2234,35 +2234,31 @@ function FifaTab({matches,fifaRanking,onRefresh}){
   async function laadAutomatisch(){
     setFifaLoading(true);setFifaMsg('');
     try{
-      const prompt=`Geef me de huidige FIFA-punten (niet de ranking, maar de puntenscore) voor deze landen: ${alleTeams.join(', ')}. 
-Antwoord ENKEL met een JSON-object zoals {"België":1765,"Brazilië":1840,...} zonder uitleg of markdown. Gebruik de meest recente officiële FIFA-punten.`;
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:1000,
-          tools:[{type:'web_search_20250305',name:'web_search'}],
-          messages:[{role:'user',content:prompt}]
-        })
+      const res=await fetch(`${SURL}/functions/v1/fifa-punten`,{
+        headers:{'Authorization':`Bearer ${SKEY}`,'Content-Type':'application/json'}
       });
+      if(!res.ok)throw new Error(await res.text());
       const data=await res.json();
-      const text=data.content.map(b=>b.type==='text'?b.text:'').join('');
-      const clean=text.replace(/```json|```/g,'').trim();
-      const parsed=JSON.parse(clean);
+      if(data.error)throw new Error(data.error);
       const nieuweVals={...fifaVals};
-      for(const [team,pts] of Object.entries(parsed)){
-        // Match op teamnaam (ook als er kleine verschillen zijn)
-        const gevonden=alleTeams.find(t=>t.toLowerCase()===team.toLowerCase()||t.toLowerCase().includes(team.toLowerCase())||team.toLowerCase().includes(t.toLowerCase()));
-        if(gevonden&&pts)nieuweVals[gevonden]=String(Math.round(pts));
+      for(const[naam,pts] of Object.entries(data)){
+        // Zoek overeenkomst met teamnaam (flexibel)
+        const gevonden=alleTeams.find(t=>
+          t.toLowerCase()===naam.toLowerCase()||
+          t.toLowerCase().includes(naam.toLowerCase())||
+          naam.toLowerCase().includes(t.toLowerCase())
+        );
+        if(gevonden)nieuweVals[gevonden]=String(Math.round(Number(pts)));
       }
       setFifaVals(nieuweVals);
-      setFifaMsg('✓ Punten ingeladen — controleer en sla op!');
+      const aantalGevonden=Object.keys(nieuweVals).filter(t=>nieuweVals[t]).length;
+      setFifaMsg(`✓ ${aantalGevonden} landen ingeladen — controleer en sla op!`);
     }catch(e){
-      setFifaMsg('⚠ Kon punten niet ophalen: '+e.message);
+      setFifaMsg('⚠ Fout: '+e.message);
     }
     setFifaLoading(false);
   }
+
   const gesorteerd=[...alleTeams].sort((a,b)=>{
     const pa=parseInt(fifaVals[a])||0;
     const pb2=parseInt(fifaVals[b])||0;
@@ -2295,6 +2291,7 @@ Antwoord ENKEL met een JSON-object zoals {"België":1765,"Brazilië":1840,...} z
         </button>
         {fifaMsg&&<span style={{fontSize:11,color:fifaMsg.startsWith('✓')?'var(--green)':'var(--red)'}}>{fifaMsg}</span>}
       </div>
+
       {gesorteerd.map(team=>(
         <div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
           <div style={{flex:1,fontSize:13}}>{team}</div>
