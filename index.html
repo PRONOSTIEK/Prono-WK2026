@@ -2228,36 +2228,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
     return init;
   });
   const[fifaSaved,setFifaSaved]=useState(false);
-  const[fifaLoading,setFifaLoading]=useState(false);
-  const[fifaMsg,setFifaMsg]=useState('');
 
-  async function laadAutomatisch(){
-    setFifaLoading(true);setFifaMsg('');
-    try{
-      const res=await fetch(`${SURL}/functions/v1/fifa-punten`,{
-        headers:{'Authorization':`Bearer ${SKEY}`,'Content-Type':'application/json'}
-      });
-      if(!res.ok)throw new Error(await res.text());
-      const data=await res.json();
-      if(data.error)throw new Error(data.error);
-      const nieuweVals={...fifaVals};
-      for(const[naam,pts] of Object.entries(data)){
-        // Zoek overeenkomst met teamnaam (flexibel)
-        const gevonden=alleTeams.find(t=>
-          t.toLowerCase()===naam.toLowerCase()||
-          t.toLowerCase().includes(naam.toLowerCase())||
-          naam.toLowerCase().includes(t.toLowerCase())
-        );
-        if(gevonden)nieuweVals[gevonden]=String(Math.round(Number(pts)));
-      }
-      setFifaVals(nieuweVals);
-      const aantalGevonden=Object.keys(nieuweVals).filter(t=>nieuweVals[t]).length;
-      setFifaMsg(`✓ ${aantalGevonden} landen ingeladen — controleer en sla op!`);
-    }catch(e){
-      setFifaMsg('⚠ Fout: '+e.message);
-    }
-    setFifaLoading(false);
-  }
 
   const gesorteerd=[...alleTeams].sort((a,b)=>{
     const pa=parseInt(fifaVals[a])||0;
@@ -2282,15 +2253,10 @@ function FifaTab({matches,fifaRanking,onRefresh}){
           <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
         </div>
       </div>
-      <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
         Vul de FIFA-punten in per ploeg. Hoger = beter. Klik daarna op "Alles opslaan".
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-        <button className="btn btn-sm btn-outline" onClick={laadAutomatisch} disabled={fifaLoading} style={{borderColor:'var(--gold)',color:'var(--gold)'}}>
-          {fifaLoading?'⏳ Bezig...':'🌐 Automatisch inladen'}
-        </button>
-        {fifaMsg&&<span style={{fontSize:11,color:fifaMsg.startsWith('✓')?'var(--green)':'var(--red)'}}>{fifaMsg}</span>}
-      </div>
+
 
       {gesorteerd.map(team=>(
         <div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
