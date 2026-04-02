@@ -2224,9 +2224,21 @@ function FifaTab({matches,fifaRanking,onRefresh}){
   const alleTeams=[...new Set(matches.flatMap(m=>[m.home,m.away]).filter(Boolean))];
   const[fifaVals,setFifaVals]=useState(()=>{
     const init={};
-    for(const t of alleTeams){const e=fifaRanking.find(r=>r.team===t);if(e)init[t]=String(e.points);}
+    for(const t of alleTeams){const e=fifaRanking.find(r=>r.team===t);if(e&&e.points)init[t]=String(e.points);}
     return init;
   });
+  // Sync met database telkens fifaRanking verandert (na opslaan of tab-wissel)
+  useEffect(()=>{
+    setFifaVals(prev=>{
+      const updated={...prev};
+      for(const t of alleTeams){
+        const e=fifaRanking.find(r=>r.team===t);
+        if(e&&e.points&&!updated[t])updated[t]=String(e.points);
+        else if(e&&e.points)updated[t]=String(e.points);
+      }
+      return updated;
+    });
+  },[fifaRanking]);
   const[fifaSaved,setFifaSaved]=useState(false);
 
 
