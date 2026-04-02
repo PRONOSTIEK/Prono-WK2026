@@ -2249,10 +2249,11 @@ function FifaTab({matches,fifaRanking,onRefresh}){
     return a.localeCompare(b);
   });
   async function slaAllesOp(){
-    const updates=Object.entries(fifaVals).filter(([,v])=>v&&parseInt(v)).map(([team,v])=>
-      sb.from('fifa_ranking').upsert({team,points:parseInt(v)},{onConflict:'team'})
-    );
-    await Promise.all(updates);
+    const teOpslagen=Object.entries(fifaVals).filter(([,v])=>v&&parseInt(v)>0).map(([team,v])=>({team,points:parseInt(v)}));
+    if(!teOpslagen.length)return;
+    // Verwijder alle bestaande rijen en voeg opnieuw in
+    await sb.from('fifa_ranking').delete().neq('team','__nooit__');
+    await sb.from('fifa_ranking').insert(teOpslagen);
     setFifaSaved(true);setTimeout(()=>setFifaSaved(false),2000);
     onRefresh();
   }
