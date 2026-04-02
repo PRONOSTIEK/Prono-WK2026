@@ -2275,20 +2275,26 @@ function FifaTab({matches,fifaRanking,onRefresh}){
       </div>
 
 
-      {gesorteerd.map(team=>(
-        <div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
-          <div style={{flex:1,fontSize:13}}>{team}</div>
-          <input
-            className="ii"
-            type="number"
-            min="0"
-            style={{width:90,textAlign:'center'}}
-            value={fifaVals[team]||''}
-            placeholder="Punten"
-            onChange={e=>setFifaVals(v=>({...v,[team]:e.target.value}))}
-          />
-        </div>
-      ))}
+      {(()=>{
+        const fifaMax=Math.max(...gesorteerd.map(t=>parseInt(fifaVals[t])||0),1);
+        return gesorteerd.map(team=>{
+          const pts=parseInt(fifaVals[team])||0;
+          const C=fifaMax>0?Math.round(pts/fifaMax*1000)/1000:0;
+          return(<div key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+            <div style={{flex:1,fontSize:13}}>{team}</div>
+            <input
+              className="ii"
+              type="number"
+              min="0"
+              style={{width:90,textAlign:'center'}}
+              value={fifaVals[team]||''}
+              placeholder="Punten"
+              onChange={e=>setFifaVals(v=>({...v,[team]:e.target.value}))}
+            />
+            <div style={{fontSize:11,color:'var(--gold)',minWidth:50,textAlign:'right'}}>{pts>0?`C=${C}`:''}</div>
+          </div>);
+        });
+      })()}
       {matches.length===0&&<div style={{color:'var(--muted)',fontSize:12}}>Voer eerst wedstrijden in om ploegen te zien.</div>}
       <div style={{marginTop:12}}>
         <button className="btn btn-sm btn-outline" onClick={slaAllesOp}>💾 Alles opslaan</button>
