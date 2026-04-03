@@ -2287,7 +2287,7 @@ function FifaTab({matches,fifaRanking,onRefresh}){
               placeholder="Punten"
               onChange={e=>setLokaalVals(v=>({...v,[team]:e.target.value}))}
             />
-            <div style={{fontSize:11,color:'var(--gold)',minWidth:50,textAlign:'right'}}>{pts>0?`C=${C}`:''}</div>
+            <div style={{fontSize:11,color:'var(--gold)',minWidth:50,textAlign:'right'}}>{pts>0&&<span>C={C}</span>}</div>
           </div>);
         });
       })()}
