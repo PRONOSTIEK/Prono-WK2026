@@ -2171,13 +2171,15 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
         setMsgFake(`⏳ Bezig... ${aangemaakt+1}/${users.length}`);
 
         // Groepswedstrijden
+        setMsgFake(`⏳ ${aangemaakt+1}/${users.length}: wedstrijden...`);
         const pmInserts=grpMatches.map(m=>({user_id:u.id,match_id:m.id,home_pred:willekeurigScore(),away_pred:willekeurigScore()}));
         for(let i=0;i<pmInserts.length;i+=100){
           const{error}=await sb.from('pronos_matches').insert(pmInserts.slice(i,i+100));
-          if(error)throw error;
+          if(error)throw new Error(`pronos_matches: ${error.message}`);
         }
 
         // Jokers
+        setMsgFake(`⏳ ${aangemaakt+1}/${users.length}: jokers...`);
         const jokerInserts=GRP.map(grp=>{
           const gm=grpMatches.filter(m=>m.group===grp);
           if(!gm.length)return null;
@@ -2185,7 +2187,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
         }).filter(Boolean);
         if(jokerInserts.length){
           const{error}=await sb.from('jokers').insert(jokerInserts);
-          if(error)throw error;
+          if(error)throw new Error(`jokers: ${error.message}`);
         }
 
         // KO-pronostieken
