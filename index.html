@@ -2166,9 +2166,10 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
       // Verwerk gebruikers één voor één om Supabase rate limits te vermijden
       const grpMatches=matches.filter(m=>GRP.includes(m.group));
       const rounds=['R32','R16','KF','HF','KF3','F'];
-      let aangemaakt=0;
+      let aangemaakt=0;let mislukt=0;
       for(const u of users){
-        setMsgFake(`⏳ Bezig... ${aangemaakt+1}/${users.length}`);
+        setMsgFake(`⏳ Bezig... ${aangemaakt+mislukt+1}/${users.length} (${aangemaakt} ok, ${mislukt} mislukt)`);
+        try{
 
         // Groepswedstrijden
         setMsgFake(`⏳ ${aangemaakt+1}/${users.length}: wedstrijden...`);
@@ -2240,12 +2241,16 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
           if(error)throw error;
         }
 
-        aangemaakt++;
+          aangemaakt++;
+        }catch(stepErr){
+          mislukt++;
+          console.error(`Fout bij ${u.name}:`,stepErr);
+        }
         // Pauze tussen gebruikers om rate limits te vermijden
         await new Promise(r=>setTimeout(r,1000));
       }
 
-      setMsgFake(`✅ ${aangemaakt} testgebruikers aangemaakt!`);
+      setMsgFake(`✅ ${aangemaakt} aangemaakt, ${mislukt} mislukt`);
       onRefresh();
     }catch(e){setMsgFake('❌ Fout: '+e.message);}
     setBezigFake(false);
