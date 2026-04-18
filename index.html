@@ -2163,38 +2163,34 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
       const{data:users,error:uErr}=await sb.from('users').insert(nieuweGebruikers).select();
       if(uErr)throw uErr;
 
-      // Groepswedstrijden: willekeurige scores
+      // Verwerk gebruikers één voor één om Supabase rate limits te vermijden
       const grpMatches=matches.filter(m=>GRP.includes(m.group));
-      const pmInserts=[];
-      for(const u of users){
-        for(const m of grpMatches){
-          pmInserts.push({user_id:u.id,match_id:m.id,home_pred:willekeurigScore(),away_pred:willekeurigScore()});
-        }
-      }
-      // Batch in stukken van 500
-      for(let i=0;i<pmInserts.length;i+=500){
-        await sb.from('pronos_matches').insert(pmInserts.slice(i,i+500));
-      }
-
-      // Jokers: 1 per groep, willekeurige match
-      const jokerInserts=[];
-      for(const u of users){
-        for(const grp of GRP){
-          const gm=grpMatches.filter(m=>m.group===grp);
-          if(!gm.length)continue;
-          const gekozen=willekeurig(gm);
-          jokerInserts.push({user_id:u.id,match_id:gekozen.id,group:grp});
-        }
-      }
-      for(let i=0;i<jokerInserts.length;i+=500){
-        await sb.from('jokers').insert(jokerInserts.slice(i,i+500));
-      }
-
-      // KO-pronostieken: willekeurige winnaar per match (enkel echte teams)
-      const koInserts=[];
       const rounds=['R32','R16','KF','HF','KF3','F'];
+      let aangemaakt=0;
       for(const u of users){
+        setMsgFake(`⏳ Bezig... ${aangemaakt+1}/${users.length}`);
+
+        // Groepswedstrijden
+        const pmInserts=grpMatches.map(m=>({user_id:u.id,match_id:m.id,home_pred:willekeurigScore(),away_pred:willekeurigScore()}));
+        for(let i=0;i<pmInserts.length;i+=100){
+          const{error}=await sb.from('pronos_matches').insert(pmInserts.slice(i,i+100));
+          if(error)throw error;
+        }
+
+        // Jokers
+        const jokerInserts=GRP.map(grp=>{
+          const gm=grpMatches.filter(m=>m.group===grp);
+          if(!gm.length)return null;
+          return{user_id:u.id,match_id:willekeurig(gm).id,group:grp};
+        }).filter(Boolean);
+        if(jokerInserts.length){
+          const{error}=await sb.from('jokers').insert(jokerInserts);
+          if(error)throw error;
+        }
+
+        // KO-pronostieken
         const winnerMap={};
+        const koInserts=[];
         for(const round of rounds){
           const rMs=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
           for(const m of rMs){
@@ -2216,19 +2212,16 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
             koInserts.push({user_id:u.id,match_id:m.id,winner_pred:gekozen});
           }
         }
-      }
-      for(let i=0;i<koInserts.length;i+=500){
-        await sb.from('ko_pronos').insert(koInserts.slice(i,i+500));
-      }
+        if(koInserts.length){
+          const{error}=await sb.from('ko_pronos').insert(koInserts);
+          if(error)throw error;
+        }
 
-      // Bijvragen: willekeurig antwoord
-      const pbInserts=[];
-      for(const u of users){
+        // Bijvragen
+        const pbInserts=[];
         for(const bv of bvs){
           if(bv.type==='speler3'){
-            for(const i of[1,2,3]){
-              pbInserts.push({user_id:u.id,bv_id:bv.id+`_${i}`,answer:`Speler ${Math.floor(Math.random()*20)+1}`});
-            }
+            for(const i of[1,2,3])pbInserts.push({user_id:u.id,bv_id:bv.id+`_${i}`,answer:`Speler ${Math.floor(Math.random()*20)+1}`});
           } else if(bv.type==='team'){
             pbInserts.push({user_id:u.id,bv_id:bv.id,answer:willekeurig(WK_LANDEN)});
           } else if(bv.type==='number'){
@@ -2237,12 +2230,17 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
             pbInserts.push({user_id:u.id,bv_id:bv.id,answer:`Antwoord ${Math.floor(Math.random()*10)+1}`});
           }
         }
-      }
-      for(let i=0;i<pbInserts.length;i+=500){
-        await sb.from('pronos_bijvragen').insert(pbInserts.slice(i,i+500));
+        if(pbInserts.length){
+          const{error}=await sb.from('pronos_bijvragen').insert(pbInserts);
+          if(error)throw error;
+        }
+
+        aangemaakt++;
+        // Kleine pauze tussen gebruikers
+        await new Promise(r=>setTimeout(r,200));
       }
 
-      setMsgFake(`✅ ${teAanmaken} testgebruikers aangemaakt!`);
+      setMsgFake(`✅ ${aangemaakt} testgebruikers aangemaakt!`);
       onRefresh();
     }catch(e){setMsgFake('❌ Fout: '+e.message);}
     setBezigFake(false);
