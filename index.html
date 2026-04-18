@@ -2150,18 +2150,13 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
   async function maakFakeGebruikers(){
     setBezigFake(true);setMsgFake('');
     try{
-      // Haal bestaande testnamen op om duplicaten te vermijden
-      const{data:bestaand}=await sb.from('users').select('name').like('name','Test_%');
-      const bestaandNamen=new Set((bestaand||[]).map(u=>u.name.replace('Test_','')));
-      const beschikbaar=NAMEN.filter(n=>!bestaandNamen.has(n));
-      const teAanmaken=Math.min(aantalFake,beschikbaar.length);
-      if(teAanmaken===0){setMsgFake('⚠ Geen nieuwe namen beschikbaar');setBezigFake(false);return;}
-
-      const nieuweGebruikers=beschikbaar.slice(0,teAanmaken).map(naam=>({
-        name:'Test_'+naam,password:'test123',is_admin:false,is_test:false,betaald:true,email:''
+      // Genereer unieke namen met timestamp om duplicaten te vermijden
+      const ts=Date.now().toString().slice(-4);
+      const nieuweGebruikers=Array.from({length:aantalFake},(_,i)=>({
+        name:`Test_${ts}_${i+1}`,password:'test123',is_admin:false,is_test:false,betaald:true
       }));
       const{data:users,error:uErr}=await sb.from('users').insert(nieuweGebruikers).select();
-      if(uErr)throw uErr;
+      if(uErr)throw new Error('users: '+uErr.message);
 
       // Verwerk gebruikers één voor één om Supabase rate limits te vermijden
       const grpMatches=matches.filter(m=>GRP.includes(m.group));
