@@ -2148,57 +2148,50 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
   function willekeurigScore(){return Math.floor(Math.random()*5);}
 
   async function maakFakeGebruikers(){
-    setBezigFake(true);setMsgFake('');
+    setBezigFake(true);setMsgFake('⏳ Gebruikers aanmaken...');
     try{
-      // Genereer unieke namen met timestamp om duplicaten te vermijden
       const ts=Date.now().toString().slice(-4);
       const nieuweGebruikers=Array.from({length:aantalFake},(_,i)=>({
         name:`Test_${ts}_${i+1}`,password:'test123',is_admin:false,is_test:false,betaald:true
       }));
       const{data:nieuweUsers,error:uErr}=await sb.from('users').insert(nieuweGebruikers).select();
-      if(uErr)throw new Error('users: '+uErr.message);
-      if(!nieuweUsers||!nieuweUsers.length)throw new Error('Geen users teruggekregen van Supabase');
+      if(uErr)throw new Error('Gebruikers aanmaken mislukt: '+uErr.message);
+      if(!nieuweUsers||!nieuweUsers.length)throw new Error('Geen users teruggekregen');
 
-      // Verwerk gebruikers één voor één om Supabase rate limits te vermijden
       const grpMatches=matches.filter(m=>GRP.includes(m.group));
       const rounds=['R32','R16','KF','HF','KF3','F'];
-      let aangemaakt=0;let mislukt=0;
-      for(const u of nieuweUsers){
-        setMsgFake(`⏳ Bezig... ${aangemaakt+mislukt+1}/${nieuweUsers.length} (${aangemaakt} ok, ${mislukt} mislukt)`);
-        try{
+      let aangemaakt=0;
 
-        // Groepswedstrijden
-        setMsgFake(`⏳ ${aangemaakt+1}/${users.length}: wedstrijden...`);
+      for(const u of nieuweUsers){
+        setMsgFake(`⏳ ${u.name} invullen...`);
+
+        // Wedstrijden (in stukken van 50)
         const pmInserts=grpMatches.map(m=>({user_id:u.id,match_id:m.id,home_pred:willekeurigScore(),away_pred:willekeurigScore()}));
-        for(let i=0;i<pmInserts.length;i+=100){
-          const{error}=await sb.from('pronos_matches').insert(pmInserts.slice(i,i+100));
-          if(error)throw new Error(`pronos_matches: ${error.message}`);
+        for(let i=0;i<pmInserts.length;i+=50){
+          const{error:e}=await sb.from('pronos_matches').insert(pmInserts.slice(i,i+50));
+          if(e)throw new Error(`${u.name} wedstrijden: ${e.message}`);
+          await new Promise(r=>setTimeout(r,200));
         }
 
-        await new Promise(r=>setTimeout(r,300));
         // Jokers
-        setMsgFake(`⏳ ${aangemaakt+1}/${users.length}: jokers...`);
         const jokerInserts=GRP.map(grp=>{
           const gm=grpMatches.filter(m=>m.group===grp);
-          if(!gm.length)return null;
-          return{user_id:u.id,match_id:willekeurig(gm).id,group:grp};
+          return gm.length?{user_id:u.id,match_id:willekeurig(gm).id,group:grp}:null;
         }).filter(Boolean);
         if(jokerInserts.length){
-          const{error}=await sb.from('jokers').insert(jokerInserts);
-          if(error)throw new Error(`jokers: ${error.message}`);
+          const{error:e}=await sb.from('jokers').insert(jokerInserts);
+          if(e)throw new Error(`${u.name} jokers: ${e.message}`);
         }
+        await new Promise(r=>setTimeout(r,200));
 
-        await new Promise(r=>setTimeout(r,300));
-        // KO-pronostieken
-        const winnerMap={};
-        const koInserts=[];
+        // KO
+        const winnerMap={};const koInserts=[];
         for(const round of rounds){
           const rMs=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
           for(const m of rMs){
             let teams=[];
-            if(round==='R32'){
-              teams=[m.home,m.away].filter(t=>t&&!/^(W-|RU-|VL-)/.test(t));
-            } else if(round==='KF3'){
+            if(round==='R32')teams=[m.home,m.away].filter(t=>t&&!/^(W-|RU-|VL-)/.test(t));
+            else if(round==='KF3'){
               const hfMs=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
               teams=hfMs.flatMap(hm=>[hm.home,hm.away].filter(Boolean).filter(t=>t!==winnerMap[hm.id])).slice(0,2);
             } else {
@@ -2214,41 +2207,31 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
           }
         }
         if(koInserts.length){
-          const{error}=await sb.from('ko_pronos').insert(koInserts);
-          if(error)throw error;
+          const{error:e}=await sb.from('ko_pronos').insert(koInserts);
+          if(e)throw new Error(`${u.name} KO: ${e.message}`);
         }
+        await new Promise(r=>setTimeout(r,200));
 
-        await new Promise(r=>setTimeout(r,300));
         // Bijvragen
         const pbInserts=[];
         for(const bv of bvs){
-          if(bv.type==='speler3'){
-            for(const i of[1,2,3])pbInserts.push({user_id:u.id,bv_id:bv.id+`_${i}`,answer:`Speler ${Math.floor(Math.random()*20)+1}`});
-          } else if(bv.type==='team'){
-            pbInserts.push({user_id:u.id,bv_id:bv.id,answer:willekeurig(WK_LANDEN)});
-          } else if(bv.type==='number'){
-            pbInserts.push({user_id:u.id,bv_id:bv.id,answer:String(Math.floor(Math.random()*50)+1)});
-          } else {
-            pbInserts.push({user_id:u.id,bv_id:bv.id,answer:`Antwoord ${Math.floor(Math.random()*10)+1}`});
-          }
+          if(bv.type==='speler3'){for(const i of[1,2,3])pbInserts.push({user_id:u.id,bv_id:bv.id+`_${i}`,answer:`Speler ${Math.floor(Math.random()*20)+1}`});}
+          else if(bv.type==='team')pbInserts.push({user_id:u.id,bv_id:bv.id,answer:willekeurig(WK_LANDEN)});
+          else if(bv.type==='number')pbInserts.push({user_id:u.id,bv_id:bv.id,answer:String(Math.floor(Math.random()*50)+1)});
+          else pbInserts.push({user_id:u.id,bv_id:bv.id,answer:`Antwoord ${Math.floor(Math.random()*10)+1}`});
         }
         if(pbInserts.length){
-          const{error}=await sb.from('pronos_bijvragen').insert(pbInserts);
-          if(error)throw error;
+          const{error:e}=await sb.from('pronos_bijvragen').insert(pbInserts);
+          if(e)throw new Error(`${u.name} bijvragen: ${e.message}`);
         }
 
-          aangemaakt++;
-        }catch(stepErr){
-          mislukt++;
-          console.error(`Fout bij ${u.name}:`,stepErr);
-        }
-        // Pauze tussen gebruikers om rate limits te vermijden
-        await new Promise(r=>setTimeout(r,1000));
+        aangemaakt++;
+        await new Promise(r=>setTimeout(r,500));
       }
 
-      setMsgFake(`✅ ${aangemaakt} aangemaakt, ${mislukt} mislukt`);
+      setMsgFake(`✅ ${aangemaakt}/${nieuweUsers.length} testgebruikers aangemaakt!`);
       onRefresh();
-    }catch(e){setMsgFake('❌ Fout: '+e.message);}
+    }catch(e){setMsgFake('❌ '+e.message);}
     setBezigFake(false);
   }
 
