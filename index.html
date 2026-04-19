@@ -2135,7 +2135,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
   const[msg,setMsg]=useState('');
   const[confirmWis,setConfirmWis]=useState(false);
   const[confirmInvul,setConfirmInvul]=useState(false);
-  const[aantalFake,setAantalFake]=useState(5);
+  const[aantalFake,setAantalFake]=useState(3);
   const[bezigFake,setBezigFake]=useState(false);
   const[msgFake,setMsgFake]=useState('');
   const[confirmWisFake,setConfirmWisFake]=useState(false);
@@ -2170,7 +2170,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
         for(let i=0;i<pmInserts.length;i+=50){
           const{error:e}=await sb.from('pronos_matches').insert(pmInserts.slice(i,i+50));
           if(e)throw new Error(`${u.name} wedstrijden: ${e.message}`);
-          await new Promise(r=>setTimeout(r,200));
+          await new Promise(r=>setTimeout(r,500));
         }
 
         // Jokers
@@ -2182,7 +2182,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
           const{error:e}=await sb.from('jokers').insert(jokerInserts);
           if(e)throw new Error(`${u.name} jokers: ${e.message}`);
         }
-        await new Promise(r=>setTimeout(r,200));
+        await new Promise(r=>setTimeout(r,600));
 
         // KO
         const winnerMap={};const koInserts=[];
@@ -2210,7 +2210,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
           const{error:e}=await sb.from('ko_pronos').insert(koInserts);
           if(e)throw new Error(`${u.name} KO: ${e.message}`);
         }
-        await new Promise(r=>setTimeout(r,200));
+        await new Promise(r=>setTimeout(r,600));
 
         // Bijvragen
         const pbInserts=[];
@@ -2226,7 +2226,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
         }
 
         aangemaakt++;
-        await new Promise(r=>setTimeout(r,500));
+        await new Promise(r=>setTimeout(r,2000));
       }
 
       setMsgFake(`✅ ${aangemaakt}/${nieuweUsers.length} testgebruikers aangemaakt!`);
@@ -2339,7 +2339,7 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
       <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Maak automatisch testgebruikers aan met willekeurige pronostieken. Ze krijgen <code>is_test=true</code> en tellen niet mee.</div>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
         <span style={{fontSize:12,color:'var(--muted)'}}>Aantal:</span>
-        <input className="ii" type="number" min="1" max="10" value={aantalFake} onChange={e=>setAantalFake(Math.min(10,parseInt(e.target.value)||5))} style={{width:60,textAlign:'center'}}/>
+        <input className="ii" type="number" min="1" max="5" value={aantalFake} onChange={e=>setAantalFake(Math.min(5,parseInt(e.target.value)||3))} style={{width:60,textAlign:'center'}}/>
         <button className="btn btn-sm btn-outline" onClick={maakFakeGebruikers} disabled={bezigFake}>
           {bezigFake?'⏳ Bezig...':'➕ Aanmaken'}
         </button>
