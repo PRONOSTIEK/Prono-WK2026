@@ -2155,15 +2155,16 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
       const nieuweGebruikers=Array.from({length:aantalFake},(_,i)=>({
         name:`Test_${ts}_${i+1}`,password:'test123',is_admin:false,is_test:false,betaald:true
       }));
-      const{data:users,error:uErr}=await sb.from('users').insert(nieuweGebruikers).select();
+      const{data:nieuweUsers,error:uErr}=await sb.from('users').insert(nieuweGebruikers).select();
       if(uErr)throw new Error('users: '+uErr.message);
+      if(!nieuweUsers||!nieuweUsers.length)throw new Error('Geen users teruggekregen van Supabase');
 
       // Verwerk gebruikers één voor één om Supabase rate limits te vermijden
       const grpMatches=matches.filter(m=>GRP.includes(m.group));
       const rounds=['R32','R16','KF','HF','KF3','F'];
       let aangemaakt=0;let mislukt=0;
-      for(const u of users){
-        setMsgFake(`⏳ Bezig... ${aangemaakt+mislukt+1}/${users.length} (${aangemaakt} ok, ${mislukt} mislukt)`);
+      for(const u of nieuweUsers){
+        setMsgFake(`⏳ Bezig... ${aangemaakt+mislukt+1}/${nieuweUsers.length} (${aangemaakt} ok, ${mislukt} mislukt)`);
         try{
 
         // Groepswedstrijden
@@ -3475,11 +3476,11 @@ function App(){
   async function loadAll(silent=false){
     const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt},{data:fr}]=await Promise.all([
       sb.from('users').select('*'),sb.from('matches').select('*').order('group').order('date').order('id'),sb.from('bijvragen').select('*').order('sort_order'),
-      sb.from('pronos_matches').select('*'),sb.from('pronos_bijvragen').select('*'),sb.from('jokers').select('*'),
+      sb.from('pronos_matches').select('*').limit(10000),sb.from('pronos_bijvragen').select('*').limit(10000),sb.from('jokers').select('*').limit(10000),
       sb.from('punten_vragen').select('*'),sb.from('fairplay').select('*'),sb.from('config').select('*'),
       sb.from('speler_stats').select('*'),
       sb.from('ko_matches').select('*').order('round_order').order('position'),
-      sb.from('ko_pronos').select('*'),
+      sb.from('ko_pronos').select('*').limit(10000),
       sb.from('ko_punten').select('*'),
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
     ]);
