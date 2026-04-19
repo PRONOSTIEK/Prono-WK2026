@@ -3457,15 +3457,30 @@ function App(){
   const[fifaRanking,setFifaRanking]=useState([]);
 
   async function loadAll(silent=false){
+    // Retry helper: probeer tot 3 keer bij mislukking
+    async function q(fn){
+      for(let i=0;i<3;i++){
+        const r=await fn();
+        if(!r.error&&r.data!==null)return r;
+        await new Promise(res=>setTimeout(res,500*(i+1)));
+      }
+      return{data:[]};
+    }
     const[{data:us},{data:ma},{data:bv},{data:pm},{data:pb},{data:jk},{data:pv},{data:fp},{data:cfg},{data:ss},{data:km},{data:kp},{data:kpt},{data:fr}]=await Promise.all([
-      sb.from('users').select('*'),sb.from('matches').select('*').order('group').order('date').order('id'),sb.from('bijvragen').select('*').order('sort_order'),
-      sb.from('pronos_matches').select('*').limit(10000),sb.from('pronos_bijvragen').select('*').limit(10000),sb.from('jokers').select('*').limit(10000),
-      sb.from('punten_vragen').select('*'),sb.from('fairplay').select('*'),sb.from('config').select('*'),
-      sb.from('speler_stats').select('*'),
-      sb.from('ko_matches').select('*').order('round_order').order('position'),
-      sb.from('ko_pronos').select('*').limit(10000),
-      sb.from('ko_punten').select('*'),
-      sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
+      q(()=>sb.from('users').select('*')),
+      q(()=>sb.from('matches').select('*').order('group').order('date').order('id')),
+      q(()=>sb.from('bijvragen').select('*').order('sort_order')),
+      q(()=>sb.from('pronos_matches').select('*').limit(10000)),
+      q(()=>sb.from('pronos_bijvragen').select('*').limit(10000)),
+      q(()=>sb.from('jokers').select('*').limit(10000)),
+      q(()=>sb.from('punten_vragen').select('*')),
+      q(()=>sb.from('fairplay').select('*')),
+      q(()=>sb.from('config').select('*')),
+      q(()=>sb.from('speler_stats').select('*')),
+      q(()=>sb.from('ko_matches').select('*').order('round_order').order('position')),
+      q(()=>sb.from('ko_pronos').select('*').limit(10000)),
+      q(()=>sb.from('ko_punten').select('*')),
+      q(()=>sb.from('fifa_ranking').select('*').order('points',{ascending:false})),
     ]);
     setUsers(us||[]);setMatches(ma||[]);setBvs(bv||[]);
     const pmM={};for(const p of(pm||[])){if(!pmM[p.user_id])pmM[p.user_id]={};pmM[p.user_id][p.match_id]=p;}setPmAll(pmM);
@@ -3501,7 +3516,7 @@ function App(){
     if(!silent)setLoad(false);
   }
   useEffect(()=>{loadAll();},[]);
-  useEffect(()=>{const t=setInterval(()=>loadAll(true),30000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{const t=setInterval(()=>loadAll(true),120000);return()=>clearInterval(t);},[]);
 
   if(load)return<div className="spinner">⚽ Laden...</div>;
   if(!user)return<Login onLogin={u=>{setUser(u);setPage(u.is_admin?'admin':'uitleg');}}/>;
