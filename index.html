@@ -844,9 +844,11 @@ function Login({onLogin}){
 function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spelerStats,config,koMatches,koPronosAll,koPunten,fifaRanking,cur,viewPronoOf}){
   const isAdmin=cur.is_admin;
   const[toonAlles,setToonAlles]=useState(false);
+  const fakeTellenPV=config['fake_tellen_pv']==='1';
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg);
+  const pvUserIds=new Set(echteUsers.filter(u=>fakeTellenPV||!u.name?.startsWith('Test_')).map(u=>u.id));
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
-  const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
+  const pt=avgPT(pvAll.filter(p=>pvUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
 
@@ -1558,7 +1560,8 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
     een_juist_winnaar_fout:my?my.een_juist_winnaar_fout:null,
     alles_fout:my?my.alles_fout:null,
   }),[saved,setSaved]=useState(false);
-  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg).map(u=>u.id));
+  const fakeTellenPV=config['fake_tellen_pv']==='1';
+const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
   const avg=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const vr=[
     {k:'alles_juist',l:'Alles juist',min:4,max:10,c:'var(--green)'},
@@ -1659,7 +1662,8 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
 
 // MIJN PUNTEN
 function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRanking,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
-  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg).map(u=>u.id));
+  const fakeTellenPV=config['fake_tellen_pv']==='1';
+const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
@@ -3334,6 +3338,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 
     {tab==='users'&&<div className="card">
       <div className="card-title">👥 Gebruikers ({deelnemers.length})</div>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,padding:'8px 10px',background:'var(--dark3)',borderRadius:7,border:'1px solid var(--border)'}}>
+        <span style={{fontSize:13,flex:1}}>Fake testers (Test_...) meetellen voor puntenverdeling</span>
+        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+          <input type="checkbox" checked={config['fake_tellen_pv']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'fake_tellen_pv',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)',width:16,height:16}}
+          />
+          <span style={{fontSize:12,color:config['fake_tellen_pv']==='1'?'var(--green)':'var(--muted)'}}>{config['fake_tellen_pv']==='1'?'Ja':'Nee'}</span>
+        </label>
+      </div>
       {/* Puntenverdeling teller */}
       {(()=>{
         const pvIngevuldIds=new Set(pvAll.filter(p=>{
