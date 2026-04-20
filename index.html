@@ -1011,11 +1011,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     </span>
                   </td>
                   {gespeeldeMatches.map(m=>{
-                    const vals=betalenden.map(u=>(pmAll[u.id]||{})[m.id]).filter(p=>p&&p.home_pred!=null);
-                    const avgH=vals.length?Math.round(vals.reduce((s,p)=>s+Number(p.home_pred),0)/vals.length):null;
-                    const avgA=vals.length?Math.round(vals.reduce((s,p)=>s+Number(p.away_pred),0)/vals.length):null;
+                    const ptsVals=betalenden.map(u=>u.ptsPerMatch[m.id]).filter(v=>v!=null);
+                    const avgPts=ptsVals.length?Math.round(ptsVals.reduce((s,v)=>s+v,0)/ptsVals.length*100)/100:null;
                     return(<td key={m.id} style={{padding:'2px 3px',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,background:avgBg}}>
-                      {avgH!=null?<div style={{fontSize:8,color:'var(--green)'}}>{avgH}–{avgA}</div>:<span style={{color:'var(--border)'}}>–</span>}
+                      {avgPts!=null?<div style={{fontFamily:'Bebas Neue',fontSize:11,color:'var(--green)'}}>{avgPts>0?'+':''}{fmt(avgPts)}</div>:<span style={{color:'var(--border)'}}>–</span>}
                     </td>);
                   })}
                 </tr>);
