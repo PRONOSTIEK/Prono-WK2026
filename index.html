@@ -911,7 +911,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       <table className="ranking">
         <thead><tr><th>#</th><th>Naam</th><th>Ingevuld</th><th style={{textAlign:'right'}}>Punten</th></tr></thead>
         <tbody>
-          {st.map((u,i)=>(<tr key={u.id} className={`rank-${i+1}`} style={u.id===cur.id?{background:'var(--dark3)'}:{}}>
+          {st.map((u,i)=>(<tr key={u.id} className={`rank-${i+1}`} style={{background:u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)'}}>
             <td><div className="rank-num">{i+1}</div></td>
             <td>
               <div style={{fontWeight:u.id===cur.id?600:400,color:viewPronoOf?'var(--green)':'var(--text)',cursor:viewPronoOf?'pointer':'default',textDecoration:viewPronoOf?'underline':'none'}} onClick={()=>viewPronoOf&&viewPronoOf(u)}>{u.name}</div>
@@ -969,15 +969,15 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <tbody>
               {st.map((u,i)=>{
                 const isMe=u.id===cur.id;
-                const bg=isMe?'var(--dark3)':stickyBg;
+                const rowBg=isMe?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
                 return(<tr key={u.id}>
-                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'center',position:'sticky',left:0,background:bg,zIndex:1}}>
+                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'center',position:'sticky',left:0,background:rowBg,zIndex:1}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
                   </td>
-                  <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:30,background:bg,zIndex:1}}>
+                  <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:30,background:rowBg,zIndex:1}}>
                     <span style={{color:isMe?'var(--green)':'var(--text)',fontWeight:isMe?600:400}}>{u.name}</span>
                   </td>
-                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',position:'sticky',left:120,background:bg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
+                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',position:'sticky',left:120,background:rowBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--gold)'}}>{fmt(u.tot)}</span>
                   </td>
                   {gespeeldeMatches.map(m=>{
@@ -985,7 +985,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const pts=u.ptsPerMatch[m.id];
                     const isJ=(jAll[u.id]||[]).map(j=>j.match_id).includes(m.id);
                     const gespeeld=m.home_score!=null;
-                    const cellBg=!gespeeld?'var(--dark3)':isMe?'var(--dark3)':stickyBg;
+                    const cellBg=isJ?rowBg:!gespeeld?'var(--dark2)':rowBg;
                     return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:isJ?'2px solid var(--gold)':'none',outlineOffset:'-2px',background:cellBg}}>
                       {p&&p.home_pred!=null
                         ?<div>
