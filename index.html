@@ -104,6 +104,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .ranking th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);letter-spacing:.3px;}
 .ranking td{padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;}
 .ranking tr:last-child td{border-bottom:none;}
+.ranking tbody tr{background:var(--card);}
+.ranking tbody tr:nth-child(even){background:var(--dark3);}
 .rank-num{font-family:'Bebas Neue';font-size:19px;color:var(--muted);}
 .rank-1 .rank-num{color:var(--gold);}
 .rank-2 .rank-num{color:#ccc;}
@@ -922,6 +924,17 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             </td>
           </tr>))}
           {st.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+          {st.length>0&&(()=>{
+            const betalenden=st.filter(u=>u.betaald||toonAlles);
+            const gemTot=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100:0;
+            const gemFilled=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.filled,0)/betalenden.length):0;
+            return(<tr style={{background:'#1a3a2a',borderTop:'2px solid var(--green)'}}>
+              <td><div className="rank-num" style={{color:'var(--green)'}}>∅</div></td>
+              <td><div style={{fontSize:12,color:'var(--green)',fontWeight:600}}>Gemiddelde</div></td>
+              <td><div style={{fontSize:10,color:'var(--muted)'}}>{gemFilled}/{matches.length}</div></td>
+              <td style={{textAlign:'right'}}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
+            </tr>);
+          })()}
         </tbody>
       </table>
     </div>
@@ -982,6 +995,31 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   })}
                 </tr>);
               })}
+              {st.length>0&&(()=>{
+                const avgBg='#1a3a2a';
+                const betalenden=st.filter(u=>u.betaald||toonAlles);
+                return(<tr style={{borderTop:'2px solid var(--green)'}}>
+                  <td style={{padding:'3px 6px',textAlign:'center',position:'sticky',left:0,background:avgBg,zIndex:1}}>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>∅</span>
+                  </td>
+                  <td style={{padding:'3px 8px',position:'sticky',left:30,background:avgBg,zIndex:1}}>
+                    <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
+                  </td>
+                  <td style={{padding:'3px 6px',textAlign:'right',position:'sticky',left:120,background:avgBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>
+                      {fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100:0)}
+                    </span>
+                  </td>
+                  {gespeeldeMatches.map(m=>{
+                    const vals=betalenden.map(u=>(pmAll[u.id]||{})[m.id]).filter(p=>p&&p.home_pred!=null);
+                    const avgH=vals.length?Math.round(vals.reduce((s,p)=>s+Number(p.home_pred),0)/vals.length):null;
+                    const avgA=vals.length?Math.round(vals.reduce((s,p)=>s+Number(p.away_pred),0)/vals.length):null;
+                    return(<td key={m.id} style={{padding:'2px 3px',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,background:avgBg}}>
+                      {avgH!=null?<div style={{fontSize:8,color:'var(--green)'}}>{avgH}–{avgA}</div>:<span style={{color:'var(--border)'}}>–</span>}
+                    </td>);
+                  })}
+                </tr>);
+              })()}
             </tbody>
           </table>
         </div>);
@@ -1636,6 +1674,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
   const aantalAllesFout=matchDet.filter(m=>m.cat==='alles_fout').length;
   const jokerPunten=matchDet.filter(m=>m.isJ).reduce((s,m)=>s+m.pts,0)/2;
+  const maxPtsWedstrijd=matchDet.length?Math.max(...matchDet.map(m=>m.pts)):0;
   const bijvraagPunten=det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
 
   // Categorielabels
@@ -1702,6 +1741,10 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
       <div className="stat-box"><div className="stat-n" style={{color:'var(--green)'}}>{aantalAllesJuist}</div><div className="stat-l">Volledig juist</div></div>
       <div className="stat-box"><div className="stat-n" style={{color:'var(--red)'}}>{aantalAllesFout}</div><div className="stat-l">Volledig fout</div></div>
       <div className="stat-box"><div className="stat-n" style={{color:'var(--gold)'}}>{fmt(jokerPunten)}</div><div className="stat-l">Jokerpunten</div></div>
+    </div>
+    <div className="grid2" style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--green)'}}>{fmt(maxPtsWedstrijd)}</div><div className="stat-l">Max punten 1 wedstrijd</div></div>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{matchDet.length?fmt(Math.round(matchDet.reduce((s,m)=>s+m.pts,0)/matchDet.length*100)/100):0}</div><div className="stat-l">Gem. punten per wedstrijd</div></div>
     </div>
 
     {/* PER GROEP */}
