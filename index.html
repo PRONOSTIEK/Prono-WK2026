@@ -244,7 +244,7 @@ function calcC(fifaPts, fifaRanking, config){
 
 function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches,fifaRanking,config,allKoPronos,allPbAll){
   // teldatum parameter is nu enkel voor bijvragen, groepsfase is altijd actief
-  const telBijvragen=!teldatum||new Date()>=new Date(teldatum);
+  const telBijvragen=!teldatum||(new Date()>=new Date(teldatum))||(config&&config['actief_bijvragen']==='1');
   const telPunten=true; // groepsfase altijd live
   let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
@@ -350,8 +350,9 @@ function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatch
 }
 function isDeadlinePassed(d){if(!d)return false;return new Date()>new Date(d);}
 function isFaseActief(config,key){
+  if(config['actief_'+key]==='1')return true; // manueel geactiveerd
   const d=config['tel_'+key];
-  if(!d)return false; // niet actief als geen datum ingesteld
+  if(!d)return false;
   return new Date()>=new Date(d);
 }
 
@@ -1571,7 +1572,7 @@ function PuntenVragen({cur,pvAll,users,onRefresh}){
     alles_fout:my?my.alles_fout:null,
   }),[saved,setSaved]=useState(false);
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
   const avg=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const vr=[
     {k:'alles_juist',l:'Alles juist',min:4,max:10,c:'var(--green)'},
@@ -1673,7 +1674,7 @@ const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(
 // MIJN PUNTEN
 function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRanking,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
@@ -3265,14 +3266,15 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           {key:'bijvragen',label:'⭐ Bijvragen'},
         ].map(({key,label})=>{
           const val=config['tel_'+key]||'';
-          const actief=val&&new Date()>=new Date(val);
+          const datumActief=val&&new Date()>=new Date(val);
+          const manueel=config['actief_'+key]==='1';
+          const actief=datumActief||manueel;
           return(<div key={key} style={{padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-              <span style={{fontSize:13}}>{label}</span>
-              {val&&<span className={`tag ${actief?'tag-green':'tag-gold'}`}>{actief?'✓ actief':'⏳ nog niet actief'}</span>}
-              {!val&&<span className="tag tag-gray">niet ingesteld</span>}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <span style={{fontSize:13,fontWeight:500}}>{label}</span>
+              <span className={`tag ${actief?'tag-green':'tag-gray'}`}>{actief?'✓ actief':'niet actief'}</span>
             </div>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
               <input className="ii" type="datetime-local" style={{flex:1,minWidth:160}}
                 defaultValue={val}
                 onBlur={async e=>{
@@ -3284,6 +3286,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
                 await sb.from('config').upsert({key:'tel_'+key,value:''});
                 onRefresh();
               }}>✕</button>}
+              <label style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontSize:12,color:manueel?'var(--green)':'var(--muted)',whiteSpace:'nowrap'}}>
+                <input type="checkbox" checked={manueel}
+                  onChange={async e=>{
+                    await sb.from('config').upsert({key:'actief_'+key,value:e.target.checked?'1':'0'});
+                    onRefresh();
+                  }}
+                  style={{accentColor:'var(--green)'}}
+                />
+                Nu actief
+              </label>
             </div>
           </div>);
         })}
@@ -3301,22 +3313,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           {deadline&&<button className="btn btn-sm btn-danger" onClick={clearDeadline}>Wissen</button>}
         </div>
       </div>
-      <div className="card">
-        <div className="card-title">📊 Teldatum Bijvraagpunten</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Vanaf deze datum/tijd worden de bijvraagpunten meegeteld in het klassement. Laat leeg om altijd te tellen.</div>
-        {config.bijvragen_teldatum&&<div style={{marginBottom:10,fontSize:12}}>
-          Huidig: <strong style={{color:new Date()>=new Date(config.bijvragen_teldatum)?'var(--green)':'var(--gold)'}}>{new Date(config.bijvragen_teldatum).toLocaleString('nl-BE')}</strong>
-          {new Date()>=new Date(config.bijvragen_teldatum)
-            ?<span className="tag tag-green" style={{marginLeft:6}}>actief</span>
-            :<span className="tag tag-gold" style={{marginLeft:6}}>nog niet actief</span>
-          }
-        </div>}
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          <input className="ii" type="datetime-local" value={teldatum} onChange={e=>setTeldatum(e.target.value)} style={{flex:1,minWidth:180}}/>
-          <button className="btn btn-sm btn-outline" onClick={saveTeldatum}>Opslaan</button>
-          {teldatum&&<button className="btn btn-sm btn-danger" onClick={clearTeldatum}>Wissen</button>}
-        </div>
-      </div>
+
       <div className="card">
         <div className="card-title">🤖 Gemiddelde deelnemer</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Naam van de automatische deelnemer die het gemiddelde van alle pronostieken krijgt.</div>
