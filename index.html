@@ -1561,7 +1561,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   </div>);}
 
 // PUNTENVRAGEN
-function PuntenVragen({cur,pvAll,users,onRefresh}){
+function PuntenVragen({cur,pvAll,users,config,onRefresh}){
   const my=pvAll.find(p=>p.user_id===cur.id);
   // null = niet ingevuld (telt niet mee voor gemiddelde)
   const[vals,setVals]=useState({
@@ -3629,7 +3629,7 @@ function App(){
             <Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)}/>
           </div>);
         })()}
-        {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} onRefresh={loadAll}/>}
+        {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} fifaRanking={fifaRanking} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
         {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
       </div>
