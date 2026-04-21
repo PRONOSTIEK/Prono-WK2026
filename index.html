@@ -1688,7 +1688,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
   const aantalAllesFout=matchDet.filter(m=>m.cat==='alles_fout').length;
   const jokerPunten=matchDet.filter(m=>m.isJ).reduce((s,m)=>s+m.pts,0)/2;
-  const maxPtsWedstrijd=matchDet.length?Math.max(...matchDet.map(m=>m.pts)):0;
+  const maxPtsWedstrijd=matchDet.filter(m=>m.pts>0).length?Math.max(...matchDet.filter(m=>m.pts>0).map(m=>m.pts)):0;
   const bijvraagPunten=det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
 
   // Categorielabels
@@ -1758,7 +1758,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
     </div>
     <div className="grid2" style={{marginBottom:12}}>
       <div className="stat-box"><div className="stat-n" style={{color:'var(--green)'}}>{fmt(maxPtsWedstrijd)}</div><div className="stat-l">Max punten 1 wedstrijd</div></div>
-      <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{matchDet.length?fmt(Math.round(matchDet.reduce((s,m)=>s+m.pts,0)/matchDet.length*100)/100):0}</div><div className="stat-l">Gem. punten per wedstrijd</div></div>
+      <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{matchDet.filter(m=>m.cat).length?fmt(Math.round(matchDet.filter(m=>m.cat).reduce((s,m)=>s+m.pts,0)/matchDet.filter(m=>m.cat).length*100)/100):0}</div><div className="stat-l">Gem. punten per wedstrijd</div></div>
     </div>
 
     {/* PER GROEP */}
