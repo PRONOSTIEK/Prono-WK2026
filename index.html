@@ -1572,7 +1572,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
     alles_fout:my?my.alles_fout:null,
   }),[saved,setSaved]=useState(false);
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_avg&&(fakeTellenPV||(!u.is_test&&!u.name?.startsWith('Test_')))).map(u=>u.id));
   const avg=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const vr=[
     {k:'alles_juist',l:'Alles juist',min:4,max:10,c:'var(--green)'},
@@ -1674,7 +1674,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
 // MIJN PUNTEN
 function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRanking,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
+  const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_avg&&(fakeTellenPV||(!u.is_test&&!u.name?.startsWith('Test_')))).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum);
