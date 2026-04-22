@@ -847,7 +847,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const isAdmin=cur.is_admin;
   const[toonAlles,setToonAlles]=useState(false);
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-  const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg);
+  const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
   const pvUserIds=new Set(echteUsers.filter(u=>fakeTellenPV||!u.name?.startsWith('Test_')).map(u=>u.id));
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>pvUserIds.has(p.user_id)));
@@ -903,7 +903,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
     <div className="grid2" style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n">{echteUsers.length}</div><div className="stat-l">Deelnemers</div></div>
+      <div className="stat-box"><div className="stat-n">{echteUsers.filter(u=>!u.is_avg).length}</div><div className="stat-l">Deelnemers</div></div>
       <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length}</div><div className="stat-l">Gespeeld</div></div>
     </div>
 
