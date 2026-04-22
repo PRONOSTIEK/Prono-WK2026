@@ -1046,9 +1046,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myFP=fpAll[cur.id]||{};
   const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'bijvragen'),[saved,setSaved]=useState(false);
   const timer=useRef(null);
-  const gfStart=new Date()>=new Date('2026-06-11');
+  const gfDeadline=config.groep_deadline||'';
+  const gfManueel=config['actief_groep_deadline']==='1';
+  const gfStart=gfManueel||isDeadlinePassed(gfDeadline);
   const deadline=config.bijvragen_deadline||'';
-  const dlPassed=isDeadlinePassed(deadline);
+  const dlPassed=isDeadlinePassed(deadline)||config['actief_bijvragen_deadline']==='1';
+  const koDlPassed=isDeadlinePassed(config.ko_deadline||'')||config['actief_ko_deadline']==='1';
 
   useEffect(()=>setLPM(pmAll[cur.id]||{}),[pmAll,cur.id]);
   useEffect(()=>setLPB(pbAll[cur.id]||{}),[pbAll,cur.id]);
@@ -1056,7 +1059,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   useEffect(()=>setLFP(fpAll[cur.id]||{}),[fpAll,cur.id]);
 
   function sv(){if(readOnly)return;setSaved(true);setTimeout(()=>setSaved(false),1800);}
-  async function saveM(mid,h,a){if(readOnly)return;await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
+  async function saveM(mid,h,a){if(readOnly||gfStart)return;await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
   async function saveBv(bid,ans){
     if(readOnly)return;
     await sb.from('pronos_bijvragen').upsert({user_id:cur.id,bv_id:bid,answer:ans},{onConflict:'user_id,bv_id'});
@@ -1078,15 +1081,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const[lKO,setLKO]=useState(myKO);
   useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
   async function saveKO(matchId,winner){
-    if(readOnly)return;
+    if(readOnly||koDlPassed)return;
     setLKO(p=>({...p,[matchId]:winner}));
     await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     sv();onRefresh();
   }
-  function hB(bid,val){if(readOnly)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
+  function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
 
-  function hM(mid,side,val){if(readOnly)return;const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
+  function hM(mid,side,val){if(readOnly||gfStart)return;const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
   const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
@@ -1099,7 +1102,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       {cur.is_test&&<span className="tag tag-test">🧪 TEST</span>}
     </div>
     {cur.is_test&&<div className="info-test">🧪 <strong>Testmodus:</strong> Jouw inzendingen tellen niet mee.</div>}
+    {gfDeadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline groepswedstrijden: <strong style={{color:gfStart?'var(--red)':'var(--gold)'}}>{new Date(gfDeadline).toLocaleString('nl-BE')}</strong></div>}
     {deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline bijvragen: <strong style={{color:dlPassed?'var(--red)':'var(--gold)'}}>{new Date(deadline).toLocaleString('nl-BE')}</strong></div>}
+    {config.ko_deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline KO-fase: <strong style={{color:koDlPassed?'var(--red)':'var(--gold)'}}>{new Date(config.ko_deadline).toLocaleString('nl-BE')}</strong></div>}
 
     <div className="groep-tabs">
       <div className={`groep-tab ${tab==='bijvragen'?'active':''}`} onClick={()=>setTab('bijvragen')}>⭐</div>
@@ -1436,6 +1441,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     })()}
 
     {/* KNOCK-OUT FASE */}
+    {tab==='ko'&&koDlPassed&&<div className="info-deadline">🔒 Deadline verstreken — KO-pronostiek is gesloten.</div>}
     {tab==='ko'&&(()=>{
       const fpDerden3de=lFP['3de'];
       const{winnaars,runners,top8Derden}=calcKOTeams(matches,lPM,lFP,fifaRanking,Array.isArray(fpDerden3de)?fpDerden3de:null);
@@ -1575,6 +1581,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
     alles_fout:my?my.alles_fout:null,
   }),[saved,setSaved]=useState(false);
   const fakeTellenPV=config['fake_tellen_pv']==='1';
+  const pvLocked=isDeadlinePassed(config.pv_deadline||'')||config['actief_pv_deadline']==='1';
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_avg&&(fakeTellenPV||(!u.is_test&&!u.name?.startsWith('Test_')))).map(u=>u.id));
   const avg=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const vr=[
@@ -1617,6 +1624,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
       <span className={`saved ${saved?'show':''}`}>✓ Opgeslagen</span>
     </div>
     {cur.is_test&&<div className="info-test">🧪 Jouw puntenverdeling telt niet mee voor het gemiddelde.</div>}
+    {pvLocked&&<div className="info-deadline">🔒 De deadline voor de puntenverdeling is verstreken — aanpassen is niet meer mogelijk.</div>}
     <div className="info">
       <strong>Hoe werkt dit?</strong> Jij bepaalt hoeveel punten elke categorie waard is. Het gemiddelde van alle ingevulde deelnemers = de officiële puntentabel.<br/>
       <strong>Belangrijk:</strong> Zolang je niet alle 5 vragen hebt ingevuld, telt jouw keuze <strong>niet</strong> mee voor het gemiddelde.
@@ -1638,6 +1646,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
               <div style={{fontSize:9,color:'var(--muted)'}}>Kies tussen {v.min} en {v.max}</div>
             </div>
             <select
+              disabled={pvLocked}
               value={val===null||val===undefined?'':val}
               onChange={e=>hC(v.k,e.target.value)}
               style={{background:'var(--dark3)',border:`1px solid ${val!==null?v.c:'var(--border)'}`,borderRadius:6,padding:'7px 10px',color:val!==null?v.c:'var(--muted)',fontFamily:'Bebas Neue',fontSize:18,outline:'none',flexShrink:0,width:80,textAlign:'center',cursor:'pointer'}}
@@ -1677,6 +1686,7 @@ function PuntenVragen({cur,pvAll,users,config,onRefresh}){
 // MIJN PUNTEN
 function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRanking,users,spelerStats,config,koMatches,koPronosAll,koPunten,cur}){
   const fakeTellenPV=config['fake_tellen_pv']==='1';
+  const pvLocked=isDeadlinePassed(config.pv_deadline||'')||config['actief_pv_deadline']==='1';
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_avg&&(fakeTellenPV||(!u.is_test&&!u.name?.startsWith('Test_')))).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
   const teldatum=config.bijvragen_teldatum||'';
@@ -2598,7 +2608,7 @@ function FifaTab({matches,fifaRanking,config,onRefresh}){
 }
 
 function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
-  const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
+  const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
 
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
   const[adminLFP,setAdminLFP]=useState(fpAll['admin']||{});
@@ -2694,6 +2704,12 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function saveAvgNaam(){await sb.from('config').upsert({key:'avg_naam',value:avgNaam});onRefresh();}
   async function saveDeadline(){await sb.from('config').upsert({key:'bijvragen_deadline',value:deadline});onRefresh();}
   async function clearDeadline(){setDeadline('');await sb.from('config').upsert({key:'bijvragen_deadline',value:''});onRefresh();}
+  async function savePvDeadline(){await sb.from('config').upsert({key:'pv_deadline',value:pvDeadline});onRefresh();}
+  async function clearPvDeadline(){setPvDeadline('');await sb.from('config').upsert({key:'pv_deadline',value:''});onRefresh();}
+  async function saveGroepDeadline(){await sb.from('config').upsert({key:'groep_deadline',value:groepDeadline});onRefresh();}
+  async function clearGroepDeadline(){setGroepDeadline('');await sb.from('config').upsert({key:'groep_deadline',value:''});onRefresh();}
+  async function saveKoDeadline(){await sb.from('config').upsert({key:'ko_deadline',value:koDeadline});onRefresh();}
+  async function clearKoDeadline(){setKoDeadline('');await sb.from('config').upsert({key:'ko_deadline',value:''});onRefresh();}
   async function saveTeldatum(){await sb.from('config').upsert({key:'bijvragen_teldatum',value:teldatum});onRefresh();}
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
@@ -3100,7 +3116,15 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             if(m.round==='R32')return getR32Teams(m.id,echteWinnaars,echteRunners,echteTop8);
             if(m.round==='KF3'){
               const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-              return hfMatches.flatMap(hm=>hm.winner?[hm.home,hm.away].filter(t=>t&&t!==hm.winner):[]).slice(0,2);
+              const kfMatches=koMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+              return hfMatches.flatMap(hm=>{
+                if(!hm.winner)return[];
+                // Zoek de 2 echte teams van deze HF-match via KF-winnaars
+                const idx=(hm.position-1)*2;
+                const t1=kfMatches[idx]?.winner;
+                const t2=kfMatches[idx+1]?.winner;
+                return[t1,t2].filter(t=>t&&t!==hm.winner);
+              }).slice(0,2);
             }
             const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
             if(!prevRound)return[];
@@ -3304,17 +3328,87 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         })}
       </div>
       <div className="card">
+        <div className="card-title">🌍 Deadline Groepswedstrijden</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Na deze datum/tijd kunnen deelnemers geen scores, jokers of fair play meer aanpassen.</div>
+        {config.groep_deadline&&<div style={{marginBottom:10,fontSize:12}}>
+          Huidig: <strong style={{color:isDeadlinePassed(config.groep_deadline)?'var(--red)':'var(--gold)'}}>{new Date(config.groep_deadline).toLocaleString('nl-BE')}</strong>
+          {isDeadlinePassed(config.groep_deadline)&&<span className="tag tag-red" style={{marginLeft:6}}>verstreken</span>}
+        </div>}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+          <input className="ii" type="datetime-local" value={groepDeadline} onChange={e=>setGroepDeadline(e.target.value)} style={{flex:1,minWidth:180}}/>
+          <button className="btn btn-sm btn-outline" onClick={saveGroepDeadline}>Opslaan</button>
+          {groepDeadline&&<button className="btn btn-sm btn-danger" onClick={clearGroepDeadline}>Wissen</button>}
+        </div>
+        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:config['actief_groep_deadline']==='1'?'var(--green)':'var(--muted)'}}>
+          <input type="checkbox" checked={config['actief_groep_deadline']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'actief_groep_deadline',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          Nu vergrendeld
+        </label>
+      </div>
+
+      <div className="card">
         <div className="card-title">⏰ Deadline Bijvragen Invullen</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Na deze datum/tijd kunnen deelnemers geen bijvragen meer invullen of wijzigen.</div>
         {config.bijvragen_deadline&&<div style={{marginBottom:10,fontSize:12}}>
           Huidig: <strong style={{color:isDeadlinePassed(config.bijvragen_deadline)?'var(--red)':'var(--gold)'}}>{new Date(config.bijvragen_deadline).toLocaleString('nl-BE')}</strong>
           {isDeadlinePassed(config.bijvragen_deadline)&&<span className="tag tag-red" style={{marginLeft:6}}>verstreken</span>}
         </div>}
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
           <input className="ii" type="datetime-local" value={deadline} onChange={e=>setDeadline(e.target.value)} style={{flex:1,minWidth:180}}/>
           <button className="btn btn-sm btn-outline" onClick={saveDeadline}>Opslaan</button>
           {deadline&&<button className="btn btn-sm btn-danger" onClick={clearDeadline}>Wissen</button>}
         </div>
+        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:config['actief_bijvragen_deadline']==='1'?'var(--green)':'var(--muted)'}}>
+          <input type="checkbox" checked={config['actief_bijvragen_deadline']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'actief_bijvragen_deadline',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          Nu vergrendeld
+        </label>
+      </div>
+
+      <div className="card">
+        <div className="card-title">🏆 Deadline KO-fase</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Na deze datum/tijd kunnen deelnemers de KO-pronostiek niet meer aanpassen.</div>
+        {config.ko_deadline&&<div style={{marginBottom:10,fontSize:12}}>
+          Huidig: <strong style={{color:isDeadlinePassed(config.ko_deadline)?'var(--red)':'var(--gold)'}}>{new Date(config.ko_deadline).toLocaleString('nl-BE')}</strong>
+          {isDeadlinePassed(config.ko_deadline)&&<span className="tag tag-red" style={{marginLeft:6}}>verstreken</span>}
+        </div>}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+          <input className="ii" type="datetime-local" value={koDeadline} onChange={e=>setKoDeadline(e.target.value)} style={{flex:1,minWidth:180}}/>
+          <button className="btn btn-sm btn-outline" onClick={saveKoDeadline}>Opslaan</button>
+          {koDeadline&&<button className="btn btn-sm btn-danger" onClick={clearKoDeadline}>Wissen</button>}
+        </div>
+        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:config['actief_ko_deadline']==='1'?'var(--green)':'var(--muted)'}}>
+          <input type="checkbox" checked={config['actief_ko_deadline']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'actief_ko_deadline',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          Nu vergrendeld
+        </label>
+      </div>
+
+      <div className="card">
+        <div className="card-title">🎚️ Deadline Puntenverdeling</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Na deze datum/tijd kunnen deelnemers de puntenverdeling niet meer aanpassen.</div>
+        {config.pv_deadline&&<div style={{marginBottom:10,fontSize:12}}>
+          Huidig: <strong style={{color:isDeadlinePassed(config.pv_deadline)?'var(--red)':'var(--gold)'}}>{new Date(config.pv_deadline).toLocaleString('nl-BE')}</strong>
+          {isDeadlinePassed(config.pv_deadline)&&<span className="tag tag-red" style={{marginLeft:6}}>verstreken</span>}
+        </div>}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+          <input className="ii" type="datetime-local" value={pvDeadline} onChange={e=>setPvDeadline(e.target.value)} style={{flex:1,minWidth:180}}/>
+          <button className="btn btn-sm btn-outline" onClick={savePvDeadline}>Opslaan</button>
+          {pvDeadline&&<button className="btn btn-sm btn-danger" onClick={clearPvDeadline}>Wissen</button>}
+        </div>
+        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:config['actief_pv_deadline']==='1'?'var(--green)':'var(--muted)'}}>
+          <input type="checkbox" checked={config['actief_pv_deadline']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'actief_pv_deadline',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          Nu vergrendeld
+        </label>
       </div>
 
       <div className="card">
@@ -3598,7 +3692,7 @@ function App(){
     if(!silent)setLoad(false);
   }
   useEffect(()=>{loadAll();},[]);
-  useEffect(()=>{const t=setInterval(()=>loadAll(true),120000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{const t=setInterval(()=>loadAll(true),12000);return()=>clearInterval(t);},[]);
 
   if(load)return<div className="spinner">⚽ Laden...</div>;
   if(!user)return<Login onLogin={u=>{setUser(u);setPage(u.is_admin?'admin':'uitleg');}}/>;
