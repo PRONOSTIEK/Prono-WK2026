@@ -3547,7 +3547,30 @@ function App(){
       let val=f.team;try{val=JSON.parse(f.team);}catch{}
       fpM[f.user_id][f.group]=val;
     }setFpAll(fpM);
-    setPvAll(pv||[]);setSpelerStats(ss||[]);
+    // Injecteer gemiddelde puntenverdeling voor faketesters die nog niets hebben ingevuld
+    const pvArr=pv||[];
+    const pvKeys=['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'];
+    const echteDeelnemers=(us||[]).filter(u=>!u.is_admin&&!u.is_test&&u.id!==JAAN_ID&&!u.name?.startsWith('Test_'));
+    const echteIds=new Set(echteDeelnemers.map(u=>u.id));
+    const echt_pvs=pvArr.filter(p=>echteIds.has(p.user_id)&&pvKeys.every(k=>p[k]!=null));
+    const avgPV={};
+    if(echt_pvs.length){
+      for(const k of pvKeys){
+        const vals=echt_pvs.map(p=>p[k]).filter(v=>v!=null);
+        avgPV[k]=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
+      }
+    }
+    const fakeTesters=(us||[]).filter(u=>u.is_test||u.name?.startsWith('Test_'));
+    const pvIngevuldIds=new Set(pvArr.map(p=>p.user_id));
+    const pvFinal=[...pvArr];
+    if(echt_pvs.length){
+      for(const u of fakeTesters){
+        if(!pvIngevuldIds.has(u.id)&&pvKeys.every(k=>avgPV[k]!=null)){
+          pvFinal.push({user_id:u.id,...avgPV});
+        }
+      }
+    }
+    setPvAll(pvFinal);setSpelerStats(ss||[]);
     const kmArr=km||[];
     setKoMatches(kmArr);
     const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
