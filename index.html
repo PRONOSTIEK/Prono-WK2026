@@ -856,17 +856,29 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
   const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>a.date?.localeCompare(b.date)||0);
 
+  const KO_RONDES=[{id:'R32',label:'16e'},{id:'R16',label:'8e'},{id:'KF',label:'KF'},{id:'HF',label:'HF'},{id:'KF3',label:'KF3'},{id:'F',label:'F'}];
   const st=echteUsers.map(u=>{
     const pm=pmAll[u.id]||{},pb=pbAll[u.id]||{},jids=(jAll[u.id]||[]).map(j=>j.match_id);
     const fp=fpAll[u.id]||{};
-    const{tot,matchDet}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
-    const{tot:koTot}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config);
+    const{tot,matchDet,det}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
+    const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config);
     const{tot:kwalTot}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     const totaal=tot+koTot+kwalTot;
     const ptsPerMatch={};
     for(const d of(matchDet||[]))ptsPerMatch[d.matchId]=d.pts;
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch};
+    // Matchpunten zonder jokerbonus en zonder bijvragen
+    const matchPts=matchDet.reduce((s,d)=>s+(d.isJ?d.pts/2:d.pts),0);
+    // Jokerpunten = extra punten door joker (helft van joker-cel punten)
+    const jokerPts=matchDet.filter(d=>d.isJ).reduce((s,d)=>s+d.pts/2,0);
+    // KO punten per ronde
+    const koPtsPerRonde={};
+    for(const r of KO_RONDES){koPtsPerRonde[r.id]=koDet.filter(d=>d.round===r.id).reduce((s,d)=>s+d.pts,0);}
+    // Bijvraag punten per bijvraag
+    const bijvraagDet={};
+    for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
+    const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch,matchPts,jokerPts,koPtsPerRonde,kwalTot,bijvraagPts,bijvraagDet};
   }).sort((a,b)=>b.tot-a.tot);
 
   function ptKleur(pts){
@@ -908,40 +920,152 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     </div>
 
     {/* STANDAARD KLASSEMENT */}
-    <div className="card">
-      <table className="ranking">
-        <thead><tr><th>#</th><th>Naam</th><th>Ingevuld</th><th style={{textAlign:'right'}}>Punten</th></tr></thead>
-        <tbody>
-          {st.map((u,i)=>(<tr key={u.id} className={`rank-${i+1}`} style={{background:u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)'}}>
-            <td><div className="rank-num">{i+1}</div></td>
-            <td>
-              <div style={{fontWeight:u.id===cur.id?600:400,color:viewPronoOf?'var(--green)':'var(--text)',cursor:viewPronoOf?'pointer':'default',textDecoration:viewPronoOf?'underline':'none'}} onClick={()=>viewPronoOf&&viewPronoOf(u)}>{u.name}</div>
-              <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:2}}>
-                {u.id===cur.id&&<span className="tag tag-green">jij</span>}
-                {!u.betaald&&!u.is_avg&&<span className="tag tag-niet-betaald">⚠ niet betaald</span>}
-              </div>
-            </td>
-            <td><div style={{fontSize:10,color:'var(--muted)'}}>{u.filled}/{matches.length}</div><div className="pb"><div className="pb-fill" style={{width:`${matches.length?u.filled/matches.length*100:0}%`}}/></div></td>
-            <td style={{textAlign:'right'}}>
-              <div className={`pts ${!u.betaald&&!toonAlles?'locked':''}`}>{fmt(u.tot)}</div>
-              {!u.betaald&&!toonAlles&&<div style={{fontSize:9,color:'var(--red)'}}>betaal eerst</div>}
-            </td>
-          </tr>))}
-          {st.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
-          {st.length>0&&(()=>{
-            const betalenden=st.filter(u=>u.betaald||toonAlles);
-            const gemTot=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100:0;
-            const gemFilled=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.filled,0)/betalenden.length):0;
-            return(<tr style={{background:'#1a3a2a',borderTop:'2px solid var(--green)'}}>
-              <td><div className="rank-num" style={{color:'var(--green)'}}>∅</div></td>
-              <td><div style={{fontSize:12,color:'var(--green)',fontWeight:600}}>Gemiddelde</div></td>
-              <td><div style={{fontSize:10,color:'var(--muted)'}}>{gemFilled}/{matches.length}</div></td>
-              <td style={{textAlign:'right'}}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
-            </tr>);
-          })()}
-        </tbody>
-      </table>
-    </div>
+    {(()=>{
+      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const matchVals=stVis.map(u=>u.matchPts).filter(v=>v!=null&&!isNaN(v));
+      const jokerVals=stVis.map(u=>u.jokerPts).filter(v=>v!=null&&!isNaN(v));
+      const maxMatch=matchVals.length?Math.max(...matchVals):null;
+      const minMatch=matchVals.length?Math.min(...matchVals):null;
+      const maxJoker=jokerVals.length?Math.max(...jokerVals):null;
+      const minJoker=jokerVals.length?Math.min(...jokerVals):null;
+      function hlClr(val,max,min){if(val==null||max==null)return'var(--text)';if(val===max&&max!==min)return'var(--green)';if(val===min&&max!==min)return'var(--red)';return'var(--text)';}
+      const betalenden=st.filter(u=>u.betaald||toonAlles);
+      return(<div className="card" style={{overflowX:'auto'}}>
+        <table className="ranking">
+          <thead><tr>
+            <th>#</th>
+            <th>Naam</th>
+            <th style={{textAlign:'right'}}>Totaal</th>
+            <th style={{textAlign:'right'}}>Matchen</th>
+            <th style={{textAlign:'right'}}>Joker</th>
+          </tr></thead>
+          <tbody>
+            {st.map((u,i)=>{
+              const show=u.betaald||toonAlles||u.is_avg;
+              if(!show)return null;
+              return(<tr key={u.id} className={`rank-${i+1}`} style={{background:u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)'}}>
+                <td><div className="rank-num">{i+1}</div></td>
+                <td>
+                  <div style={{fontWeight:u.id===cur.id?600:400,color:viewPronoOf?'var(--green)':'var(--text)',cursor:viewPronoOf?'pointer':'default',textDecoration:viewPronoOf?'underline':'none'}} onClick={()=>viewPronoOf&&viewPronoOf(u)}>{u.name}</div>
+                  <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:2}}>
+                    {u.id===cur.id&&<span className="tag tag-green">jij</span>}
+                    {!u.betaald&&!u.is_avg&&<span className="tag tag-niet-betaald">⚠ niet betaald</span>}
+                  </div>
+                </td>
+                <td style={{textAlign:'right'}}>
+                  <div className={`pts ${!u.betaald&&!toonAlles&&!u.is_avg?'locked':''}`}>{fmt(u.tot)}</div>
+                  {!u.betaald&&!toonAlles&&!u.is_avg&&<div style={{fontSize:9,color:'var(--red)'}}>betaal eerst</div>}
+                </td>
+                <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
+                <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
+              </tr>);
+            })}
+            {st.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+            {betalenden.length>0&&(()=>{
+              const gemTot=Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100;
+              const gemMatch=Math.round(betalenden.reduce((s,u)=>s+(u.matchPts??0),0)/betalenden.length*100)/100;
+              const gemJoker=Math.round(betalenden.reduce((s,u)=>s+(u.jokerPts??0),0)/betalenden.length*100)/100;
+              return(<tr style={{background:'#1a3a2a',borderTop:'2px solid var(--green)'}}>
+                <td><div className="rank-num" style={{color:'var(--green)'}}>∅</div></td>
+                <td><div style={{fontSize:12,color:'var(--green)',fontWeight:600}}>Gemiddelde</div></td>
+                <td style={{textAlign:'right'}}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
+                <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemMatch)}</span></td>
+                <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
+              </tr>);
+            })()}
+          </tbody>
+        </table>
+      </div>);
+    })()}
+
+    {/* OVERZICHTSTABEL */}
+    {(()=>{
+      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const betalenden=st.filter(u=>u.betaald||toonAlles);
+      // Verzamel alle bijvraag-labels
+      const allBvLabels=[...new Set(st.flatMap(u=>Object.keys(u.bijvraagDet||{})))];
+      // Helper: hoogste/laagste kleur per kolom
+      function colClr(vals,val){
+        const nv=vals.filter(v=>v!=null&&!isNaN(v));
+        if(!nv.length||val==null)return'var(--text)';
+        const mx=Math.max(...nv),mn=Math.min(...nv);
+        if(mx===mn)return'var(--text)';
+        if(val===mx)return'var(--green)';
+        if(val===mn)return'var(--red)';
+        return'var(--text)';
+      }
+      const cols=[
+        {label:'Totaal',key:'tot'},
+        {label:'Matchen',key:'matchPts'},
+        {label:'Joker',key:'jokerPts'},
+        ...GRP.map(g=>({label:`Gr.${g}`,key:`grp_${g}`})),
+        {label:'32 KO',key:'kwalTot'},
+        ...KO_RONDES.map(r=>({label:r.label,key:`ko_${r.id}`})),
+        ...allBvLabels.map(l=>({label:l.length>10?l.substring(0,10)+'…':l,fullLabel:l,key:`bv_${l}`})),
+      ];
+      // Bouw data per user
+      const rows=stVis.map(u=>{
+        const d={tot:u.tot,matchPts:u.matchPts??0,jokerPts:u.jokerPts??0,kwalTot:u.kwalTot??0};
+        for(const g of GRP){
+          const gm=matches.filter(m=>m.group===g);
+          d[`grp_${g}`]=gm.reduce((s,m)=>s+(u.ptsPerMatch[m.id]??0),0);
+        }
+        for(const r of KO_RONDES)d[`ko_${r.id}`]=u.koPtsPerRonde?.[r.id]??0;
+        for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??0;
+        return{...u,d};
+      });
+      // Per kolom: verzamel waarden voor kleurberekening
+      const colVals={};
+      for(const c of cols)colVals[c.key]=rows.map(r=>r.d[c.key]);
+      const thStyle={padding:'3px 6px',borderBottom:'2px solid var(--border)',textAlign:'right',fontSize:9,color:'var(--muted)',textTransform:'uppercase',letterSpacing:.3,whiteSpace:'nowrap',writingMode:'vertical-rl',transform:'rotate(180deg)',height:80,verticalAlign:'bottom'};
+      const tdStyle=(bg)=>({padding:'3px 5px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'right',background:bg});
+      return(<div id="overzicht-tabel" className="card" style={{padding:'12px 14px',marginBottom:14}}>
+        <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📋 Uitgebreid overzicht</div>
+        <div style={{fontSize:10,color:'var(--muted)',marginBottom:8}}>← scroll → · <span style={{color:'var(--green)'}}>groen</span> = hoogste · <span style={{color:'var(--red)'}}>rood</span> = laagste</div>
+        <div style={{overflowX:'auto'}}>
+          <table style={{borderCollapse:'collapse',fontSize:11,whiteSpace:'nowrap'}}>
+            <thead><tr>
+              <th style={{padding:'3px 8px',borderBottom:'2px solid var(--border)',textAlign:'left',position:'sticky',left:0,background:'var(--card)',zIndex:2,minWidth:90}}>Naam</th>
+              {cols.map(c=><th key={c.key} style={{...thStyle}}>{c.label}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map((u,i)=>{
+                const rowBg=u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
+                return(<tr key={u.id}>
+                  <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:0,background:rowBg,zIndex:1}}>
+                    <span style={{color:u.id===cur.id?'var(--green)':'var(--text)',fontWeight:u.id===cur.id?600:400,fontSize:11}}>{u.name}</span>
+                  </td>
+                  {cols.map((c,ci)=>{
+                    const val=u.d[c.key];
+                    const clr=colClr(colVals[c.key],val);
+                    const isFirst=ci===0;
+                    return(<td key={c.key} style={{...tdStyle(rowBg),borderLeft:isFirst?'2px solid var(--gold)':undefined}}>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{val!=null?(val>0?'+':'')+fmt(val):'–'}</span>
+                    </td>);
+                  })}
+                </tr>);
+              })}
+              {betalenden.length>0&&(()=>{
+                const avgBg='#1a3a2a';
+                const avgRow={};
+                for(const c of cols){const vs=rows.filter(u=>u.betaald||toonAlles).map(r=>r.d[c.key]).filter(v=>v!=null);avgRow[c.key]=vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*100)/100:null;}
+                return(<tr style={{borderTop:'2px solid var(--green)'}}>
+                  <td style={{padding:'3px 8px',position:'sticky',left:0,background:avgBg,zIndex:1}}>
+                    <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
+                  </td>
+                  {cols.map((c,ci)=>{
+                    const val=avgRow[c.key];
+                    return(<td key={c.key} style={{...tdStyle(avgBg),borderLeft:ci===0?'2px solid var(--gold)':undefined}}>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{val!=null?(val>0?'+':'')+fmt(val):'–'}</span>
+                    </td>);
+                  })}
+                </tr>);
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>);
+    })()}
 
     {/* DETAIL TABEL */}
     <div id="detail-tabel" className="card" style={{padding:'12px 14px'}}>
