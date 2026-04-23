@@ -985,7 +985,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     {(()=>{
       const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
       const betalenden=st.filter(u=>u.betaald||toonAlles);
-      const allBvLabels=[...new Set(st.flatMap(u=>Object.keys(u.bijvraagDet||{})))];
+      // Bijvraag-labels uit bvs array (niet uit punten, zodat alle bijvragen verschijnen)
+      const allBvLabels=bvs.map(b=>b.question);
       function colClr(vals,val){
         const nv=vals.filter(v=>v!=null&&!isNaN(v));
         if(!nv.length||val==null)return'var(--text)';
@@ -996,20 +997,23 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         return'var(--text)';
       }
       // Kolommen: plaats, naam, totaal, matchen, joker, kwal per groep A-L, kwal 3des, KO rondes, bijvragen
+      const KO_RONDES_VIS=[{id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},{id:'KF',label:'Kwartfinales'}];
       const cols=[
-        {label:'Totaal',key:'tot',sep:false},
-        {label:'Matchen',key:'matchPts',sep:false},
-        {label:'Joker',key:'jokerPts',sep:true},
-        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:gi===GRP.length-1})),
-        {label:'Kwal 3des',key:'kwal3des',sep:true},
-        ...KO_RONDES.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES.length-1})),
-        ...allBvLabels.map((l,li)=>({label:l.length>12?l.substring(0,12)+'…':l,key:`bv_${l}`,sep:false})),
+        {label:'Totaal punten',key:'tot',sep:false},
+        {label:'Matchpunten',key:'matchPts',sep:false},
+        {label:'Jokerpunten',key:'jokerPts',sep:true},
+        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false})),
+        {label:'Kwal 3des',key:'kwal3des',sep:false},
+        {label:'32 doorg.',key:'kwalTotaal',sep:true},
+        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1})),
+        ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false})),
       ];
       const rows=stVis.map(u=>{
         const d={tot:u.tot,matchPts:u.matchPts??0,jokerPts:u.jokerPts??0,kwal3des:u.kwal3des??0};
         for(const g of GRP)d[`kwal_${g}`]=u.kwalPerGroep?.[g]??0;
-        for(const r of KO_RONDES)d[`ko_${r.id}`]=u.koPtsPerRonde?.[r.id]??0;
-        for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??0;
+        d['kwalTotaal']=GRP.reduce((s,g)=>s+(u.kwalPerGroep?.[g]??0),0)+(u.kwal3des??0);
+        for(const r of KO_RONDES_VIS)d[`ko_${r.id}`]=u.koPtsPerRonde?.[r.id]??0;
+        for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??null;
         return{...u,d};
       });
       const colVals={};
