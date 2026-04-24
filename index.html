@@ -998,15 +998,16 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       }
       // Kolommen: plaats, naam, totaal, matchen, joker, kwal per groep A-L, kwal 3des, KO rondes, bijvragen
       const KO_RONDES_VIS=[{id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},{id:'KF',label:'Kwartfinales'}];
+      // noDecimal = geheel getal tonen (geen komma)
       const cols=[
-        {label:'Totaal punten',key:'tot',sep:false},
-        {label:'Matchpunten',key:'matchPts',sep:false},
-        {label:'Jokerpunten',key:'jokerPts',sep:true},
-        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false})),
-        {label:'Kwal 3des',key:'kwal3des',sep:false},
-        {label:'32 doorg.',key:'kwalTotaal',sep:true},
-        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1})),
-        ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false})),
+        {label:'Totaal punten',key:'tot',sep:false,sticky:true,noDecimal:false},
+        {label:'Matchpunten',key:'matchPts',sep:false,noDecimal:false},
+        {label:'Jokerpunten',key:'jokerPts',sep:true,noDecimal:false},
+        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true})),
+        {label:'Kwal 3des',key:'kwal3des',sep:false,noDecimal:true},
+        {label:'32e finales',key:'kwalTotaal',sep:true,noDecimal:true},
+        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true})),
+        ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false,noDecimal:false})),
       ];
       const rows=stVis.map(u=>{
         const d={tot:u.tot,matchPts:u.matchPts??0,jokerPts:u.jokerPts??0,kwal3des:u.kwal3des??0};
@@ -1029,7 +1030,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <thead><tr>
               <th style={{padding:'3px 4px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:28,position:'sticky',left:0,background:stickyBg,zIndex:2}}>#</th>
               <th style={{padding:'3px 8px',borderBottom:'2px solid var(--border)',textAlign:'left',minWidth:90,position:'sticky',left:28,background:stickyBg,zIndex:2,borderRight:'2px solid var(--gold)'}}>Naam</th>
-              {cols.map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)'}}>{c.label}</th>)}
+              {cols.map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)',position:c.sticky?'sticky':undefined,left:c.sticky?118+28:undefined,zIndex:c.sticky?3:undefined,background:c.sticky?stickyBg:undefined}}>{c.label}</th>)}
             </tr></thead>
             <tbody>
               {rows.map((u,i)=>{
@@ -1041,11 +1042,13 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:28,background:rowBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
                     <span style={{color:u.id===cur.id?'var(--green)':'var(--text)',fontWeight:u.id===cur.id?600:400,fontSize:11}}>{u.name}</span>
                   </td>
-                  {cols.map(c=>{
+                  {cols.map((c,ci)=>{
                     const val=u.d[c.key];
                     const clr=colClr(colVals[c.key],val);
-                    return(<td key={c.key} style={tdS(rowBg,c.sep)}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{val!=null&&val!==0?(val>0?'+':'')+fmt(val):val===0?'0':'–'}</span>
+                    const disp=val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const isSticky=c.sticky;
+                    return(<td key={c.key} style={{...tdS(rowBg,c.sep),position:isSticky?'sticky':undefined,left:isSticky?118+28:undefined,zIndex:isSticky?1:undefined}}>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -1061,10 +1064,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td style={{padding:'3px 8px',position:'sticky',left:28,background:avgBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
                     <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
                   </td>
-                  {cols.map(c=>{
+                  {cols.map((c,ci)=>{
                     const val=avgRow[c.key];
-                    return(<td key={c.key} style={tdS(avgBg,c.sep)}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{val!=null?(val>0?'+':'')+fmt(val):'–'}</span>
+                    const disp=val==null?'–':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    return(<td key={c.key} style={{...tdS(avgBg,c.sep),position:c.sticky?'sticky':undefined,left:c.sticky?118+28:undefined,zIndex:c.sticky?1:undefined}}>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -1088,10 +1092,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               <tr>
                 <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:30,position:'sticky',left:0,background:stickyBg,zIndex:2}}>#</th>
                 <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'left',minWidth:90,position:'sticky',left:30,background:stickyBg,zIndex:2}}>Naam</th>
-                <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'right',minWidth:45,position:'sticky',left:120,background:stickyBg,zIndex:2}}>Tot</th>
-                <th style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Matchen</div></th>
-                <th style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom',borderRight:'2px solid var(--gold)'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Joker</div></th>
-                {GRP.map((g,gi)=><th key={g} style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom',borderRight:gi===GRP.length-1?'2px solid var(--gold)':'1px solid var(--border)'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Gr.{g}</div></th>)}
+                <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'right',minWidth:45,position:'sticky',left:120,background:stickyBg,zIndex:2,borderRight:'2px solid var(--gold)'}}>Totaal punten</th>
                 {gespeeldeMatches.map(m=>(
                   <th key={m.id} style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:34,verticalAlign:'bottom',borderRight:'1px solid var(--border)'}}>
                     <div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:100,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',paddingBottom:4,gap:2}}>
@@ -1100,6 +1101,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     </div>
                   </th>
                 ))}
+                {GRP.map((g,gi)=><th key={g} style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom',borderLeft:gi===0?'2px solid var(--gold)':'none',borderRight:'1px solid var(--border)'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Gr.{g}</div></th>)}
+                <th style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom',borderLeft:'2px solid var(--gold)',borderRight:'1px solid var(--border)'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Matchpunten</div></th>
+                <th style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:36,verticalAlign:'bottom',borderRight:'1px solid var(--border)'}}><div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:80,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingBottom:4}}>Jokerpunten</div></th>
               </tr>
             </thead>
             <tbody>
@@ -1113,37 +1117,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:30,background:rowBg,zIndex:1}}>
                     <span style={{color:isMe?'var(--green)':'var(--text)',fontWeight:isMe?600:400}}>{u.name}</span>
                   </td>
-                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',position:'sticky',left:120,background:rowBg,zIndex:1}}>
+                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',position:'sticky',left:120,background:rowBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--gold)'}}>{fmt(u.tot)}</span>
                   </td>
-                  {(()=>{
-                    const mPts=u.matchPts??0;
-                    const jPts=u.jokerPts??0;
-                    const allMatchVals=st.map(x=>x.matchPts??0);
-                    const allJokerVals=st.map(x=>x.jokerPts??0);
-                    const mxM=Math.max(...allMatchVals),mnM=Math.min(...allMatchVals);
-                    const mxJ=Math.max(...allJokerVals),mnJ=Math.min(...allJokerVals);
-                    const mClr=mxM===mnM?'var(--text)':mPts===mxM?'var(--green)':mPts===mnM?'var(--red)':'var(--text)';
-                    const jClr=mxJ===mnJ?'var(--text)':jPts===mxJ?'var(--green)':jPts===mnJ?'var(--red)':'var(--text)';
-                    return(<>
-                      <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg}}>
-                        <span style={{fontFamily:'Bebas Neue',fontSize:12,color:mClr}}>{fmt(mPts)}</span>
-                      </td>
-                      <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:'2px solid var(--gold)',textAlign:'right',background:rowBg}}>
-                        <span style={{fontFamily:'Bebas Neue',fontSize:12,color:jClr}}>{fmt(jPts)}</span>
-                      </td>
-                      {GRP.map((g,gi)=>{
-                        const gm=matches.filter(m=>m.group===g);
-                        const gPts=gm.reduce((s,m)=>s+(u.ptsPerMatch[m.id]??0),0);
-                        const allGVals=st.map(x=>gm.reduce((s,m)=>s+(x.ptsPerMatch[m.id]??0),0));
-                        const mxG=Math.max(...allGVals),mnG=Math.min(...allGVals);
-                        const gClr=mxG===mnG?'var(--text)':gPts===mxG?'var(--green)':gPts===mnG?'var(--red)':'var(--text)';
-                        return(<td key={g} style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:gi===GRP.length-1?'2px solid var(--gold)':'1px solid var(--border)',textAlign:'right',background:rowBg}}>
-                          <span style={{fontFamily:'Bebas Neue',fontSize:12,color:gClr}}>{fmt(gPts)}</span>
-                        </td>);
-                      })}
-                    </>);
-                  })()}
                   {gespeeldeMatches.map(m=>{
                     const p=(pmAll[u.id]||{})[m.id];
                     const pts=u.ptsPerMatch[m.id];
@@ -1160,6 +1136,33 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                       }
                     </td>);
                   })}
+                  {(()=>{
+                    const allMatchVals=st.map(x=>x.matchPts??0);
+                    const allJokerVals=st.map(x=>x.jokerPts??0);
+                    const mPts=u.matchPts??0;const jPts=u.jokerPts??0;
+                    const mxM=Math.max(...allMatchVals),mnM=Math.min(...allMatchVals);
+                    const mxJ=Math.max(...allJokerVals),mnJ=Math.min(...allJokerVals);
+                    const mClr=mxM===mnM?'var(--text)':mPts===mxM?'var(--green)':mPts===mnM?'var(--red)':'var(--text)';
+                    const jClr=mxJ===mnJ?'var(--text)':jPts===mxJ?'var(--green)':jPts===mnJ?'var(--red)':'var(--text)';
+                    return(<>
+                      {GRP.map((g,gi)=>{
+                        const gm=matches.filter(m=>m.group===g);
+                        const gPts=gm.reduce((s,m)=>s+(u.ptsPerMatch[m.id]??0),0);
+                        const allGVals=st.map(x=>gm.reduce((s,m)=>s+(x.ptsPerMatch[m.id]??0),0));
+                        const mxG=Math.max(...allGVals),mnG=Math.min(...allGVals);
+                        const gClr=mxG===mnG?'var(--text)':gPts===mxG?'var(--green)':gPts===mnG?'var(--red)':'var(--text)';
+                        return(<td key={g} style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderLeft:gi===0?'2px solid var(--gold)':'none',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg}}>
+                          <span style={{fontFamily:'Bebas Neue',fontSize:12,color:gClr}}>{fmt(gPts)}</span>
+                        </td>);
+                      })}
+                      <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderLeft:'2px solid var(--gold)',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg}}>
+                        <span style={{fontFamily:'Bebas Neue',fontSize:12,color:mClr}}>{fmt(mPts)}</span>
+                      </td>
+                      <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg}}>
+                        <span style={{fontFamily:'Bebas Neue',fontSize:12,color:jClr}}>{fmt(jPts)}</span>
+                      </td>
+                    </>);
+                  })()}
                 </tr>);
               })}
               {st.length>0&&(()=>{
@@ -1172,24 +1175,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td style={{padding:'3px 8px',position:'sticky',left:30,background:avgBg,zIndex:1}}>
                     <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
                   </td>
-                  <td style={{padding:'3px 6px',textAlign:'right',position:'sticky',left:120,background:avgBg,zIndex:1}}>
+                  <td style={{padding:'3px 6px',textAlign:'right',position:'sticky',left:120,background:avgBg,zIndex:1,borderRight:'2px solid var(--gold)'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>
                       {fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100:0)}
                     </span>
                   </td>
-                  <td style={{padding:'3px 4px',borderRight:'1px solid var(--border)',textAlign:'right',background:avgBg}}>
-                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+(u.matchPts??0),0)/betalenden.length*100)/100:0)}</span>
-                  </td>
-                  <td style={{padding:'3px 4px',borderRight:'2px solid var(--gold)',textAlign:'right',background:avgBg}}>
-                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+(u.jokerPts??0),0)/betalenden.length*100)/100:0)}</span>
-                  </td>
-                  {GRP.map((g,gi)=>{
-                    const gm=matches.filter(m=>m.group===g);
-                    const avgG=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+gm.reduce((ss,m)=>ss+(u.ptsPerMatch[m.id]??0),0),0)/betalenden.length*100)/100:0;
-                    return(<td key={g} style={{padding:'3px 4px',borderRight:gi===GRP.length-1?'2px solid var(--gold)':'1px solid var(--border)',textAlign:'right',background:avgBg}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(avgG)}</span>
-                    </td>);
-                  })}
                   {(()=>{
                     const alleGem=gespeeldeMatches.map(m=>{
                       const ptsVals=betalenden.map(u=>u.ptsPerMatch[m.id]).filter(v=>v!=null);
@@ -1206,6 +1196,19 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                       </td>);
                     });
                   })()}
+                  {GRP.map((g,gi)=>{
+                    const gm=matches.filter(m=>m.group===g);
+                    const avgG=betalenden.length?Math.round(betalenden.reduce((s,u)=>s+gm.reduce((ss,m)=>ss+(u.ptsPerMatch[m.id]??0),0),0)/betalenden.length*100)/100:0;
+                    return(<td key={g} style={{padding:'3px 4px',borderLeft:gi===0?'2px solid var(--gold)':'none',borderRight:'1px solid var(--border)',textAlign:'right',background:avgBg}}>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(avgG)}</span>
+                    </td>);
+                  })}
+                  <td style={{padding:'3px 4px',borderLeft:'2px solid var(--gold)',borderRight:'1px solid var(--border)',textAlign:'right',background:avgBg}}>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+(u.matchPts??0),0)/betalenden.length*100)/100:0)}</span>
+                  </td>
+                  <td style={{padding:'3px 4px',borderRight:'1px solid var(--border)',textAlign:'right',background:avgBg}}>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+(u.jokerPts??0),0)/betalenden.length*100)/100:0)}</span>
+                  </td>
                 </tr>);
               })()}
             </tbody>
