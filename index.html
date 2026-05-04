@@ -1305,7 +1305,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
 
         // Eerste 4 niet-speler3 bijvragen automatisch afleiden uit KO-fase
         const bvIdxNietSpeler3=bvs.filter((b,i)=>i<=bvIdx&&b.type!=='speler3').length-1;
-        if(bvIdx<4&&!isSpeler3){
+        if(bvIdxNietSpeler3<4&&!isSpeler3){
           const fMatch=koMatches.find(m=>m.round==='F');
           const kf3Match=koMatches.find(m=>m.round==='KF3');
           const fTeams=(()=>{
@@ -1330,16 +1330,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           const kf3Verliezer=kf3Teams.find(t=>t!==kf3Winnaar)||null;
           const autoWaarden=[fWinnaar,fVerliezer,kf3Winnaar,kf3Verliezer];
           const autoLabels=['🏆 Wereldkampioen','🥈 Verliezer finale','🥉 Winnaar kleine finale','4️⃣ Verliezer kleine finale'];
-          const autoWaarde=autoWaarden[bvIdx];
-          const echteWaarde=bv.correct_answer||autoWaarde||'';
+          const autoWaarde=autoWaarden[bvIdxNietSpeler3];
           return(<div className="bv-card" key={bv.id}>
             <div className="bv-q">{bv.question} <span className="tag tag-gold" style={{fontSize:9}}>(A+B/N)×C</span></div>
             <div className="bv-a">
-              <input disabled value={echteWaarde} placeholder="Vul eerst de KO-fase in"
-                style={{flex:1,opacity:echteWaarde?1:0.5}}/>
+              <input disabled value={autoWaarde||''} placeholder="Vul eerst de KO-fase in"
+                style={{flex:1,opacity:autoWaarde?1:0.5}}/>
               {bv.correct_answer&&<span className="tag tag-gold" style={{whiteSpace:'nowrap'}}>{bv.correct_answer}</span>}
             </div>
-            <div style={{fontSize:10,color:'var(--gold)',marginTop:4}}>🔒 Automatisch ingevuld via KO-fase — {autoLabels[bvIdx]}</div>
+            <div style={{fontSize:10,color:'var(--gold)',marginTop:4}}>🔒 Automatisch ingevuld via KO-fase — {autoLabels[bvIdxNietSpeler3]}</div>
             {bv.correct_answer&&<div className="locked-msg">✓ Bevestigd door admin: {bv.correct_answer}</div>}
           </div>);
         }
@@ -1364,7 +1363,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                 <input
                   disabled={dlPassed||readOnly}
                   value={lPB[bv.id+`_${i+1}`]||''}
-                  onChange={e=>hB(bv.id+`_${i+1}`,e.target.value)}
+                  onChange={e=>setLPB(p=>({...p,[bv.id+`_${i+1}`]:e.target.value}))}
+                  onBlur={e=>hB(bv.id+`_${i+1}`,e.target.value)}
                   placeholder={`Naam ${i+1}`}
                   style={{flex:1,background:'var(--card)',border:`1px solid ${rankColor}`,borderRadius:5,padding:'7px 10px',color:'var(--text)',fontFamily:'inherit',outline:'none',fontSize:12}}
                 />
@@ -3715,6 +3715,54 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 const JAAN_ID='jaan_mehdi_avg';
 const JAAN_NAME='Jaan Mehdi';
 
+// Bereken automatische KO-pronostiek voor een testaccount op basis van zijn groepspronostiek
+function calcAutoKO(pm, fp, koMatches, matches, fifaRanking, fpDerden, userId){
+  const {winnaars, runners, top8Derden} = calcKOTeams(matches, pm, fp, fifaRanking, fpDerden);
+  const koResult = {};
+  const KO_ROUND_ORDER = ['R32','R16','KF','HF','KF3','F'];
+  const prevRoundMap = {R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'};
+
+  // Kies winnaar pseudo-random maar stabiel (gebaseerd op user ID + match ID als seed)
+  function pickWinner(t1, t2, matchId){
+    if(!t1) return t2;
+    if(!t2) return t1;
+    // Simpele hash van userId + matchId voor stabiele willekeur
+    const seed = [...(userId+matchId)].reduce((h,c)=>Math.imul(31,h)+c.charCodeAt(0)|0, 0);
+    return (seed & 1) ? t1 : t2;
+  }
+
+  for(const round of KO_ROUND_ORDER){
+    const roundMatches = koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
+    for(const m of roundMatches){
+      let t1, t2;
+      if(round === 'R32'){
+        [t1, t2] = getR32Teams(m.id, winnaars, runners, top8Derden);
+      } else if(round === 'KF3'){
+        // Verliezers van HF
+        const hfMatches = koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+        const hfLosers = hfMatches.map(hm=>{
+          const prevR = prevRoundMap['HF'];
+          const prevMs = koMatches.filter(x=>x.round===prevR).sort((a,b)=>a.position-b.position);
+          const idx2 = (hm.position-1)*2;
+          const teamA = prevMs[idx2] ? koResult[prevMs[idx2].id] : null;
+          const teamB = prevMs[idx2+1] ? koResult[prevMs[idx2+1].id] : null;
+          const winner = koResult[hm.id];
+          return [teamA, teamB].filter(t=>t && t!==winner);
+        }).flat();
+        t1 = hfLosers[0]; t2 = hfLosers[1];
+      } else {
+        const prevRound = prevRoundMap[round];
+        const prevMs = koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+        const idx = (m.position-1)*2;
+        t1 = prevMs[idx] ? koResult[prevMs[idx].id] : null;
+        t2 = prevMs[idx+1] ? koResult[prevMs[idx+1].id] : null;
+      }
+      koResult[m.id] = pickWinner(t1, t2, m.id);
+    }
+  }
+  return koResult;
+}
+
 function calcJaanMehdi(users,matches,bvs,pmAll,pbAll,jAll,koPronosAll,koMatches,spelerStats,naam){
   // Gebruik enkel echte, niet-admin, niet-test, betaalde deelnemers
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test&&u.id!==JAAN_ID);
@@ -3849,7 +3897,28 @@ function App(){
     setPvAll(pvFinal);setSpelerStats(ss||[]);
     const kmArr=km||[];
     setKoMatches(kmArr);
-    const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}setKoPronosAll(kpM);
+    const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}
+    // Auto KO voor testaccounts die nog geen volledige KO hebben ingevuld
+    {
+      const kmArr2=km||[];
+      const koMatchCount=kmArr2.length;
+      const fpArr=fp||[];
+      const frArr=fr||[];
+      const fpDerden2=fpArr.filter(f=>f.group==='derden');
+      const testUsersKO=(us||[]).filter(u=>u.is_test||u.name?.startsWith('Test_'));
+      const pmMtmp={};for(const p of(pm||[])){if(!pmMtmp[p.user_id])pmMtmp[p.user_id]={};pmMtmp[p.user_id][p.match_id]=p;}
+      for(const u of testUsersKO){
+        const existing=kpM[u.id]||{};
+        if(Object.keys(existing).length<koMatchCount){
+          const userPM=pmMtmp[u.id]||{};
+          const userFP={};
+          for(const f of fpArr){if(f.user_id===u.id)userFP[f.group]=f.ranking||[];}
+          const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerden2,u.id);
+          kpM[u.id]={...autoKO,...existing};
+        }
+      }
+    }
+    setKoPronosAll(kpM);
     const kptM={};for(const k of(kpt||[]))kptM[k.round]=k.points;setKoPunten(kptM);
     setFifaRanking(fr||[]);
     const cfgObj={};for(const c of(cfg||[]))cfgObj[c.key]=c.value;setConfig(cfgObj);
