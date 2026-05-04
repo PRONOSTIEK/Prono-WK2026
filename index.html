@@ -3904,7 +3904,6 @@ function App(){
       const koMatchCount=kmArr2.length;
       const fpArr=fp||[];
       const frArr=fr||[];
-      const fpDerden2=fpArr.filter(f=>f.group==='derden');
       const testUsersKO=(us||[]).filter(u=>u.is_test||u.name?.startsWith('Test_'));
       const pmMtmp={};for(const p of(pm||[])){if(!pmMtmp[p.user_id])pmMtmp[p.user_id]={};pmMtmp[p.user_id][p.match_id]=p;}
       for(const u of testUsersKO){
@@ -3913,7 +3912,9 @@ function App(){
           const userPM=pmMtmp[u.id]||{};
           const userFP={};
           for(const f of fpArr){if(f.user_id===u.id)userFP[f.group]=f.ranking||[];}
-          const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerden2,u.id);
+          // fpDerden: eigen '3de' ranking, of null (sortDerden valt terug op FIFA)
+          const fpDerdenUser=userFP['3de']||null;
+          const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerdenUser,u.id);
           kpM[u.id]={...autoKO,...existing};
         }
       }
