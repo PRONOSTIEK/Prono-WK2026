@@ -569,7 +569,13 @@ function calcKOTeams(matches, lPM, lFP, fifaRanking, fpDerden){
     if(stand.length>=3)derden.push({...stand[2],grp});
   }
 
-  const top8Derden=sortDerden(derden,fpDerden,fifaRanking).slice(0,8).map(d=>d.team);
+  let top8Derden=sortDerden(derden,fpDerden,fifaRanking).slice(0,8).map(d=>d.team);
+  // Als er te weinig derden zijn (testaccounts die niet alles invulden), vul aan met FIFA-ranking
+  if(top8Derden.length<8&&fifaRanking&&fifaRanking.length){
+    const alleTeams=[...new Set(derden.map(d=>d.team))];
+    const extras=[...fifaRanking].sort((a,b)=>b.points-a.points).map(r=>r.team).filter(t=>alleTeams.includes(t)&&!top8Derden.includes(t));
+    top8Derden=[...top8Derden,...extras].slice(0,8);
+  }
   return{winnaars,runners,top8Derden};
 }
 
@@ -2378,7 +2384,7 @@ function BvSortList({bvs,setBvField,setBvAns,delBv,saveBvOrder,config,onRefresh}
 
 // ADMIN
 // TEST TABBLAD
-function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
+function TestTab({matches,bvs,koMatches,config,ag,setAg,fifaRanking,onRefresh}){
   const[testData,setTestData]=useState(()=>{try{return JSON.parse(config.test_data||'{}');}catch{return{};}});
   const[bezig,setBezig]=useState(false);
   const[msg,setMsg]=useState('');
@@ -2433,28 +2439,11 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
         }
         await new Promise(r=>setTimeout(r,600));
 
-        // KO
-        const winnerMap={};const koInserts=[];
-        for(const round of rounds){
-          const rMs=koMatches.filter(m=>m.round===round).sort((a,b)=>a.position-b.position);
-          for(const m of rMs){
-            let teams=[];
-            if(round==='R32')teams=[m.home,m.away].filter(t=>t&&!/^(W-|RU-|VL-)/.test(t));
-            else if(round==='KF3'){
-              const hfMs=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-              teams=hfMs.flatMap(hm=>[hm.home,hm.away].filter(Boolean).filter(t=>t!==winnerMap[hm.id])).slice(0,2);
-            } else {
-              const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
-              const prevMs=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-              const idx=(m.position-1)*2;
-              teams=[prevMs[idx]?winnerMap[prevMs[idx].id]:null,prevMs[idx+1]?winnerMap[prevMs[idx+1].id]:null].filter(Boolean);
-            }
-            if(!teams.length)continue;
-            const gekozen=willekeurig(teams);
-            winnerMap[m.id]=gekozen;
-            koInserts.push({user_id:u.id,match_id:m.id,winner_pred:gekozen});
-          }
-        }
+        // KO — gebruik calcAutoKO op basis van de eigen groepspronostiek
+        const userPMtmp={};
+        for(const ins of pmInserts)userPMtmp[ins.match_id]={match_id:ins.match_id,home_pred:ins.home_pred,away_pred:ins.away_pred};
+        const autoKOtmp=calcAutoKO(userPMtmp,{},koMatches,matches,fifaRanking,[],u.id);
+        const koInserts=Object.entries(autoKOtmp).filter(([,w])=>w).map(([mid,w])=>({user_id:u.id,match_id:mid,winner_pred:w}));
         if(koInserts.length){
           const{error:e}=await sb.from('ko_pronos').insert(koInserts);
           if(e)throw new Error(`${u.name} KO: ${e.message}`);
@@ -2580,6 +2569,20 @@ function TestTab({matches,bvs,koMatches,config,ag,setAg,onRefresh}){
       onRefresh();
     }catch(e){setMsg('❌ Fout: '+e.message);}
     setBezig(false);setConfirmWis(false);
+  }
+
+  async function herberekenFaketesterKO(){
+    setBezigKO(true);setMsgKO('');
+    try{
+      const{data:testUsers}=await sb.from('users').select('id,name').or('is_test.eq.true,name.like.Test_%');
+      if(!testUsers||!testUsers.length){setMsgKO('Geen faketesters gevonden.');setBezigKO(false);return;}
+      const ids=testUsers.map(u=>u.id);
+      const{error}=await sb.from('ko_pronos').delete().in('user_id',ids);
+      if(error)throw new Error(error.message);
+      setMsgKO(`✅ KO-pronos van ${ids.length} faketester(s) gewist — worden herberekend bij volgende refresh.`);
+      onRefresh();
+    }catch(e){setMsgKO('❌ '+e.message);}
+    setBezigKO(false);
   }
 
   return(<div>
@@ -3706,7 +3709,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     </div>}
 
     {/* 🧪 TEST TABBLAD */}
-    {tab==='test'&&<TestTab matches={matches} bvs={bvs} koMatches={koMatches} config={config} ag={ag} setAg={setAg} onRefresh={onRefresh}/>}
+    {tab==='test'&&<TestTab matches={matches} bvs={bvs} koMatches={koMatches} config={config} ag={ag} setAg={setAg} fifaRanking={fifaRanking} onRefresh={onRefresh}/>}
 
   </div>);}
 
@@ -3912,8 +3915,10 @@ function App(){
           const userPM=pmMtmp[u.id]||{};
           const userFP={};
           for(const f of fpArr){if(f.user_id===u.id)userFP[f.group]=f.ranking||[];}
-          // fpDerden: eigen '3de' ranking, of null (sortDerden valt terug op FIFA)
-          const fpDerdenUser=userFP['3de']||null;
+          // fpDerden: eigen '3de' ranking, of admin '3de' ranking, of null (FIFA fallback)
+          const adminFPtmp=fpArr.filter(f=>f.user_id==='admin');
+          const adminFPmap={};for(const f of adminFPtmp)adminFPmap[f.group]=f.ranking||[];
+          const fpDerdenUser=userFP['3de']||adminFPmap['3de']||null;
           const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerdenUser,u.id);
           kpM[u.id]={...autoKO,...existing};
         }
