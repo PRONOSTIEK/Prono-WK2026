@@ -1289,6 +1289,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       {GRP.map(g=><div key={g} className={`groep-tab ${tab===g?'active':''} ${jPG[g]?'joker':''}`} onClick={()=>setTab(g)}>{g}{jPG[g]?'🃏':''}</div>)}
       <div className={`groep-tab ${tab==='3de'?'active':''}`} style={{borderColor:'var(--gold)',color:tab==='3de'?'#000':'var(--gold)',background:tab==='3de'?'var(--gold)':'transparent'}} onClick={()=>setTab('3de')}>3de</div>
       <div className={`groep-tab ${tab==='ko'?'active':''}`} style={{borderColor:'var(--green)',color:tab==='ko'?'#000':'var(--green)',background:tab==='ko'?'var(--green)':'transparent'}} onClick={()=>setTab('ko')}>KO</div>
+      <div className={`groep-tab ${tab==='bijvragen'?'active':''}`} onClick={()=>setTab('bijvragen')}>⭐</div>
     </div>
 
     {/* BIJVRAGEN */}
