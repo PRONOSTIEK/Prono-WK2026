@@ -619,7 +619,6 @@ function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition){
 // Juiste match (team in juiste wedstrijd van die ronde) → koPunten[round+'_juist']
 // Wel in ronde maar verkeerde match → koPunten[round+'_aanwezig']
 function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifaRanking){
-  console.log('[calcKOPts] koMatches='+koMatches.length+' matches='+(matches?matches.length:'undefined')+' fifaRanking='+(fifaRanking?fifaRanking.length:'undefined'));
   let tot=0;const det=[];
   const rounds=['R32','R16','KF','HF','KF3','F'];
   const roundKeys={R32:'ko_r32',R16:'ko_r16',KF:'ko_kf',HF:'ko_hf',KF3:'ko_kf3',F:'ko_f'};
@@ -702,6 +701,7 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
     }
   }
 
+  console.log('[R16 debug] ko_r16_1 teams='+JSON.stringify(echteTeamsPerMatch['ko_r16_1'])+' prono='+koPronos['ko_r16_1']);
   // Bouw per ronde een set van alle teams die in die ronde zitten
   const teamsInRonde={};
   for(const round of rounds){
