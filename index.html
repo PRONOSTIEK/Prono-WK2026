@@ -570,17 +570,24 @@ function calcKOTeams(matches, lPM, lFP, fifaRanking, fpDerden){
   }
 
   let top8Derden=sortDerden(derden,fpDerden,fifaRanking).slice(0,8).map(d=>d.team);
-  // Als er te weinig derden zijn (testaccounts die niet alles invulden), vul aan met FIFA-ranking
+  // Als er te weinig derden zijn, vul aan via FIFA-ranking over alle groepen
   if(top8Derden.length<8&&fifaRanking&&fifaRanking.length){
-    const alleTeams=[...new Set(derden.map(d=>d.team))];
-    const extras=[...fifaRanking].sort((a,b)=>b.points-a.points).map(r=>r.team).filter(t=>alleTeams.includes(t)&&!top8Derden.includes(t));
+    // Verzamel alle ploegen die derde zijn in hun groep (ook van onvolledige standen)
+    const alleGroepsTeams=new Set();
+    for(const grp of GRP){
+      const gm=mbg[grp]||[];
+      for(const m of gm){if(m.home)alleGroepsTeams.add(m.home);if(m.away)alleGroepsTeams.add(m.away);}
+    }
+    const al1e2e=new Set([...Object.values(winnaars),...Object.values(runners)]);
+    const al3deTeams=[...alleGroepsTeams].filter(t=>!al1e2e.has(t)&&!top8Derden.includes(t));
+    const extras=[...fifaRanking].sort((a,b)=>b.points-a.points).map(r=>r.team).filter(t=>al3deTeams.includes(t));
     top8Derden=[...top8Derden,...extras].slice(0,8);
   }
   return{winnaars,runners,top8Derden};
 }
 
 // Bereken de 2 mogelijke ploegen voor een R32 match op basis van ko_matches structuur
-function getR32Teams(matchId, winnaars, runners, top8Derden){
+function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition){
   const m={
     'ko_r32_1':[winnaars['A'],runners['B']],
     'ko_r32_2':[winnaars['C'],runners['D']],
@@ -599,6 +606,11 @@ function getR32Teams(matchId, winnaars, runners, top8Derden){
     'ko_r32_15':[top8Derden[4],top8Derden[5]],
     'ko_r32_16':[top8Derden[6],top8Derden[7]],
   };
+  // Fallback op positie als ID niet matcht (bv. andere ID-conventie in DB)
+  if(!m[matchId]&&matchPosition>=13){
+    const idx=(matchPosition-13)*2;
+    return[top8Derden[idx],top8Derden[idx+1]].filter(Boolean);
+  }
   return(m[matchId]||[]).filter(Boolean);
 }
 
@@ -1673,7 +1685,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       // Bereken de 2 specifieke ploegen voor een R32 match
       function getMatchTeams(m){
         if(m.round==='R32'){
-          return getR32Teams(m.id,winnaars,runners,top8Derden);
+          return getR32Teams(m.id,winnaars,runners,top8Derden,m.position);
         }
         // Voor latere rondes: winnaars van de 2 vorige matches
         const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
@@ -3721,6 +3733,7 @@ const JAAN_NAME='Jaan Mehdi';
 // Bereken automatische KO-pronostiek voor een testaccount op basis van zijn groepspronostiek
 function calcAutoKO(pm, fp, koMatches, matches, fifaRanking, fpDerden, userId){
   const {winnaars, runners, top8Derden} = calcKOTeams(matches, pm, fp, fifaRanking, fpDerden);
+  console.log('[calcAutoKO] userId='+userId+' top8Derden='+JSON.stringify(top8Derden)+' winnaars='+JSON.stringify(winnaars));
   const koResult = {};
   const KO_ROUND_ORDER = ['R32','R16','KF','HF','KF3','F'];
   const prevRoundMap = {R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'};
@@ -3739,7 +3752,7 @@ function calcAutoKO(pm, fp, koMatches, matches, fifaRanking, fpDerden, userId){
     for(const m of roundMatches){
       let t1, t2;
       if(round === 'R32'){
-        [t1, t2] = getR32Teams(m.id, winnaars, runners, top8Derden);
+        [t1, t2] = getR32Teams(m.id, winnaars, runners, top8Derden, m.position);
       } else if(round === 'KF3'){
         // Verliezers van HF
         const hfMatches = koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
