@@ -3936,6 +3936,7 @@ function App(){
           const fpDerdenUser=userFP['3de']||adminFPmap['3de']||null;
           const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerdenUser,u.id);
           kpM[u.id]={...autoKO,...existing};
+          console.log('[inject] '+u.name+' ko_r32_13='+kpM[u.id]['ko_r32_13']+' total='+Object.keys(kpM[u.id]).length);
         }
       }
     }
