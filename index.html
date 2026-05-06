@@ -676,7 +676,6 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
       // Altijd ook m.winner toevoegen als die er is (voor 'juist' check)
       const withWinner=m.winner&&!teams.includes(m.winner)?[...teams,m.winner]:teams;
       r32EchteTeams[m.id]=withWinner.length?withWinner:(m.winner?[m.winner]:[]);
-      if(m.id==='ko_r32_1')console.log('[R32 debug] ko_r32_1 teams='+JSON.stringify(r32EchteTeams[m.id])+' winner='+m.winner);
     }
   }
   for(const round of rounds){
@@ -701,7 +700,6 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
     }
   }
 
-  console.log('[R16 debug] ko_r16_1 teams='+JSON.stringify(echteTeamsPerMatch['ko_r16_1'])+' prono='+koPronos['ko_r16_1']);
   // Bouw per ronde een set van alle teams die in die ronde zitten
   const teamsInRonde={};
   for(const round of rounds){
@@ -1108,7 +1106,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             </tr></thead>
             <tbody>
               {rows.map((u,i)=>{
-                const rowBg=u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
+                const rowBg=u.id===cur.id?'#1a2420':i%2===0?'#1e2b26':'#1a2420';
                 return(<tr key={u.id}>
                   <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',textAlign:'center',position:'sticky',left:0,background:rowBg,zIndex:1}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
