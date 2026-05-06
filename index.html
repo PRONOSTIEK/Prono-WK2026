@@ -619,39 +619,65 @@ function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition){
 // Juiste match (team in juiste wedstrijd van die ronde) → koPunten[round+'_juist']
 // Wel in ronde maar verkeerde match → koPunten[round+'_aanwezig']
 function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifaRanking){
+  console.log('[calcKOPts] koMatches='+koMatches.length+' matches='+(matches?matches.length:'undefined')+' fifaRanking='+(fifaRanking?fifaRanking.length:'undefined'));
   let tot=0;const det=[];
   const rounds=['R32','R16','KF','HF','KF3','F'];
   const roundKeys={R32:'ko_r32',R16:'ko_r16',KF:'ko_kf',HF:'ko_hf',KF3:'ko_kf3',F:'ko_f'};
 
   // Bouw per match de echte teams op basis van winnaars vorige ronde
   const echteTeamsPerMatch={};
-  // Voor R32: bouw echte teams op via calcEchteKOTeams (groepsfase uitslagen)
+  // Voor R32: gebruik m.winner (admin ingevoerd) als het team in die match
+  // en bouw alle R32-teams op via calcKOTeams op basis van groepsfase uitslagen
   const r32EchteTeams={};
   {
-    const echteKO=matches&&adminFP&&fifaRanking?calcEchteKOTeams(matches,adminFP,fifaRanking):{winnaars:{},runners:{},top8Derden:[]};
     const r32Ms=koMatches.filter(m=>m.round==='R32').sort((a,b)=>a.position-b.position);
-    const teamMap=getR32Teams?{
-      'ko_r32_1':[echteKO.winnaars['A'],echteKO.runners['B']],
-      'ko_r32_2':[echteKO.winnaars['C'],echteKO.runners['D']],
-      'ko_r32_3':[echteKO.winnaars['E'],echteKO.runners['F']],
-      'ko_r32_4':[echteKO.winnaars['G'],echteKO.runners['H']],
-      'ko_r32_5':[echteKO.winnaars['I'],echteKO.runners['J']],
-      'ko_r32_6':[echteKO.winnaars['K'],echteKO.runners['L']],
-      'ko_r32_7':[echteKO.winnaars['B'],echteKO.runners['A']],
-      'ko_r32_8':[echteKO.winnaars['D'],echteKO.runners['C']],
-      'ko_r32_9':[echteKO.winnaars['F'],echteKO.runners['E']],
-      'ko_r32_10':[echteKO.winnaars['H'],echteKO.runners['G']],
-      'ko_r32_11':[echteKO.winnaars['J'],echteKO.runners['I']],
-      'ko_r32_12':[echteKO.winnaars['L'],echteKO.runners['K']],
-      'ko_r32_13':[echteKO.top8Derden[0],echteKO.top8Derden[1]],
-      'ko_r32_14':[echteKO.top8Derden[2],echteKO.top8Derden[3]],
-      'ko_r32_15':[echteKO.top8Derden[4],echteKO.top8Derden[5]],
-      'ko_r32_16':[echteKO.top8Derden[6],echteKO.top8Derden[7]],
-    }:{};
+    // Gebruik adminFP en matches om echte groepsfase stand te berekenen
+    let echteW={},echteR={},echteTop8=[];
+    if(matches&&matches.length&&fifaRanking&&fifaRanking.length){
+      const mbgE={};
+      for(const m of matches){if(m.group&&GRP.includes(m.group)){if(!mbgE[m.group])mbgE[m.group]=[];mbgE[m.group].push(m);}}
+      const winE={},runE={},derdenE=[];
+      for(const grp of GRP){
+        const gm=mbgE[grp]||[];
+        if(!gm.length)continue;
+        // Gebruik beschikbare scores (ook partiele stand)
+        const scE={};for(const m of gm){if(m.home_score!=null)scE[m.id]={h:m.home_score,a:m.away_score};}
+        let fp=adminFP?.[grp];
+        if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
+        const stand=buildStand(gm,scE,Array.isArray(fp)?fp:null,fifaRanking);
+        if(stand.length>=1)winE[grp]=stand[0].team;
+        if(stand.length>=2)runE[grp]=stand[1].team;
+        if(stand.length>=3)derdenE.push({...stand[2],grp});
+      }
+      let fpD=adminFP?.['3de'];
+      if(typeof fpD==='string'){try{fpD=JSON.parse(fpD);}catch{fpD=null;}}
+      echteTop8=sortDerden(derdenE,Array.isArray(fpD)?fpD:null,fifaRanking).slice(0,8).map(d=>d.team);
+      echteW=winE;echteR=runE;
+    }
+    const teamMap={
+      'ko_r32_1':[echteW['A'],echteR['B']],
+      'ko_r32_2':[echteW['C'],echteR['D']],
+      'ko_r32_3':[echteW['E'],echteR['F']],
+      'ko_r32_4':[echteW['G'],echteR['H']],
+      'ko_r32_5':[echteW['I'],echteR['J']],
+      'ko_r32_6':[echteW['K'],echteR['L']],
+      'ko_r32_7':[echteW['B'],echteR['A']],
+      'ko_r32_8':[echteW['D'],echteR['C']],
+      'ko_r32_9':[echteW['F'],echteR['E']],
+      'ko_r32_10':[echteW['H'],echteR['G']],
+      'ko_r32_11':[echteW['J'],echteR['I']],
+      'ko_r32_12':[echteW['L'],echteR['K']],
+      'ko_r32_13':[echteTop8[0],echteTop8[1]],
+      'ko_r32_14':[echteTop8[2],echteTop8[3]],
+      'ko_r32_15':[echteTop8[4],echteTop8[5]],
+      'ko_r32_16':[echteTop8[6],echteTop8[7]],
+    };
     for(const m of r32Ms){
       const teams=(teamMap[m.id]||[]).filter(Boolean);
-      // Als echte teams beschikbaar: gebruik die. Anders: gebruik m.winner als fallback.
-      r32EchteTeams[m.id]=teams.length?teams:(m.winner?[m.winner]:[]);
+      // Altijd ook m.winner toevoegen als die er is (voor 'juist' check)
+      const withWinner=m.winner&&!teams.includes(m.winner)?[...teams,m.winner]:teams;
+      r32EchteTeams[m.id]=withWinner.length?withWinner:(m.winner?[m.winner]:[]);
+      if(m.id==='ko_r32_1')console.log('[R32 debug] ko_r32_1 teams='+JSON.stringify(r32EchteTeams[m.id])+' winner='+m.winner);
     }
   }
   for(const round of rounds){
