@@ -3926,16 +3926,19 @@ function App(){
       const pmMtmp={};for(const p of(pm||[])){if(!pmMtmp[p.user_id])pmMtmp[p.user_id]={};pmMtmp[p.user_id][p.match_id]=p;}
       for(const u of testUsersKO){
         const existing=kpM[u.id]||{};
-        if(Object.keys(existing).length<koMatchCount){
+        // Altijd aanvullen: bereken auto KO en vul ontbrekende wedstrijden aan
+        {
           const userPM=pmMtmp[u.id]||{};
           const userFP={};
           for(const f of fpArr){if(f.user_id===u.id)userFP[f.group]=f.ranking||[];}
-          // fpDerden: eigen '3de' ranking, of admin '3de' ranking, of null (FIFA fallback)
           const adminFPtmp=fpArr.filter(f=>f.user_id==='admin');
           const adminFPmap={};for(const f of adminFPtmp)adminFPmap[f.group]=f.ranking||[];
           const fpDerdenUser=userFP['3de']||adminFPmap['3de']||null;
           const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerdenUser,u.id);
-          kpM[u.id]={...autoKO,...existing};
+          // Bestaande keuzes behouden, ontbrekende aanvullen via autoKO
+          const merged={...autoKO};
+          for(const [mid,winner] of Object.entries(existing)){if(winner)merged[mid]=winner;}
+          kpM[u.id]=merged;
           console.log('[inject] '+u.name+' ko_r32_13='+kpM[u.id]['ko_r32_13']+' total='+Object.keys(kpM[u.id]).length);
         }
       }
