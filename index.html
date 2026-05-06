@@ -3937,7 +3937,8 @@ function App(){
           const autoKO=calcAutoKO(userPM,userFP,kmArr2,ma||[],frArr,fpDerdenUser,u.id);
           // Bestaande keuzes behouden, ontbrekende aanvullen via autoKO
           const merged={...autoKO};
-          for(const [mid,winner] of Object.entries(existing)){if(winner)merged[mid]=winner;}
+          // Placeholders zoals '3de-1', 'W-A', 'RU-B' negeren — enkel echte teamnamen behouden
+          for(const [mid,winner] of Object.entries(existing)){if(winner&&!/^(3de-|W-|RU-|VL-)/.test(winner))merged[mid]=winner;}
           kpM[u.id]=merged;
           console.log('[inject] '+u.name+' ko_r32_13='+kpM[u.id]['ko_r32_13']+' total='+Object.keys(kpM[u.id]).length);
         }
