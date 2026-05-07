@@ -44,9 +44,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .scroll-table{border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;width:max-content;}
 .scroll-table th,.scroll-table td{border-bottom:1px solid #2a3d35;border-right:1px solid #2a3d35;padding:3px 6px;}
 .scroll-table thead th{border-bottom:2px solid #2a3d35;color:#7a9e8a;font-size:9px;}
-.scroll-table .st-sticky-0{position:sticky;left:0;z-index:2;background:#1e2b26;min-width:30px;max-width:30px;width:30px;}
-.scroll-table .st-sticky-1{position:sticky;left:30px;z-index:2;background:#1e2b26;min-width:60px;max-width:60px;width:60px;}
-.scroll-table .st-sticky-2{position:sticky;left:90px;z-index:2;background:#1e2b26;min-width:60px;width:60px;border-right:2px solid #ffd600 !important;box-shadow:4px 0 8px rgba(0,0,0,0.9);}
+.scroll-table .st-sticky-0{position:sticky;left:0;z-index:2;background:#1e2b26;min-width:30px;max-width:30px;width:30px;text-align:center;}
+.scroll-table .st-sticky-1{position:sticky;left:30px;z-index:2;background:#1e2b26;min-width:90px;max-width:90px;width:90px;}
+.scroll-table .st-sticky-2{position:sticky;left:120px;z-index:2;background:#1e2b26;min-width:60px;width:60px;border-right:2px solid #ffd600 !important;box-shadow:4px 0 8px rgba(0,0,0,0.9);}
+.scroll-table th.st-sticky-0,.scroll-table th.st-sticky-1,.scroll-table th.st-sticky-2{vertical-align:bottom;text-align:center;}
 .scroll-table tbody tr:nth-child(even) .st-sticky-0,
 .scroll-table tbody tr:nth-child(even) .st-sticky-1,
 .scroll-table tbody tr:nth-child(even) .st-sticky-2{background:#1a2420;}
@@ -60,11 +61,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .scroll-table thead tr .st-sticky-1,
 .scroll-table thead tr .st-sticky-2{background:#1e2b26;z-index:3;}
 .scroll-table .st-sep{border-right:2px solid #ffd600 !important;}
-.scroll-table .st-rotated{writing-mode:vertical-rl;transform:rotate(180deg);height:90px;display:flex;align-items:center;justify-content:flex-end;padding-bottom:4px;font-size:9px;color:#7a9e8a;}
+.scroll-table thead th{text-align:center;vertical-align:bottom;}
+.scroll-table .st-rotated{writing-mode:vertical-rl;transform:rotate(180deg);height:90px;display:flex;align-items:center;justify-content:center;padding-bottom:4px;font-size:9px;color:#7a9e8a;}
 .scroll-table .st-min55{min-width:55px;}
 .scroll-table .st-min60{min-width:60px;}
 .scroll-table .st-min30{min-width:30px;}
-.scroll-table .st-min90{min-width:60px;}
+.scroll-table .st-min90{min-width:90px;}
 .scroll-table .st-min34{min-width:34px;}
 .scroll-table .st-min36{min-width:36px;}
 
@@ -1120,7 +1122,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       });
       const colVals={};
       for(const c of cols)colVals[c.key]=rows.map(r=>r.d[c.key]);
-      const thS={padding:'3px 4px',borderBottom:'2px solid var(--border)',fontSize:9,color:'var(--muted)',writingMode:'vertical-rl',transform:'rotate(180deg)',height:90,verticalAlign:'bottom',textAlign:'center'};
+      const thS={padding:'3px 4px',borderBottom:'2px solid var(--border)',verticalAlign:'bottom',textAlign:'center'};
       const tdS=(bg,sep)=>({padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:sep?'2px solid var(--gold)':'1px solid var(--border)',textAlign:'right',background:bg,minWidth:36});
       const stickyBg='#1e2b26';
       return(<div id="overzicht-tabel" className="card" style={{padding:'12px 14px',marginBottom:14}}>
@@ -1132,7 +1134,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               <th className="st-sticky-0" style={{textAlign:'center',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">#</div></th>
               <th className="st-sticky-1" style={{textAlign:'left',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">Naam</div></th>
               <th className="st-sticky-2" style={{textAlign:'left',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">Totaal punten</div></th>
-              {cols.filter(c=>!c.sticky).map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)'}}>{c.label}</th>)}
+              {cols.filter(c=>!c.sticky).map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)'}}><div className="st-rotated">{c.label}</div></th>)}
             </tr></thead>
             <tbody>
               {rows.map((u,i)=>{
