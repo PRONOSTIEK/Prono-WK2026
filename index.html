@@ -39,6 +39,32 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .bn-item.active{color:var(--green);}
 .bn-icon{font-size:18px;}
 
+/* STICKY SCROLL TABLES */
+.scroll-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.scroll-table{border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;width:max-content;}
+.scroll-table th,.scroll-table td{border-bottom:1px solid #2a3d35;border-right:1px solid #2a3d35;padding:3px 6px;}
+.scroll-table thead th{border-bottom:2px solid #2a3d35;color:#7a9e8a;font-size:9px;}
+.scroll-table .st-sticky-0{position:sticky;left:0;z-index:2;background:#1e2b26;}
+.scroll-table .st-sticky-1{position:sticky;left:30px;z-index:2;background:#1e2b26;}
+.scroll-table .st-sticky-2{position:sticky;left:120px;z-index:2;background:#1e2b26;border-right:2px solid #ffd600 !important;box-shadow:4px 0 8px rgba(0,0,0,0.9);}
+.scroll-table tbody tr:nth-child(even) .st-sticky-0,
+.scroll-table tbody tr:nth-child(even) .st-sticky-1,
+.scroll-table tbody tr:nth-child(even) .st-sticky-2{background:#1a2420;}
+.scroll-table tbody tr.st-me .st-sticky-0,
+.scroll-table tbody tr.st-me .st-sticky-1,
+.scroll-table tbody tr.st-me .st-sticky-2{background:#152018;}
+.scroll-table tbody tr.st-avg .st-sticky-0,
+.scroll-table tbody tr.st-avg .st-sticky-1,
+.scroll-table tbody tr.st-avg .st-sticky-2{background:#1a3a2a;}
+.scroll-table .st-sep{border-right:2px solid #ffd600 !important;}
+.scroll-table .st-gold-sep{border-left:2px solid #ffd600 !important;}
+.scroll-table .st-min55{min-width:55px;}
+.scroll-table .st-min60{min-width:60px;}
+.scroll-table .st-min30{min-width:30px;}
+.scroll-table .st-min90{min-width:90px;}
+.scroll-table .st-min34{min-width:34px;}
+.scroll-table .st-min36{min-width:36px;}
+
 /* MOBILE */
 @media(max-width:640px){
   .sidebar{display:none;}
@@ -1098,20 +1124,20 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📋 Uitgebreid overzicht</div>
         <div style={{fontSize:10,color:'var(--muted)',marginBottom:8}}>← scroll → · <span style={{color:'var(--green)'}}>groen</span> = hoogste · <span style={{color:'var(--red)'}}>rood</span> = laagste</div>
         <div style={{overflowX:'auto'}}>
-          <table style={{borderCollapse:'separate',borderSpacing:0,fontSize:11,whiteSpace:'nowrap'}}>
+          <table className="scroll-table">
             <thead><tr>
-              <th style={{padding:'3px 4px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:28,position:'sticky',left:0,background:stickyBg,zIndex:2}}>#</th>
-              <th style={{padding:'3px 8px',borderBottom:'2px solid var(--border)',textAlign:'left',minWidth:90,position:'sticky',left:28,background:stickyBg,zIndex:2,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>Naam</th>
+              <th className="st-sticky-0 st-min30" style={{textAlign:'center'}}>#</th>
+              <th className="st-sticky-1 st-min90 st-sep" style={{textAlign:'left',left:28}}>Naam</th>
               {cols.map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)',position:c.sticky?'sticky':undefined,left:c.sticky?118+28:undefined,zIndex:c.sticky?3:undefined,background:c.sticky?stickyBg:undefined}}>{c.label}</th>)}
             </tr></thead>
             <tbody>
               {rows.map((u,i)=>{
                 const rowBg=u.id===cur.id?'#152018':i%2===0?'#1e2b26':'#1a2420';
-                return(<tr key={u.id}>
-                  <td style={{padding:'3px 4px',borderBottom:'1px solid var(--border)',textAlign:'center',position:'sticky',left:0,background:rowBg,zIndex:1}}>
+                return(<tr key={u.id} className={isMe?'st-me':''}>
+                  <td className="st-sticky-0 st-min30" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
                   </td>
-                  <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:28,background:rowBg,zIndex:1,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>
+                  <td className="st-sticky-1 st-min90 st-sep" style={{left:28}}>
                     <span style={{color:u.id===cur.id?'var(--green)':'var(--text)',fontWeight:u.id===cur.id?600:400,fontSize:11}}>{u.name}</span>
                   </td>
                   {cols.map((c,ci)=>{
@@ -1129,11 +1155,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 const avgBg='#1a3a2a';
                 const avgRow={};
                 for(const c of cols){const vs=rows.filter(u=>u.betaald||toonAlles).map(r=>r.d[c.key]).filter(v=>v!=null);avgRow[c.key]=vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*100)/100:null;}
-                return(<tr style={{borderTop:'2px solid var(--green)'}}>
-                  <td style={{padding:'3px 4px',position:'sticky',left:0,background:avgBg,zIndex:1,textAlign:'center'}}>
+                return(<tr className="st-avg" style={{borderTop:'2px solid var(--green)'}}>
+                  <td className="st-sticky-0 st-min30" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>∅</span>
                   </td>
-                  <td style={{padding:'3px 8px',position:'sticky',left:28,background:avgBg,zIndex:1,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>
+                  <td className="st-sticky-1 st-min90 st-sep" style={{left:28}}>
                     <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
                   </td>
                   {cols.map((c,ci)=>{
@@ -1160,12 +1186,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         const stickyBg='#1e2b26';
         const stickyStyle={position:'sticky',background:stickyBg,zIndex:2,boxShadow:'none'};
         return(<div style={{overflowX:'auto'}}>
-          <table style={{borderCollapse:'separate',borderSpacing:0,fontSize:11,whiteSpace:'nowrap'}}>
+          <table className="scroll-table">
             <thead>
               <tr>
-                <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:30,position:'sticky',left:0,background:stickyBg,zIndex:3}}>#</th>
-                <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'left',minWidth:90,position:'sticky',left:30,background:stickyBg,zIndex:3}}>Naam</th>
-                <th style={{padding:'4px 8px',borderBottom:'2px solid var(--border)',textAlign:'right',minWidth:60,position:'sticky',left:120,background:stickyBg,zIndex:3,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>Totaal punten</th>
+                <th className="st-sticky-0 st-min30" style={{textAlign:'center'}}>#</th>
+                <th className="st-sticky-1 st-min90" style={{textAlign:'left'}}>Naam</th>
+                <th className="st-sticky-2 st-min60" style={{textAlign:'right'}}>Totaal punten</th>
                 {gespeeldeMatches.map(m=>(
                   <th key={m.id} style={{padding:'2px 3px',borderBottom:'2px solid var(--border)',textAlign:'center',minWidth:34,verticalAlign:'bottom',borderRight:'1px solid var(--border)'}}>
                     <div style={{writingMode:'vertical-rl',transform:'rotate(180deg)',fontSize:9,height:100,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',paddingBottom:4,gap:2}}>
@@ -1184,13 +1210,13 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 const isMe=u.id===cur.id;
                 const rowBg=isMe?'#1a2420':i%2===0?'#1e2b26':'#1a2420';
                 return(<tr key={u.id}>
-                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'center',position:'sticky',left:0,background:rowBg,zIndex:1}}>
+                  <td className="st-sticky-0 st-min30" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
                   </td>
-                  <td style={{padding:'3px 8px',borderBottom:'1px solid var(--border)',position:'sticky',left:30,background:rowBg,zIndex:1}}>
+                  <td className="st-sticky-1 st-min90">
                     <span style={{color:isMe?'var(--green)':'var(--text)',fontWeight:isMe?600:400}}>{u.name}</span>
                   </td>
-                  <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',textAlign:'right',position:'sticky',left:120,background:rowBg,zIndex:1,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>
+                  <td className="st-sticky-2 st-min60" style={{textAlign:'right'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--gold)'}}>{fmt(u.tot)}</span>
                   </td>
                   {gespeeldeMatches.map(m=>{
@@ -1228,10 +1254,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                           <span style={{fontFamily:'Bebas Neue',fontSize:12,color:gClr}}>{fmt(gPts)}</span>
                         </td>);
                       })}
-                      <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',borderLeft:'2px solid var(--gold)',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg,minWidth:55}}>
+                      <td style={{padding:'3px 6px',textAlign:'right',background:rowBg,minWidth:55,borderLeft:'2px solid #ffd600',borderRight:'1px solid #2a3d35',borderBottom:'1px solid #2a3d35'}}>
                         <span style={{fontFamily:'Bebas Neue',fontSize:12,color:mClr}}>{fmt(mPts)}</span>
                       </td>
-                      <td style={{padding:'3px 6px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'right',background:rowBg,minWidth:55}}>
+                      <td style={{padding:'3px 6px',textAlign:'right',background:rowBg,minWidth:55,borderRight:'1px solid #2a3d35',borderBottom:'1px solid #2a3d35'}}>
                         <span style={{fontFamily:'Bebas Neue',fontSize:12,color:jClr}}>{fmt(jPts)}</span>
                       </td>
                     </>);
@@ -1242,13 +1268,13 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 const avgBg='#1a3a2a';
                 const betalenden=st.filter(u=>u.betaald||toonAlles);
                 return(<tr style={{borderTop:'2px solid var(--green)'}}>
-                  <td style={{padding:'3px 6px',textAlign:'center',position:'sticky',left:0,background:avgBg,zIndex:1}}>
+                  <td className="st-sticky-0" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>∅</span>
                   </td>
-                  <td style={{padding:'3px 8px',position:'sticky',left:30,background:avgBg,zIndex:1}}>
+                  <td className="st-sticky-1">
                     <span style={{color:'var(--green)',fontWeight:600,fontSize:11}}>Gemiddelde</span>
                   </td>
-                  <td style={{padding:'3px 6px',textAlign:'right',position:'sticky',left:120,background:avgBg,zIndex:1,borderRight:'2px solid var(--gold)',boxShadow:'4px 0 6px -2px rgba(0,0,0,0.8)'}}>
+                  <td className="st-sticky-2" style={{textAlign:'right'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>
                       {fmt(betalenden.length?Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100:0)}
                     </span>
