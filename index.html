@@ -1133,7 +1133,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <tbody>
               {rows.map((u,i)=>{
                 const rowBg=u.id===cur.id?'#152018':i%2===0?'#1e2b26':'#1a2420';
-                return(<tr key={u.id} className={isMe?'st-me':''}>
+                return(<tr key={u.id} className={u.id===cur.id?'st-me':''}>
                   <td className="st-sticky-0 st-min30" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
                   </td>
