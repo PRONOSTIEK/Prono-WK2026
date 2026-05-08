@@ -1100,7 +1100,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         return'var(--text)';
       }
       // Kolommen: plaats, naam, totaal, matchen, joker, kwal per groep A-L, kwal 3des, KO rondes, bijvragen
-      const KO_RONDES_VIS=[{id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},{id:'KF',label:'Kwartfinales'}];
+      const KO_RONDES_VIS=[{id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},{id:'KF',label:'Kwartfinales'},{id:'HF',label:'Halve finales'},{id:'KF3',label:'3e/4e plaats'}];
       // noDecimal = geheel getal tonen (geen komma)
       // Bepaal welke fases actief zijn
       const gfActief=isFaseActief(config,'groep')||matches.some(m=>m.home_score!=null);
