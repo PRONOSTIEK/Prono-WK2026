@@ -275,7 +275,7 @@ function calcC(fifaPts, fifaRanking, config){
 
 function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches,fifaRanking,config,allKoPronos,allPbAll){
   // teldatum parameter is nu enkel voor bijvragen, groepsfase is altijd actief
-  const telBijvragen=!teldatum||(new Date()>=new Date(teldatum))||(config&&config['actief_bijvragen']==='1');
+  const telBijvragen=!teldatum||(new Date()>=new Date(teldatum))||(config&&(config['actief_bijvragen']==='1'||isFaseActief(config,'bijvragen')));
   const telPunten=true; // groepsfase altijd live
   let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
@@ -954,8 +954,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const pvUserIds=new Set(echteUsers.filter(u=>fakeTellenPV||!u.name?.startsWith('Test_')).map(u=>u.id));
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>pvUserIds.has(p.user_id)));
-  const teldatum=config.bijvragen_teldatum||'';
-  const telPunten=!teldatum||new Date()>=new Date(teldatum);
+  const teldatum=config['tel_bijvragen']||config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum)||isFaseActief(config,'bijvragen');
 
   const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>a.date?.localeCompare(b.date)||0);
 
@@ -1036,6 +1036,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const minJoker=jokerVals.length?Math.min(...jokerVals):null;
       function hlClr(val,max,min){if(val==null||max==null)return'var(--text)';if(val===max&&max!==min)return'var(--green)';if(val===min&&max!==min)return'var(--red)';return'var(--text)';}
       const betalenden=st.filter(u=>u.betaald||toonAlles);
+      const bijvVals=stVis.map(u=>u.bijvraagPts??0);
+      const maxBijv=bijvVals.length?Math.max(...bijvVals):null;
+      const minBijv=bijvVals.length?Math.min(...bijvVals):null;
+      const goldBorderL={borderLeft:'2px solid var(--gold)'};
+      const goldBorderR={borderRight:'2px solid var(--gold)'};
       return(<div className="card" style={{overflowX:'auto'}}>
         <table className="ranking">
           <thead><tr>
@@ -1044,6 +1049,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={{textAlign:'right'}}>Totaal</th>
             <th style={{textAlign:'right'}}>Matchen</th>
             <th style={{textAlign:'right'}}>Joker</th>
+            <th style={{textAlign:'right',...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
@@ -1064,19 +1070,22 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
+                <td style={{textAlign:'right',...goldBorderL,...goldBorderR}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
               </tr>);
             })}
-            {st.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+            {st.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
             {betalenden.length>0&&(()=>{
               const gemTot=Math.round(betalenden.reduce((s,u)=>s+u.tot,0)/betalenden.length*100)/100;
               const gemMatch=Math.round(betalenden.reduce((s,u)=>s+(u.matchPts??0),0)/betalenden.length*100)/100;
               const gemJoker=Math.round(betalenden.reduce((s,u)=>s+(u.jokerPts??0),0)/betalenden.length*100)/100;
+              const gemBijv=Math.round(betalenden.reduce((s,u)=>s+(u.bijvraagPts??0),0)/betalenden.length*100)/100;
               return(<tr style={{background:'#1a3a2a',borderTop:'2px solid var(--green)'}}>
                 <td><div className="rank-num" style={{color:'var(--green)'}}>∅</div></td>
                 <td><div style={{fontSize:12,color:'var(--green)',fontWeight:600}}>Gemiddelde</div></td>
                 <td style={{textAlign:'right'}}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemMatch)}</span></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
+                <td style={{textAlign:'right',...goldBorderL,...goldBorderR}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
               </tr>);
             })()}
           </tbody>
@@ -1105,7 +1114,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       // Bepaal welke fases actief zijn
       const gfActief=isFaseActief(config,'groep')||matches.some(m=>m.home_score!=null);
       const kwalActief=isFaseActief(config,'kwal');
-      const bijvActief2=config['actief_bijvragen']==='1'||(config['tel_bijvragen']&&new Date()>=new Date(config['tel_bijvragen']))||(config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
+      const bijvActief2=isFaseActief(config,'bijvragen')||config['actief_bijvragen']==='1'||(config['tel_bijvragen']&&new Date()>=new Date(config['tel_bijvragen']))||(config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
       const ko_r32Actief=isFaseActief(config,'ko_r32');
       const ko_r16Actief=isFaseActief(config,'ko_r16');
       const ko_kfActief=isFaseActief(config,'ko_kf');
@@ -1125,7 +1134,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         for(const g of GRP)d[`kwal_${g}`]=u.kwalPerGroep?.[g]??0;
         d['kwalTotaal']=GRP.reduce((s,g)=>s+(u.kwalPerGroep?.[g]??0),0)+(u.kwal3des??0);
         for(const r of KO_RONDES_VIS)d[`ko_${r.id}`]=u.koPtsPerRonde?.[r.id]??0;
-        for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??null;
+        for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??0;
         return{...u,d};
       });
       const colVals={};
@@ -1986,8 +1995,8 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const pvLocked=isDeadlinePassed(config.pv_deadline||'')||config['actief_pv_deadline']==='1';
   const echteUserIds=new Set(users.filter(u=>!u.is_admin&&!u.is_avg&&(fakeTellenPV||(!u.is_test&&!u.name?.startsWith('Test_')))).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>echteUserIds.has(p.user_id)));
-  const teldatum=config.bijvragen_teldatum||'';
-  const telPunten=!teldatum||new Date()>=new Date(teldatum);
+  const teldatum=config['tel_bijvragen']||config.bijvragen_teldatum||'';
+  const telPunten=!teldatum||new Date()>=new Date(teldatum)||isFaseActief(config,'bijvragen');
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id);
   const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
@@ -2042,8 +2051,8 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
         </div>
         <div className="pts-row"><span>🎯 Groepsfase</span><span className="pp">{fmt(groepPts)}</span></div>
         {isFaseActief(config,'kwal')&&<div className="pts-row"><span>🎫 32 doorgaande landen</span><span className="pp">{fmt(kwalTot)}</span></div>}
-        {koRondes.map(r=>isFaseActief(config,r.key)&&koPerRonde[r.id]!==0?(
-          <div key={r.id} className="pts-row"><span>🏆 {r.label}</span><span className="pp">{fmt(koPerRonde[r.id])}</span></div>
+        {koRondes.map(r=>isFaseActief(config,r.key)?(
+          <div key={r.id} className="pts-row"><span>🏆 {r.label}</span><span className={koPerRonde[r.id]>0?'pp':koPerRonde[r.id]<0?'pn':''}style={{fontFamily:'Bebas Neue',fontSize:16}}>{fmt(koPerRonde[r.id]??0)}</span></div>
         ):null)}
         {bijvActief&&bijvraagPunten!==0&&<div className="pts-row"><span>⭐ Bijvragen</span><span className="pp">{fmt(bijvraagPunten)}</span></div>}
         {/* Toon melding voor nog niet actieve fases */}
