@@ -275,7 +275,7 @@ function calcC(fifaPts, fifaRanking, config){
 
 function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches,fifaRanking,config,allKoPronos,allPbAll){
   // teldatum parameter is nu enkel voor bijvragen, groepsfase is altijd actief
-  const telBijvragen=config&&isFaseActief(config,'bijvragen');
+  const telBijvragen=config&&(config['actief_bijvragen']==='1'||(config['tel_bijvragen']&&new Date()>=new Date(config['tel_bijvragen'])));
   const telPunten=true; // groepsfase altijd live
   let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
@@ -1041,7 +1041,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const minBijv=bijvVals.length?Math.min(...bijvVals):null;
       const goldBorderL={borderLeft:'2px solid var(--gold)'};
       const goldBorderR={borderRight:'2px solid var(--gold)'};
-      return(<div className="card" style={{overflowX:'auto'}}>
+      return(<div className="card">
+        <div style={{overflowX:'auto',margin:'0 -14px',padding:'0 14px'}}>
         <table className="ranking" style={{width:'max-content',minWidth:'100%'}}>
           <thead><tr>
             <th style={{whiteSpace:'nowrap'}}>#</th>
@@ -1049,7 +1050,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Totaal</th>
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Matchen</th>
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Joker</th>
-            <th style={{textAlign:'right',whiteSpace:'nowrap',...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap',minWidth:80,...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
@@ -1090,6 +1091,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             })()}
           </tbody>
         </table>
+        </div>
       </div>);
     })()}
 
