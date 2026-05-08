@@ -1102,15 +1102,23 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       // Kolommen: plaats, naam, totaal, matchen, joker, kwal per groep A-L, kwal 3des, KO rondes, bijvragen
       const KO_RONDES_VIS=[{id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},{id:'KF',label:'Kwartfinales'}];
       // noDecimal = geheel getal tonen (geen komma)
+      // Bepaal welke fases actief zijn
+      const gfActief=isFaseActief(config,'groep')||matches.some(m=>m.home_score!=null);
+      const kwalActief=isFaseActief(config,'kwal');
+      const bijvActief2=isFaseActief(config,'bijvragen')||(!config['tel_bijvragen']&&config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
+      const ko_r32Actief=isFaseActief(config,'ko_r32');
+      const ko_r16Actief=isFaseActief(config,'ko_r16');
+      const ko_kfActief=isFaseActief(config,'ko_kf');
+
       const cols=[
-        {label:'Totaal punten',key:'tot',sep:false,sticky:true,noDecimal:false},
-        {label:'Matchpunten',key:'matchPts',sep:false,noDecimal:false},
-        {label:'Jokerpunten',key:'jokerPts',sep:true,noDecimal:false},
-        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true})),
-        {label:'Kwal 3des',key:'kwal3des',sep:false,noDecimal:true},
-        {label:'32e finales',key:'kwalTotaal',sep:true,noDecimal:true},
-        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true})),
-        ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false,noDecimal:false})),
+        {label:'Totaal punten',key:'tot',sep:false,sticky:true,noDecimal:false,actief:true},
+        {label:'Matchpunten',key:'matchPts',sep:false,noDecimal:false,actief:gfActief},
+        {label:'Jokerpunten',key:'jokerPts',sep:true,noDecimal:false,actief:gfActief},
+        ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true,actief:kwalActief})),
+        {label:'Kwal 3des',key:'kwal3des',sep:false,noDecimal:true,actief:kwalActief},
+        {label:'32e finales',key:'kwalTotaal',sep:true,noDecimal:true,actief:kwalActief},
+        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true,actief:isFaseActief(config,`ko_${r.id}`)})),
+        ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false,noDecimal:false,actief:bijvActief2})),
       ];
       const rows=stVis.map(u=>{
         const d={tot:u.tot,matchPts:u.matchPts??0,jokerPts:u.jokerPts??0,kwal3des:u.kwal3des??0};
@@ -1152,9 +1160,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   {cols.filter(c=>!c.sticky).map((c,ci)=>{
                     const val=u.d[c.key];
                     const clr=colClr(colVals[c.key],val);
-                    const disp=val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const disp=!c.actief?'–':val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
                     return(<td key={c.key} style={{...tdS(rowBg,c.sep)}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{disp}</span>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:!c.actief?'var(--border)':clr}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -1175,9 +1183,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   </td>
                   {cols.filter(c=>!c.sticky).map((c,ci)=>{
                     const val=avgRow[c.key];
-                    const disp=val==null?'–':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const disp=!c.actief?'–':val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
                     return(<td key={c.key} style={{...tdS(avgBg,c.sep)}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{disp}</span>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:!c.actief?'var(--border)':'var(--green)'}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -2839,14 +2847,17 @@ function FifaTab({matches,fifaRanking,config,onRefresh}){
     return a.localeCompare(b);
   });
   async function slaAllesOp(){
-    const teOpslagen=Object.entries(fifaVals).filter(([,v])=>v&&parseFloat(v)>0).map(([team,v])=>({team,points:Math.round(parseFloat(v)*100)/100}));
+    const teOpslagen=Object.entries(fifaVals).filter(([,v])=>v&&parseFloat(v)>0).map(([team,v])=>({team,points:Math.round(parseFloat(v))}));
     setLokaalVals({});
     if(!teOpslagen.length){setFifaMsg('⚠ Geen punten om op te slaan');return;}
     setFifaMsg('⏳ Bezig...');
-    const{error:delErr}=await sb.from('fifa_ranking').delete().neq('team','__nooit__');
-    if(delErr){setFifaMsg('⚠ Delete fout: '+delErr.message);return;}
-    const{error:insErr}=await sb.from('fifa_ranking').insert(teOpslagen);
-    if(insErr){setFifaMsg('⚠ Insert fout: '+insErr.message);return;}
+    // Gebruik upsert zodat bij een fout de oude data bewaard blijft
+    const{error:insErr}=await sb.from('fifa_ranking').upsert(teOpslagen,{onConflict:'team'});
+    if(insErr){setFifaMsg('⚠ Opslaan fout: '+insErr.message);return;}
+    // Verwijder enkel landen die niet meer in de lijst staan
+    const teams=teOpslagen.map(r=>r.team);
+    await sb.from('fifa_ranking').delete().not('team','in',`(${teams.map(t=>`"${t}"`).join(',')})`);
+
     setFifaMsg('✓ '+teOpslagen.length+' landen opgeslagen!');
     setTimeout(()=>setFifaMsg(''),3000);
     onRefresh();
