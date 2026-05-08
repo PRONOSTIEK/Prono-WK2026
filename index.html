@@ -1117,7 +1117,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true,actief:kwalActief})),
         {label:'Kwal 3des',key:'kwal3des',sep:false,noDecimal:true,actief:kwalActief},
         {label:'32e finales',key:'kwalTotaal',sep:true,noDecimal:true,actief:kwalActief},
-        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true,actief:isFaseActief(config,`ko_${r.id}`)})),
+        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true,actief:isFaseActief(config,{R32:'ko_r32',R16:'ko_r16',KF:'ko_kf'}[r.id]||`ko_${r.id.toLowerCase()}`)})),
         ...allBvLabels.map((l,li)=>({label:l.length>14?l.substring(0,14)+'…':l,fullLabel:l,key:`bv_${l}`,sep:false,noDecimal:false,actief:bijvActief2})),
       ];
       const rows=stVis.map(u=>{
