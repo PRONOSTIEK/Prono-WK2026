@@ -275,7 +275,7 @@ function calcC(fifaPts, fifaRanking, config){
 
 function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatches,fifaRanking,config,allKoPronos,allPbAll){
   // teldatum parameter is nu enkel voor bijvragen, groepsfase is altijd actief
-  const telBijvragen=!teldatum||(new Date()>=new Date(teldatum))||(config&&(config['actief_bijvragen']==='1'||isFaseActief(config,'bijvragen')));
+  const telBijvragen=config&&isFaseActief(config,'bijvragen');
   const telPunten=true; // groepsfase altijd live
   let tot=0;const det=[];const matchDet=[];
   for(const m of matches){
@@ -1042,14 +1042,14 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const goldBorderL={borderLeft:'2px solid var(--gold)'};
       const goldBorderR={borderRight:'2px solid var(--gold)'};
       return(<div className="card" style={{overflowX:'auto'}}>
-        <table className="ranking">
+        <table className="ranking" style={{width:'max-content',minWidth:'100%'}}>
           <thead><tr>
-            <th>#</th>
-            <th>Naam</th>
-            <th style={{textAlign:'right'}}>Totaal</th>
-            <th style={{textAlign:'right'}}>Matchen</th>
-            <th style={{textAlign:'right'}}>Joker</th>
-            <th style={{textAlign:'right',...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
+            <th style={{whiteSpace:'nowrap'}}>#</th>
+            <th style={{whiteSpace:'nowrap'}}>Naam</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Totaal</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Matchen</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Joker</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap',...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
