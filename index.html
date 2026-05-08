@@ -217,8 +217,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .pb-fill{height:100%;background:var(--green);border-radius:2px;}
 .pts-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
 .pts-row:last-child{border:none;}
-.pp{color:var(--green);font-weight:600;}
-.pn{color:var(--red);font-weight:600;}
+.pp{color:var(--green);}
+.pn{color:var(--red);}
 .spinner{display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:18px;color:var(--muted);}
 .badge-admin{background:var(--gold);color:#000;font-size:9px;padding:2px 5px;border-radius:3px;font-weight:700;}
 .badge-test{background:var(--muted);color:#000;font-size:9px;padding:2px 5px;border-radius:3px;font-weight:700;}
@@ -1041,16 +1041,16 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const minBijv=bijvVals.length?Math.min(...bijvVals):null;
       const goldBorderL={borderLeft:'2px solid var(--gold)'};
       const goldBorderR={borderRight:'2px solid var(--gold)'};
-      return(<div className="card">
-        <div style={{overflowX:'auto',margin:'0 -14px',padding:'0 14px'}}>
-        <table className="ranking" style={{width:'max-content',minWidth:'100%'}}>
+      return(<div className="card" style={{padding:0}}>
+        <div style={{overflowX:'auto',padding:14}}>
+        <table className="ranking" style={{borderCollapse:'collapse',width:'max-content',minWidth:'100%'}}>
           <thead><tr>
             <th style={{whiteSpace:'nowrap'}}>#</th>
             <th style={{whiteSpace:'nowrap'}}>Naam</th>
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Totaal</th>
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Matchen</th>
             <th style={{textAlign:'right',whiteSpace:'nowrap'}}>Joker</th>
-            <th style={{textAlign:'right',whiteSpace:'nowrap',minWidth:80,...goldBorderL,...goldBorderR}}>⭐ Bijvragen</th>
+            <th style={{textAlign:'right',whiteSpace:'nowrap',minWidth:80,borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'}}>⭐ Bijvragen</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
@@ -1058,7 +1058,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               if(!show)return null;
               return(<tr key={u.id} className={`rank-${i+1}`} style={{background:u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)'}}>
                 <td><div className="rank-num">{i+1}</div></td>
-                <td>
+                <td style={{minWidth:120}}>
                   <div style={{fontWeight:u.id===cur.id?600:400,color:viewPronoOf?'var(--green)':'var(--text)',cursor:viewPronoOf?'pointer':'default',textDecoration:viewPronoOf?'underline':'none'}} onClick={()=>viewPronoOf&&viewPronoOf(u)}>{u.name}</div>
                   <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:2}}>
                     {u.id===cur.id&&<span className="tag tag-green">jij</span>}
@@ -1071,7 +1071,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
-                <td style={{textAlign:'right',...goldBorderL,...goldBorderR}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
+                <td style={{textAlign:'right',borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
               </tr>);
             })}
             {st.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
@@ -1086,7 +1086,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={{textAlign:'right'}}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemMatch)}</span></td>
                 <td style={{textAlign:'right'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
-                <td style={{textAlign:'right',...goldBorderL,...goldBorderR}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
+                <td style={{textAlign:'right',borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'}}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
               </tr>);
             })()}
           </tbody>
