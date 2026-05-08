@@ -965,24 +965,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const fp=fpAll[u.id]||{};
     const{tot,matchDet,det}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
-    // Kwal punten per groep: afleiden uit R32 koDet (zelfde data, geen dubbeltelling)
-    // Gebruik echteKOTeams om groep per team te kennen
-    const echteKOTeams=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
+    // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
+    const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config);
     const kwalPerGroep={};
-    for(const g of GRP)kwalPerGroep[g]=0;
-    let kwal3des=0;
-    for(const d of koDet){
-      if(d.round!=='R32')continue;
-      // Haal teamnaam uit label: "🎯 TeamX (juiste match)" of "✓ TeamX (in ronde)"
-      const teamMatch=d.label.match(/[🎯✓]\s*(.+?)\s*\(/);
-      if(!teamMatch)continue;
-      const team=teamMatch[1];
-      const info=echteKOTeams[team];
-      if(!info)continue;
-      if(info.pos==='3'){kwal3des+=d.pts;}
-      else{kwalPerGroep[info.grp]=(kwalPerGroep[info.grp]||0)+d.pts;}
-    }
-    const kwalTot=Object.values(kwalPerGroep).reduce((s,v)=>s+v,0)+kwal3des;
+    for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g&&d.pos!=='3').reduce((s,d)=>s+d.pts,0);
+    const kwal3des=(kwalDet||[]).filter(d=>d.pos==='3').reduce((s,d)=>s+d.pts,0);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     const totaal=tot+koTot;
     const ptsPerMatch={};
