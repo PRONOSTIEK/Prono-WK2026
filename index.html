@@ -1105,7 +1105,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       // Bepaal welke fases actief zijn
       const gfActief=isFaseActief(config,'groep')||matches.some(m=>m.home_score!=null);
       const kwalActief=isFaseActief(config,'kwal');
-      const bijvActief2=isFaseActief(config,'bijvragen')||(!config['tel_bijvragen']&&config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
+      const bijvActief2=config['actief_bijvragen']==='1'||(config['tel_bijvragen']&&new Date()>=new Date(config['tel_bijvragen']))||(config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
       const ko_r32Actief=isFaseActief(config,'ko_r32');
       const ko_r16Actief=isFaseActief(config,'ko_r16');
       const ko_kfActief=isFaseActief(config,'ko_kf');
