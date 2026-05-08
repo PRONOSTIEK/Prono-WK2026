@@ -717,10 +717,14 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
         echteTeamsPerMatch[m.id]=r32EchteTeams[m.id]||[];
       } else if(round==='KF3'){
         const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-        const verliezers=hfMatches.flatMap(hm=>{
-          const t=[hm.home,hm.away].filter(Boolean);
-          return hm.winner?t.filter(x=>x!==hm.winner):[];
+        const kfMatches=koMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+        const hfWinners=hfMatches.map(hm=>hm.winner).filter(Boolean);
+        // HF teams = winnaars van de KF-matches die in die HF-match zitten
+        const hfAllTeams=hfMatches.flatMap(hm=>{
+          const idx=(hm.position-1)*2;
+          return[kfMatches[idx]?.winner,kfMatches[idx+1]?.winner].filter(Boolean);
         });
+        const verliezers=hfAllTeams.filter(t=>!hfWinners.includes(t));
         echteTeamsPerMatch[m.id]=verliezers.slice(0,2);
       } else {
         const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
