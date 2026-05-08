@@ -965,12 +965,26 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const fp=fpAll[u.id]||{};
     const{tot,matchDet,det}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
-    const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config);
+    // Kwal punten per groep: afleiden uit R32 koDet (zelfde data, geen dubbeltelling)
+    // Gebruik echteKOTeams om groep per team te kennen
+    const echteKOTeams=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
     const kwalPerGroep={};
-    for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g&&d.pos!=='3').reduce((s,d)=>s+d.pts,0);
-    const kwal3des=(kwalDet||[]).filter(d=>d.pos==='3').reduce((s,d)=>s+d.pts,0);
+    for(const g of GRP)kwalPerGroep[g]=0;
+    let kwal3des=0;
+    for(const d of koDet){
+      if(d.round!=='R32')continue;
+      // Haal teamnaam uit label: "🎯 TeamX (juiste match)" of "✓ TeamX (in ronde)"
+      const teamMatch=d.label.match(/[🎯✓]\s*(.+?)\s*\(/);
+      if(!teamMatch)continue;
+      const team=teamMatch[1];
+      const info=echteKOTeams[team];
+      if(!info)continue;
+      if(info.pos==='3'){kwal3des+=d.pts;}
+      else{kwalPerGroep[info.grp]=(kwalPerGroep[info.grp]||0)+d.pts;}
+    }
+    const kwalTot=Object.values(kwalPerGroep).reduce((s,v)=>s+v,0)+kwal3des;
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
-    const totaal=tot+koTot+kwalTot;
+    const totaal=tot+koTot;
     const ptsPerMatch={};
     for(const d of(matchDet||[]))ptsPerMatch[d.matchId]=d.pts;
     // Matchpunten zonder jokerbonus en zonder bijvragen
@@ -1138,7 +1152,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       // noDecimal = geheel getal tonen (geen komma)
       // Bepaal welke fases actief zijn
       const gfActief=isFaseActief(config,'groep')||matches.some(m=>m.home_score!=null);
-      const kwalActief=isFaseActief(config,'kwal');
+      const kwalActief=isFaseActief(config,'ko_r32')||isFaseActief(config,'kwal');
       const bijvActief2=isFaseActief(config,'bijvragen')||config['actief_bijvragen']==='1'||(config['tel_bijvragen']&&new Date()>=new Date(config['tel_bijvragen']))||(config.bijvragen_teldatum&&new Date()>=new Date(config.bijvragen_teldatum));
       const ko_r32Actief=isFaseActief(config,'ko_r32');
       const ko_r16Actief=isFaseActief(config,'ko_r16');
@@ -2029,8 +2043,8 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const jids=(jAll[cur.id]||[]).map(j=>j.match_id);
   const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
-  const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP,fifaRanking,config);
-  const totaal=tot+koTot+kwalTot;
+  const{tot:kwalTot}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP,fifaRanking,config);
+  const totaal=tot+koTot;
 
   // Statistieken
   const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
