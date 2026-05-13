@@ -3891,14 +3891,18 @@ function NotitiesTab(){
 
   async function laadNotities(silent=false){
     if(!silent)setLoading(true); else setRefreshing(true);
-    const{data}=await sb.from('admin_notities').select('*').order('created_at',{ascending:true});
+    const{data,error}=await sb.from('admin_notities').select('*').order('created_at',{ascending:true});
+    if(error)console.error('Laden fout:',error);
+    else console.log('Notities geladen:',data);
     setNotities(data||[]);
     if(!silent)setLoading(false); else setRefreshing(false);
   }
 
   async function stuurNotitie(){
     if(!tekst.trim())return;
-    await sb.from('admin_notities').insert({tekst:tekst.trim(),kleur});
+    const{error}=await sb.from('admin_notities').insert({tekst:tekst.trim(),kleur});
+    if(error){console.error('Insert fout:',error);return;}
+    console.log('Notitie opgeslagen');
     setTekst('');
     await laadNotities(true);
   }
