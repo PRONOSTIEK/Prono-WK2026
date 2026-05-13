@@ -3056,7 +3056,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&<div className="card">
       <div className="card-title">📖 Handleiding bewerken</div>
@@ -3871,8 +3871,79 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
 
     {/* 🧪 TEST TABBLAD */}
     {tab==='test'&&<TestTab matches={matches} bvs={bvs} koMatches={koMatches} config={config} ag={ag} setAg={setAg} fifaRanking={fifaRanking} onRefresh={onRefresh}/>}
+    {tab==='notities'&&<NotitiesTab/>}
 
   </div>);}
+
+
+function NotitiesTab(){
+  const[notities,setNotities]=useState([]);
+  const[tekst,setTekst]=useState('');
+  const[kleur,setKleur]=useState('zwart');
+  const[loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    laadNotities();
+  },[]);
+
+  async function laadNotities(){
+    setLoading(true);
+    const{data}=await sb.from('admin_notities').select('*').order('created_at',{ascending:true});
+    setNotities(data||[]);
+    setLoading(false);
+  }
+
+  async function stuurNotitie(){
+    if(!tekst.trim())return;
+    await sb.from('admin_notities').insert({tekst:tekst.trim(),kleur});
+    setTekst('');
+    await laadNotities();
+  }
+
+  async function verwijderNotitie(id){
+    await sb.from('admin_notities').delete().eq('id',id);
+    setNotities(n=>n.filter(x=>x.id!==id));
+  }
+
+  return(<div className="card" style={{background:'#fff',borderRadius:10,padding:20,maxWidth:600}}>
+    <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--green)',marginBottom:14,letterSpacing:1}}>📝 Admin Notities</div>
+
+    {/* Kleurkeuze */}
+    <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:12}}>
+      <span style={{fontSize:12,color:'#555'}}>Schrijf in:</span>
+      <button onClick={()=>setKleur('zwart')} style={{padding:'4px 14px',borderRadius:20,border:`2px solid ${kleur==='zwart'?'#222':'#ccc'}`,background:kleur==='zwart'?'#222':'#fff',color:kleur==='zwart'?'#fff':'#222',fontWeight:600,cursor:'pointer',fontSize:12}}>Zwart</button>
+      <button onClick={()=>setKleur('blauw')} style={{padding:'4px 14px',borderRadius:20,border:`2px solid ${kleur==='blauw'?'#1565c0':'#ccc'}`,background:kleur==='blauw'?'#1565c0':'#fff',color:kleur==='blauw'?'#fff':'#1565c0',fontWeight:600,cursor:'pointer',fontSize:12}}>Blauw</button>
+    </div>
+
+    {/* Invoerveld */}
+    <div style={{display:'flex',gap:8,marginBottom:18}}>
+      <textarea
+        value={tekst}
+        onChange={e=>setTekst(e.target.value)}
+        onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();stuurNotitie();}}}
+        placeholder="Schrijf een notitie... (Enter om te versturen)"
+        rows={3}
+        style={{flex:1,padding:'8px 10px',borderRadius:8,border:'1px solid #ccc',fontSize:13,color:kleur==='blauw'?'#1565c0':'#222',fontFamily:'inherit',resize:'vertical'}}
+      />
+      <button onClick={stuurNotitie} style={{padding:'8px 14px',borderRadius:8,background:'var(--green)',color:'#000',border:'none',fontWeight:700,cursor:'pointer',alignSelf:'flex-end'}}>↵</button>
+    </div>
+
+    {/* Notities lijst */}
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {loading&&<div style={{color:'#aaa',fontSize:12}}>Laden...</div>}
+      {!loading&&notities.length===0&&<div style={{color:'#aaa',fontSize:12,textAlign:'center'}}>Nog geen notities.</div>}
+      {notities.map(n=>(
+        <div key={n.id} style={{background:'#f9f9f9',borderRadius:8,padding:'10px 12px',borderLeft:`4px solid ${n.kleur==='blauw'?'#1565c0':'#222'}`,display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,color:n.kleur==='blauw'?'#1565c0':'#222',whiteSpace:'pre-wrap',lineHeight:1.5}}>{n.tekst}</div>
+            <div style={{fontSize:10,color:'#aaa',marginTop:4}}>{new Date(n.created_at).toLocaleString('nl-BE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+          <button onClick={()=>verwijderNotitie(n.id)} style={{background:'none',border:'none',color:'#ccc',cursor:'pointer',fontSize:16,padding:0,lineHeight:1}} title="Verwijder">×</button>
+        </div>
+      ))}
+    </div>
+  </div>);
+}
 
 
 // ─── JAAN MEHDI: GEMIDDELDE DEELNEMER ────────────────────────────────────────
