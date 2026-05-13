@@ -3881,23 +3881,26 @@ function NotitiesTab(){
   const[tekst,setTekst]=useState('');
   const[kleur,setKleur]=useState('zwart');
   const[loading,setLoading]=useState(true);
+  const[refreshing,setRefreshing]=useState(false);
 
   useEffect(()=>{
     laadNotities();
+    const interval=setInterval(()=>laadNotities(true),30000);
+    return()=>clearInterval(interval);
   },[]);
 
-  async function laadNotities(){
-    setLoading(true);
+  async function laadNotities(silent=false){
+    if(!silent)setLoading(true); else setRefreshing(true);
     const{data}=await sb.from('admin_notities').select('*').order('created_at',{ascending:true});
     setNotities(data||[]);
-    setLoading(false);
+    if(!silent)setLoading(false); else setRefreshing(false);
   }
 
   async function stuurNotitie(){
     if(!tekst.trim())return;
     await sb.from('admin_notities').insert({tekst:tekst.trim(),kleur});
     setTekst('');
-    await laadNotities();
+    await laadNotities(true);
   }
 
   async function verwijderNotitie(id){
@@ -3906,7 +3909,12 @@ function NotitiesTab(){
   }
 
   return(<div className="card" style={{background:'#fff',borderRadius:10,padding:20,maxWidth:600}}>
-    <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--green)',marginBottom:14,letterSpacing:1}}>📝 Admin Notities</div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--green)',letterSpacing:1}}>📝 Admin Notities</div>
+      <button onClick={()=>laadNotities(true)} style={{background:'none',border:'1px solid #ccc',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:12,color:'#555',display:'flex',alignItems:'center',gap:4}}>
+        {refreshing?'⏳':'🔄'} Vernieuwen
+      </button>
+    </div>
 
     {/* Kleurkeuze */}
     <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:12}}>
