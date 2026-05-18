@@ -649,6 +649,24 @@ function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition){
 // Bereken punten voor knock-out pronostieken
 // Juiste match (team in juiste wedstrijd van die ronde) → koPunten[round+'_juist']
 // Wel in ronde maar verkeerde match → koPunten[round+'_aanwezig']
+function getVoorspeldeTeams(m,pronos,allMatches){
+  if(m.round==='R32')return[pronos[m.id]].filter(Boolean);
+  if(m.round==='KF3'){
+    const hfMatches=allMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+    const kfMatches=allMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+    const hfWinners=hfMatches.map(hm=>pronos[hm.id]).filter(Boolean);
+    const hfAllTeams=hfMatches.flatMap(hm=>{
+      const idx=(hm.position-1)*2;
+      return[kfMatches[idx]?pronos[kfMatches[idx].id]:null,kfMatches[idx+1]?pronos[kfMatches[idx+1].id]:null].filter(Boolean);
+    });
+    return hfAllTeams.filter(t=>!hfWinners.includes(t)).slice(0,2);
+  }
+  const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
+  const prevMatches=allMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+  const idx=(m.position-1)*2;
+  return[prevMatches[idx]?pronos[prevMatches[idx].id]:null,prevMatches[idx+1]?pronos[prevMatches[idx+1].id]:null].filter(Boolean);
+}
+
 function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifaRanking){
   let tot=0;const det=[];
   const rounds=['R32','R16','KF','HF','KF3','F'];
@@ -745,27 +763,6 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
   }
 
   // Helper: geeft de twee voorspelde teams voor een match terug
-  // Voor R32: alleen winner_pred
-  // Voor andere rondes: thuis = winner_pred van vorige match, uit = winner_pred van andere vorige match
-  function getVoorspeldeTeams(m,pronos,allMatches){
-    if(m.round==='R32') return [pronos[m.id]].filter(Boolean);
-    const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
-    if(m.round==='KF3'){
-      // Kleine finale: verliezers van HF
-      const hfMatches=allMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-      const kfMatches=allMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
-      const hfWinners=hfMatches.map(hm=>pronos[hm.id]).filter(Boolean);
-      const hfAllTeams=hfMatches.flatMap(hm=>{
-        const idx=(hm.position-1)*2;
-        return[kfMatches[idx]?pronos[kfMatches[idx].id]:null,kfMatches[idx+1]?pronos[kfMatches[idx+1].id]:null].filter(Boolean);
-      });
-      return hfAllTeams.filter(t=>!hfWinners.includes(t)).slice(0,2);
-    }
-    const prevMatches=allMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-    const idx=(m.position-1)*2;
-    return[prevMatches[idx]?pronos[prevMatches[idx].id]:null,prevMatches[idx+1]?pronos[prevMatches[idx+1].id]:null].filter(Boolean);
-  }
-
   // Bereken punten per match - beide voorspelde teams worden geëvalueerd
   for(const m of koMatches){
     const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
@@ -1766,7 +1763,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           </div>
           <FairplayRanking
             teams={derden.map(d=>d.team)}
-            value={Array.isArray(fpDerden3de)&&fpDerden3de.length===derden.length?fpDerden3de:derden.map(d=>d.team)}
+            value={(()=>{
+              const huidig=derden.map(d=>d.team);
+              if(!Array.isArray(fpDerden3de))return huidig;
+              const opgeslagen=fpDerden3de.filter(t=>huidig.includes(t));
+              const nieuw=huidig.filter(t=>!fpDerden3de.includes(t));
+              return [...opgeslagen,...nieuw];
+            })()}
             onChange={ranking=>hFP('3de',ranking)}
             locked={gfStart||readOnly}
           />
@@ -1928,9 +1931,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'}</span>}
                   {isReal&&<span style={{fontSize:11,color:'var(--gold)',marginLeft:2}}>→ {m.winner}</span>}
                 </div>
-                {teams.length>=2&&<div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginTop:3,paddingLeft:28}}>
-                  <span>{teams[0]}</span><span>vs</span><span>{teams[1]}</span>
-                </div>}
+                <div style={{paddingLeft:28,marginTop:4,display:'flex',flexDirection:'column',gap:2}}>
+                  {teams.length>=2&&<div style={{fontSize:11,color:'var(--muted)'}}>
+                    <span style={{marginRight:4}}>Prono:</span>{teams[0]} vs {teams[1]}
+                  </div>}
+                  {m.home&&m.away&&<div style={{fontSize:11}}>
+                    <span style={{color:'var(--muted)',marginRight:4}}>Match:</span>
+                    <span style={{color:'var(--gold)'}}>{m.home} vs {m.away}</span>
+                  </div>}
+                </div>
               </div>);
             })}
           </div>
