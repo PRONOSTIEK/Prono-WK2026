@@ -2202,7 +2202,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 // UITLEG PAGINA + CHECKLIST
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
-  const paragrafen=tekst.split('\n').filter(r=>r.trim()!=='');
+  const paragrafen=tekst.split('\n');
 
   const myPM=pmAll[cur.id]||{};
   const myPB=pbAll[cur.id]||{};
@@ -2309,7 +2309,9 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
 
     {tekst&&<div className="card">
       {paragrafen.map((p,i)=>(
-        <p key={i} style={{fontSize:13,lineHeight:1.7,marginBottom:i<paragrafen.length-1?10:0,color:'var(--text)'}}>{p}</p>
+        p.trim()===''
+          ?<div key={i} style={{height:8}}/>
+          :<p key={i} style={{fontSize:13,lineHeight:1.7,marginBottom:4,color:'var(--text)'}}>{p}</p>
       ))}
     </div>}
     {!tekst&&<div className="card" style={{color:'var(--muted)',fontSize:13}}>De admin heeft nog geen uitleg toegevoegd.</div>}
