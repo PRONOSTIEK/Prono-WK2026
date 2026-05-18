@@ -744,21 +744,48 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
     }
   }
 
-  // Bereken punten per match
+  // Helper: geeft de twee voorspelde teams voor een match terug
+  // Voor R32: alleen winner_pred
+  // Voor andere rondes: thuis = winner_pred van vorige match, uit = winner_pred van andere vorige match
+  function getVoorspeldeTeams(m,pronos,allMatches){
+    if(m.round==='R32') return [pronos[m.id]].filter(Boolean);
+    const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
+    if(m.round==='KF3'){
+      // Kleine finale: verliezers van HF
+      const hfMatches=allMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+      const kfMatches=allMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+      const hfWinners=hfMatches.map(hm=>pronos[hm.id]).filter(Boolean);
+      const hfAllTeams=hfMatches.flatMap(hm=>{
+        const idx=(hm.position-1)*2;
+        return[kfMatches[idx]?pronos[kfMatches[idx].id]:null,kfMatches[idx+1]?pronos[kfMatches[idx+1].id]:null].filter(Boolean);
+      });
+      return hfAllTeams.filter(t=>!hfWinners.includes(t)).slice(0,2);
+    }
+    const prevMatches=allMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+    const idx=(m.position-1)*2;
+    return[prevMatches[idx]?pronos[prevMatches[idx].id]:null,prevMatches[idx+1]?pronos[prevMatches[idx+1].id]:null].filter(Boolean);
+  }
+
+  // Bereken punten per match - beide voorspelde teams worden geëvalueerd
   for(const m of koMatches){
-    const p=koPronos[m.id];
-    if(!p)continue;
+    const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
+    if(!roundActief)continue;
     const ptsJuist=koPunten[m.round+'_juist']??2;
     const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
     const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
-    const inDezeMatch=teamsInDezeMatch.some(t=>t.toLowerCase().trim()===p.toLowerCase().trim());
-    const inDezeRonde=(teamsInRonde[m.round]||new Set()).has(p);
-    const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
-    if(!roundActief)continue;
-    if(inDezeMatch){
-      tot+=ptsJuist;det.push({label:`🎯 ${p} (juiste match)`,pts:ptsJuist,round:m.round,cat:'juist'});
-    } else if(inDezeRonde&&m.round!=='R32'){
-      tot+=ptsAanwezig;det.push({label:`✓ ${p} (in ronde)`,pts:ptsAanwezig,round:m.round,cat:'aanwezig'});
+    const inRonde=teamsInRonde[m.round]||new Set();
+    // Haal beide voorspelde teams op: winner_pred (thuis) en away_pred (uit)
+    // away_pred wordt automatisch bepaald door de getMatchTeams logica
+    const voorspeldeTeams=getVoorspeldeTeams(m,koPronos,koMatches);
+    for(const p of voorspeldeTeams){
+      if(!p)continue;
+      const inDezeMatch=teamsInDezeMatch.some(t=>t.toLowerCase().trim()===p.toLowerCase().trim());
+      const inDezeRonde=inRonde.has(p);
+      if(inDezeMatch){
+        tot+=ptsJuist;det.push({label:`🎯 ${p} (juiste match)`,pts:ptsJuist,round:m.round,cat:'juist'});
+      } else if(inDezeRonde&&m.round!=='R32'){
+        tot+=ptsAanwezig;det.push({label:`✓ ${p} (in ronde)`,pts:ptsAanwezig,round:m.round,cat:'aanwezig'});
+      }
     }
   }
   return{tot,det};
@@ -1420,10 +1447,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
   useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
-  async function saveKO(matchId,winner){
+  async function saveKO(matchId,winner,side='home'){
     if(readOnly||koDlPassed)return;
-    setLKO(p=>({...p,[matchId]:winner}));
-    await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
+    const key=side==='away'?matchId+'_away':matchId;
+    setLKO(p=>({...p,[key]:winner}));
+    if(side==='away'){
+      await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,away_pred:winner},{onConflict:'user_id,match_id'});
+    } else {
+      await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
+    }
     sv();onRefresh();
   }
   function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
@@ -1870,7 +1902,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              // Negeer opgeslagen waarde en teams als vorige ronde nog niet volledig ingevuld is
               const gekozen=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
               const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m));
               const correct=isReal&&gekozen&&gekozen===m.winner;
@@ -1883,7 +1914,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     <select
                       disabled={isBlocked||readOnly}
                       value={gekozen}
-                      onChange={e=>saveKO(m.id,e.target.value)}
+                      onChange={e=>saveKO(m.id,e.target.value,'home')}
                       style={{flex:1,background:'var(--card)',border:`1px solid ${correct?'var(--green)':fout?'var(--red)':'var(--border)'}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:(isBlocked||readOnly)?'default':'pointer',opacity:isBlocked?0.6:1}}
                     >
                       <option value="">— Kies winnaar —</option>
@@ -1896,7 +1927,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   )}
                   {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'}</span>}
                   {isReal&&<span style={{fontSize:11,color:'var(--gold)',marginLeft:2}}>→ {m.winner}</span>}
-
                 </div>
                 {teams.length>=2&&<div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginTop:3,paddingLeft:28}}>
                   <span>{teams[0]}</span><span>vs</span><span>{teams[1]}</span>
@@ -4146,7 +4176,7 @@ function App(){
     setPvAll(pvFinal);setSpelerStats(ss||[]);
     const kmArr=km||[];
     setKoMatches(kmArr);
-    const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;}
+    const kpM={};for(const p of(kp||[])){if(!kpM[p.user_id])kpM[p.user_id]={};kpM[p.user_id][p.match_id]=p.winner_pred;if(p.away_pred)kpM[p.user_id][p.match_id+'_away']=p.away_pred;}
     // Auto KO voor testaccounts die nog geen volledige KO hebben ingevuld
     {
       const kmArr2=km||[];
@@ -4183,7 +4213,7 @@ function App(){
     const usArr=us||[];const maArr=ma||[];const bvArr=bv||[];
     const pmM2={};for(const p of(pm||[])){if(!pmM2[p.user_id])pmM2[p.user_id]={};pmM2[p.user_id][p.match_id]=p;}
     const pbM2={};for(const p of(pb||[])){if(!pbM2[p.user_id])pbM2[p.user_id]={};pbM2[p.user_id][p.bv_id]=p.answer;}
-    const kpM2={};for(const p of(kp||[])){if(!kpM2[p.user_id])kpM2[p.user_id]={};kpM2[p.user_id][p.match_id]=p.winner_pred;}
+    const kpM2={};for(const p of(kp||[])){if(!kpM2[p.user_id])kpM2[p.user_id]={};kpM2[p.user_id][p.match_id]=p.winner_pred;if(p.away_pred)kpM2[p.user_id][p.match_id+'_away']=p.away_pred;}
     const jaanNaam=cfgObj['avg_naam']||'Jaan Mehdi';
     const jM2={};for(const j of(jk||[])){if(!jM2[j.user_id])jM2[j.user_id]=[];jM2[j.user_id].push(j);}
     const{jaanUser,jaanPM,jaanPB,jaanKO,jaanJ}=calcJaanMehdi(usArr,maArr,bvArr,pmM2,pbM2,jM2,kpM2,kmArr,ss||[],jaanNaam);
