@@ -1882,6 +1882,22 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         return[pm1?lKO[pm1.id]:null,pm2?lKO[pm2.id]:null].filter(Boolean);
       }
 
+      // Echte teams per match op basis van admin winners
+      function getEchteMatchTeams(m){
+        if(m.round==='R32')return[];
+        if(m.round==='KF3'){
+          const hfMs=koMatches.filter(x=>x.round==='HF').sort((a,b)=>parseInt(a.position)-parseInt(b.position));
+          const kfMs=koMatches.filter(x=>x.round==='KF').sort((a,b)=>parseInt(a.position)-parseInt(b.position));
+          const hw=hfMs.map(x=>x.winner).filter(Boolean);
+          const ht=hfMs.flatMap(x=>{const i=(parseInt(x.position)-1)*2;return[kfMs[i]?.winner,kfMs[i+1]?.winner].filter(Boolean);});
+          return ht.filter(t=>!hw.includes(t)).slice(0,2);
+        }
+        const pr={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
+        const pm=koMatches.filter(x=>x.round===pr).sort((a,b)=>parseInt(a.position)-parseInt(b.position));
+        const i=(parseInt(m.position)-1)*2;
+        return[pm[i]?.winner,pm[i+1]?.winner].filter(Boolean);
+      }
+
       return(<div>
         <div style={{fontFamily:'Bebas Neue',fontSize:19,color:'var(--green)',letterSpacing:1,marginBottom:8}}>
           🏆 Knock-out Fase
@@ -1936,27 +1952,11 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     <span style={{marginRight:4}}>Prono:</span>{teams[0]} vs {teams[1]}
                   </div>}
                   {(()=>{
-                    if(m.round==='R32')return null;
-                    const sp=(a,b)=>parseInt(a.position)-parseInt(b.position);
-                    let h=null,a=null;
-                    if(m.round==='KF3'){
-                      const hf=koMatches.filter(x=>x.round==='HF').sort(sp);
-                      const kf=koMatches.filter(x=>x.round==='KF').sort(sp);
-                      const hw=hf.map(x=>x.winner).filter(Boolean);
-                      const ht=hf.flatMap(x=>{const i=(parseInt(x.position)-1)*2;return[kf[i]?.winner,kf[i+1]?.winner].filter(Boolean);});
-                      const vl=ht.filter(t=>!hw.includes(t));
-                      h=vl[0]||null;a=vl[1]||null;
-                    } else {
-                      const pr={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
-                      const pm=koMatches.filter(x=>x.round===pr).sort(sp);
-                      const i=(parseInt(m.position)-1)*2;
-                      h=pm[i]?.winner||null;
-                      a=pm[i+1]?.winner||null;
-                    }
-                    if(!h&&!a)return null;
+                    const echte=getEchteMatchTeams(m);
+                    if(echte.length<2)return null;
                     return<div style={{fontSize:11,marginTop:2}}>
                       <span style={{color:'var(--muted)',marginRight:4}}>Match:</span>
-                      <span style={{color:'var(--gold)'}}>{h||'?'} vs {a||'?'}</span>
+                      <span style={{color:'var(--gold)'}}>{echte[0]} vs {echte[1]}</span>
                     </div>;
                   })()}
                 </div>
