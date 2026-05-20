@@ -1963,10 +1963,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   </div>}
                   {(()=>{
                     const echte=getEchteMatchTeams(m);
-                    if(echte.length<2)return null;
+                    if(echte.length<1)return null;
                     return<div style={{fontSize:11,marginTop:2}}>
                       <span style={{color:'var(--muted)',marginRight:4}}>Match:</span>
-                      <span style={{color:'var(--gold)'}}>{echte[0]} vs {echte[1]}</span>
+                      <span style={{color:'var(--gold)'}}>{echte[0]||'?'} vs {echte[1]||'?'}</span>
                     </div>;
                   })()}
                 </div>
