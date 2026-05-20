@@ -1887,15 +1887,16 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       function getEchteMatchTeams(m){
         if(m.round==='R32')return[];
         if(m.round==='KF3'){
-          const hfWinners=koMatches.filter(x=>x.round==='HF').map(x=>x.winner).filter(Boolean);
-          const kfWinners=koMatches.filter(x=>x.round==='KF').map(x=>x.winner).filter(Boolean);
-          return kfWinners.filter(t=>!hfWinners.includes(t)).slice(0,2);
+          const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
+          const hfWinners=hfMatches.map(hm=>hm.winner).filter(Boolean);
+          const hfTeams=hfMatches.flatMap(hm=>getEchteMatchTeams(hm));
+          return hfTeams.filter(t=>!hfWinners.includes(t)).slice(0,2);
         }
-        const pr={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
-        const pos=parseInt(m.position||1);
-        const m1=koMatchById[`ko_${pr.toLowerCase()}_${(pos-1)*2+1}`];
-        const m2=koMatchById[`ko_${pr.toLowerCase()}_${(pos-1)*2+2}`];
-        return[m1?.winner,m2?.winner].filter(Boolean);
+        const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
+        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+        const idx=(m.position-1)*2;
+        const pm1=prevMatches[idx],pm2=prevMatches[idx+1];
+        return[pm1?.winner,pm2?.winner].filter(Boolean);
       }
 
       return(<div>
