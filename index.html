@@ -1936,19 +1936,17 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     <span style={{marginRight:4}}>Prono:</span>{teams[0]} vs {teams[1]}
                   </div>}
                   {(()=>{
-                    // Echte teams afleiden uit winners van vorige ronde
+                    const sortPos=(a,b)=>parseInt(a.position)-parseInt(b.position);
                     let echteHome=null,echteAway=null;
                     if(m.round==='R32'){
-                      // R32: home/away zijn codes, winner is al bekend
-                      // Toon alleen als beide teams in de match bekend zijn via de admin
                       echteHome=m.home&&!m.home.includes('-')?m.home:null;
                       echteAway=m.away&&!m.away.includes('-')?m.away:null;
                     } else if(m.round==='KF3'){
-                      const hfMs=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
-                      const kfMs=koMatches.filter(x=>x.round==='KF').sort((a,b)=>a.position-b.position);
+                      const hfMs=koMatches.filter(x=>x.round==='HF').sort(sortPos);
+                      const kfMs=koMatches.filter(x=>x.round==='KF').sort(sortPos);
                       const hfWinners=hfMs.map(hm=>hm.winner).filter(Boolean);
                       const hfAllTeams=hfMs.flatMap(hm=>{
-                        const idx=(hm.position-1)*2;
+                        const idx=(parseInt(hm.position)-1)*2;
                         return[kfMs[idx]?.winner,kfMs[idx+1]?.winner].filter(Boolean);
                       });
                       const verliezers=hfAllTeams.filter(t=>!hfWinners.includes(t));
@@ -1956,8 +1954,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                       echteAway=verliezers[1]||null;
                     } else {
                       const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
-                      const prevMs=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-                      const idx=(m.position-1)*2;
+                      const prevMs=koMatches.filter(x=>x.round===prevRound).sort(sortPos);
+                      const idx=(parseInt(m.position)-1)*2;
                       echteHome=prevMs[idx]?.winner||null;
                       echteAway=prevMs[idx+1]?.winner||null;
                     }
