@@ -1939,6 +1939,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     const sortPos=(a,b)=>parseInt(a.position)-parseInt(b.position);
                     let echteHome=null,echteAway=null;
                     if(m.round==='R32'){
+                      console.log('R32 check:',JSON.stringify(m.round),'===R32:',m.round==='R32');
                       // R32: toon niets, teams zijn nog codes
                       echteHome=null;
                       echteAway=null;
