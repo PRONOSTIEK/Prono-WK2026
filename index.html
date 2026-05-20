@@ -1939,8 +1939,9 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     const sortPos=(a,b)=>parseInt(a.position)-parseInt(b.position);
                     let echteHome=null,echteAway=null;
                     if(m.round==='R32'){
-                      echteHome=m.home&&!m.home.includes('-')?m.home:null;
-                      echteAway=m.away&&!m.away.includes('-')?m.away:null;
+                      // R32: toon niets, teams zijn nog codes
+                      echteHome=null;
+                      echteAway=null;
                     } else if(m.round==='KF3'){
                       const hfMs=koMatches.filter(x=>x.round==='HF').sort(sortPos);
                       const kfMs=koMatches.filter(x=>x.round==='KF').sort(sortPos);
