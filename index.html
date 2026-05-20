@@ -1936,39 +1936,28 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     <span style={{marginRight:4}}>Prono:</span>{teams[0]} vs {teams[1]}
                   </div>}
                   {(()=>{
-                    const sortPos=(a,b)=>parseInt(a.position)-parseInt(b.position);
-                    let echteHome=null,echteAway=null;
-                    if(m.round==='R32'){
-                      console.log('R32 check:',JSON.stringify(m.round),'===R32:',m.round==='R32');
-                      // R32: toon niets, teams zijn nog codes
-                      echteHome=null;
-                      echteAway=null;
-                    } else if(m.round==='KF3'){
-                      const hfMs=koMatches.filter(x=>x.round==='HF').sort(sortPos);
-                      const kfMs=koMatches.filter(x=>x.round==='KF').sort(sortPos);
-                      const hfWinners=hfMs.map(hm=>hm.winner).filter(Boolean);
-                      const hfAllTeams=hfMs.flatMap(hm=>{
-                        const idx=(parseInt(hm.position)-1)*2;
-                        return[kfMs[idx]?.winner,kfMs[idx+1]?.winner].filter(Boolean);
-                      });
-                      const verliezers=hfAllTeams.filter(t=>!hfWinners.includes(t));
-                      echteHome=verliezers[0]||null;
-                      echteAway=verliezers[1]||null;
+                    if(m.round==='R32')return null;
+                    const sp=(a,b)=>parseInt(a.position)-parseInt(b.position);
+                    let h=null,a=null;
+                    if(m.round==='KF3'){
+                      const hf=koMatches.filter(x=>x.round==='HF').sort(sp);
+                      const kf=koMatches.filter(x=>x.round==='KF').sort(sp);
+                      const hw=hf.map(x=>x.winner).filter(Boolean);
+                      const ht=hf.flatMap(x=>{const i=(parseInt(x.position)-1)*2;return[kf[i]?.winner,kf[i+1]?.winner].filter(Boolean);});
+                      const vl=ht.filter(t=>!hw.includes(t));
+                      h=vl[0]||null;a=vl[1]||null;
                     } else {
-                      const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
-                      const prevMs=koMatches.filter(x=>x.round===prevRound).sort(sortPos);
-                      const idx=(parseInt(m.position)-1)*2;
-                      console.log('Match',m.id,'round',m.round,'pos',m.position,'idx',idx,'prevMs',prevMs.map(x=>x.id+':'+x.winner));
-                      echteHome=prevMs[idx]?.winner||null;
-                      echteAway=prevMs[idx+1]?.winner||null;
+                      const pr={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
+                      const pm=koMatches.filter(x=>x.round===pr).sort(sp);
+                      const i=(parseInt(m.position)-1)*2;
+                      h=pm[i]?.winner||null;
+                      a=pm[i+1]?.winner||null;
                     }
-                    if(!echteHome&&!echteAway)return null;
-                    return(<div style={{fontSize:11}}>
+                    if(!h&&!a)return null;
+                    return<div style={{fontSize:11,marginTop:2}}>
                       <span style={{color:'var(--muted)',marginRight:4}}>Match:</span>
-                      <span style={{color:echteHome?'var(--gold)':'var(--muted)'}}>{echteHome||'?'}</span>
-                      <span style={{color:'var(--muted)',margin:'0 4px'}}>vs</span>
-                      <span style={{color:echteAway?'var(--gold)':'var(--muted)'}}>{echteAway||'?'}</span>
-                    </div>);
+                      <span style={{color:'var(--gold)'}}>{h||'?'} vs {a||'?'}</span>
+                    </div>;
                   })()}
                 </div>
               </div>);
