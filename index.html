@@ -1956,6 +1956,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                       const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[m.round];
                       const prevMs=koMatches.filter(x=>x.round===prevRound).sort(sortPos);
                       const idx=(parseInt(m.position)-1)*2;
+                      console.log('Match',m.id,'round',m.round,'pos',m.position,'idx',idx,'prevMs',prevMs.map(x=>x.id+':'+x.winner));
                       echteHome=prevMs[idx]?.winner||null;
                       echteAway=prevMs[idx+1]?.winner||null;
                     }
