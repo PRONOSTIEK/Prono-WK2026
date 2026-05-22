@@ -619,29 +619,27 @@ function calcKOTeams(matches, lPM, lFP, fifaRanking, fpDerden){
 
 // Bereken de 2 mogelijke ploegen voor een R32 match op basis van ko_matches structuur
 function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition){
+  // De top8Derden worden toegewezen op basis van welke groepen doorstoten
+  // Voor de pronostiek gebruiken we een vereenvoudigde mapping
+  const d=top8Derden||[];
   const m={
-    'ko_r32_1':[winnaars['A'],runners['B']],
-    'ko_r32_2':[winnaars['C'],runners['D']],
-    'ko_r32_3':[winnaars['E'],runners['F']],
-    'ko_r32_4':[winnaars['G'],runners['H']],
-    'ko_r32_5':[winnaars['I'],runners['J']],
-    'ko_r32_6':[winnaars['K'],runners['L']],
-    'ko_r32_7':[winnaars['B'],runners['A']],
-    'ko_r32_8':[winnaars['D'],runners['C']],
-    'ko_r32_9':[winnaars['F'],runners['E']],
-    'ko_r32_10':[winnaars['H'],runners['G']],
-    'ko_r32_11':[winnaars['J'],runners['I']],
-    'ko_r32_12':[winnaars['L'],runners['K']],
-    'ko_r32_13':[top8Derden[0],top8Derden[1]],
-    'ko_r32_14':[top8Derden[2],top8Derden[3]],
-    'ko_r32_15':[top8Derden[4],top8Derden[5]],
-    'ko_r32_16':[top8Derden[6],top8Derden[7]],
+    'ko_r32_1':[runners['A'],runners['B']],           // Match 73: RU-A vs RU-B
+    'ko_r32_2':[winnaars['E'],d[0]],                  // Match 74: W-E vs best 3rd A/B/C/D/F
+    'ko_r32_3':[winnaars['F'],runners['C']],           // Match 75: W-F vs RU-C
+    'ko_r32_4':[winnaars['C'],runners['F']],           // Match 76: W-C vs RU-F
+    'ko_r32_5':[winnaars['I'],d[1]],                  // Match 77: W-I vs best 3rd C/D/F/G/H
+    'ko_r32_6':[runners['E'],runners['I']],            // Match 78: RU-E vs RU-I
+    'ko_r32_7':[winnaars['A'],d[2]],                  // Match 79: W-A vs best 3rd C/E/F/H/I
+    'ko_r32_8':[winnaars['L'],d[3]],                  // Match 80: W-L vs best 3rd E/H/I/J/K
+    'ko_r32_9':[winnaars['D'],d[4]],                  // Match 81: W-D vs best 3rd B/E/F/I/J
+    'ko_r32_10':[winnaars['G'],d[5]],                 // Match 82: W-G vs best 3rd A/E/H/I/J
+    'ko_r32_11':[runners['K'],runners['L']],           // Match 83: RU-K vs RU-L
+    'ko_r32_12':[winnaars['H'],runners['J']],          // Match 84: W-H vs RU-J
+    'ko_r32_13':[winnaars['B'],d[6]],                 // Match 85: W-B vs best 3rd E/F/G/I/J
+    'ko_r32_14':[winnaars['J'],runners['H']],          // Match 86: W-J vs RU-H
+    'ko_r32_15':[winnaars['K'],d[7]],                 // Match 87: W-K vs best 3rd D/E/I/J/L
+    'ko_r32_16':[runners['D'],runners['G']],           // Match 88: RU-D vs RU-G
   };
-  // Fallback op positie als ID niet matcht (bv. andere ID-conventie in DB)
-  if(!m[matchId]&&matchPosition>=13){
-    const idx=(matchPosition-13)*2;
-    return[top8Derden[idx],top8Derden[idx+1]].filter(Boolean);
-  }
   return(m[matchId]||[]).filter(Boolean);
 }
 
@@ -1884,8 +1882,17 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
 
       // Echte teams per match op basis van admin winners
       const koMatchById=Object.fromEntries(koMatches.map(x=>[x.id,x]));
+      // Bereken echte groepsstand voor R32 teams
+      const echteScoresP={};
+      for(const m of matches){if(m.home_score!=null)echteScoresP[m.id]={home_pred:m.home_score,away_pred:m.away_score};}
+      const adminFPP=fpAll['admin']||{};
+      const adminFPDerdenP=adminFPP['3de'];
+      const{winnaars:echteWinnP,runners:echteRunP,top8Derden:echteTop8P}=calcKOTeams(matches,echteScoresP,adminFPP,fifaRanking,Array.isArray(adminFPDerdenP)?adminFPDerdenP:null);
+
       function getEchteMatchTeams(m){
-        if(m.round==='R32')return[];
+        if(m.round==='R32'){
+          return getR32Teams(m.id,echteWinnP,echteRunP,echteTop8P,parseInt(m.position));
+        }
         if(m.round==='KF3'){
           const hfMatches=koMatches.filter(x=>x.round==='HF').sort((a,b)=>a.position-b.position);
           const hfWinners=hfMatches.map(hm=>hm.winner).filter(Boolean);
@@ -3494,7 +3501,9 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           const [bvWK,bvVF,bvWKF3,bvVKF3]=bvsSorted;
 
           async function saveWinnerEnBijvragen(matchId,winner,matchRound,teams){
-            await sb.from('ko_matches').update({winner:winner||null}).eq('id',matchId);
+            const updateData={winner:winner||null};
+            if(teams.length>=2){updateData.home=teams[0];updateData.away=teams[1];}
+            await sb.from('ko_matches').update(updateData).eq('id',matchId);
             if(!winner){onRefresh();return;}
             const verliezer=teams.find(t=>t!==winner);
             const updates=[];
@@ -3541,6 +3550,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
             <div style={{fontFamily:'Bebas Neue',fontSize:14,letterSpacing:1,color:'var(--muted)',marginBottom:6}}>
               {label}
               {(round==='F'||round==='KF3')&&<span style={{fontSize:10,color:'var(--gold)',fontFamily:'DM Sans',marginLeft:8}}>→ vult bijvragen automatisch in</span>}
+              {round==='R32'&&<button style={{marginLeft:8,fontSize:10,padding:'2px 8px',borderRadius:6,border:'1px solid var(--green)',background:'none',color:'var(--green)',cursor:'pointer',fontFamily:'DM Sans'}}
+                onClick={async()=>{
+                  const updates=rMatches.map(m=>{
+                    const t=getAdminTeams(m);
+                    if(t.length>=2)return sb.from('ko_matches').update({home:t[0],away:t[1]}).eq('id',m.id);
+                    return null;
+                  }).filter(Boolean);
+                  await Promise.all(updates);
+                  onRefresh();
+                }}>↺ Vul teams automatisch in</button>}
             </div>
             {rMatches.map(m=>{
               const teams=getAdminTeams(m);
