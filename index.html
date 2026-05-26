@@ -1103,7 +1103,9 @@ function getDerdeCombiKey(doorgestoten8Grps){
 function assignDerdenToR32(derdenMetGroep, top8Derden){
   const doorgestoten=derdenMetGroep.filter(d=>top8Derden.includes(d.team));
   const grps=doorgestoten.map(d=>d.grp).sort().join('');
+  console.log('assignDerdenToR32 grps:',grps,'doorgestoten:',doorgestoten.map(d=>d.grp+':'+d.team));
   const toewijzing=R32_DERDE_COMBINATIES[grps];
+  console.log('toewijzing:',toewijzing);
   if(!toewijzing)return top8Derden;
   const grpToTeam={};
   for(const d of doorgestoten)grpToTeam[d.grp]=d.team;
