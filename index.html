@@ -1098,7 +1098,7 @@ function getR32Teams(matchId, winnaars, runners, top8Derden, matchPosition, derd
     'ko_r32_10':[winnaars['G'],d[4]],                 // Match 82: W-G vs best 3rd (pos 1G)
     'ko_r32_11':[runners['K'],runners['L']],           // Match 83: RU-K vs RU-L
     'ko_r32_12':[winnaars['H'],runners['J']],          // Match 84: W-H vs RU-J
-    'ko_r32_13':[winnaars['B'],d[6]],                 // Match 85: W-B vs best 3rd (pos 1K)
+    'ko_r32_13':[winnaars['B'],d[1]],                 // Match 85: W-B vs best 3rd (pos 1B)
     'ko_r32_14':[winnaars['J'],runners['H']],          // Match 86: W-J vs RU-H
     'ko_r32_15':[winnaars['K'],d[6]],                 // Match 87: W-K vs best 3rd (pos 1K)
     'ko_r32_16':[runners['D'],runners['G']],           // Match 88: RU-D vs RU-G
@@ -1889,8 +1889,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
   useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
-  async function saveKO(matchId,winner,side='home'){
+  async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
+    // Blokkeer als dezelfde ploeg al gekozen is in een andere match van dezelfde ronde
+    if(winner&&roundMatches){
+      const anderMatch=roundMatches.find(m=>m.id!==matchId&&lKO[m.id]===winner);
+      if(anderMatch)return; // duplicaat — niet opslaan
+    }
     const key=side==='away'?matchId+'_away':matchId;
     setLKO(p=>({...p,[key]:winner}));
     if(side==='away'){
@@ -2385,6 +2390,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               const gekozenGaatDoor=fout&&volgendeRonde&&koMatches.filter(x=>x.round===volgendeRonde).some(x=>x.winner===gekozen);
               const borderClr=correct?'var(--green)':gekozenGaatDoor?'var(--gold)':fout?'var(--red)':'var(--border)';
               const isBlocked=!vorigeOk&&!isReal;
+              // Ploegen die al gekozen zijn in een andere match van dezelfde ronde
+              const alGekozenInRonde=new Set(r.matches.filter(x=>x.id!==m.id&&lKO[x.id]).map(x=>lKO[x.id]));
               return(<div key={m.id} className="match-card" style={{marginBottom:6}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   <div style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>{m.position}</div>
@@ -2392,11 +2399,11 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                     <select
                       disabled={isBlocked||readOnly}
                       value={gekozen}
-                      onChange={e=>saveKO(m.id,e.target.value,'home')}
+                      onChange={e=>saveKO(m.id,e.target.value,'home',r.matches)}
                       style={{flex:1,background:'var(--card)',border:`1px solid ${borderClr}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:(isBlocked||readOnly)?'default':'pointer',opacity:isBlocked?0.6:1}}
                     >
                       <option value="">— Kies winnaar —</option>
-                      {teams.map(t=><option key={t} value={t}>{t}</option>)}
+                      {teams.map(t=><option key={t} value={t} disabled={alGekozenInRonde.has(t)}>{alGekozenInRonde.has(t)?`${t} ✗`:`${t}`}</option>)}
                     </select>
                   ):(
                     <div style={{flex:1,fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>
