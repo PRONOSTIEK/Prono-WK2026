@@ -2575,6 +2575,10 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   // Groepen met gespeelde wedstrijden
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
   const [openGroep,setOpenGroep]=useState(null);
+  const [openKwalGroep,setOpenKwalGroep]=useState(null);
+  const [openKORonde,setOpenKORonde]=useState(null);
+  const [openKOLand,setOpenKOLand]=useState({});
+  function toggleKOLand(round,naam){const key=round+'__'+naam;setOpenKOLand(p=>({...p,[key]:!p[key]}));}
 
   return(<div>
     <div className="section-title">📊 Mijn Punten</div>
@@ -2703,21 +2707,129 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
       ))}
     </div>}
 
-    {/* KO-KWALIFICATIE */}
-    {kwalDet.length>0&&<div className="card">
-      <div className="card-title">🎫 KO-kwalificatie</div>
-      {kwalDet.map((d,i)=>(
-        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
-      ))}
-    </div>}
+    {/* KO-KWALIFICATIE — per groep uitklapbaar */}
+    {kwalDet.length>0&&(()=>{
+      const perGroep={};
+      for(const d of kwalDet){const g=d.grp||'?';if(!perGroep[g])perGroep[g]=[];perGroep[g].push(d);}
+      return(<div className="card" style={{padding:0,overflow:'hidden'}}>
+        <div style={{padding:'14px 14px 10px',borderBottom:'1px solid var(--border)'}}>
+          <div className="card-title" style={{margin:0}}>🎫 KO-kwalificatie</div>
+        </div>
+        {GRP.filter(g=>perGroep[g]).map(g=>{
+          const items=perGroep[g];
+          const grpPts=items.reduce((s,d)=>s+d.pts,0);
+          const isOpen=openKwalGroep===g;
+          return(<div key={g} style={{borderBottom:'1px solid var(--border)'}}>
+            <div onClick={()=>setOpenKwalGroep(isOpen?null:g)}
+              style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',cursor:'pointer',background:isOpen?'var(--dark3)':'transparent'}}
+              onMouseEnter={e=>e.currentTarget.style.background='var(--dark3)'}
+              onMouseLeave={e=>e.currentTarget.style.background=isOpen?'var(--dark3)':'transparent'}
+            >
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)',letterSpacing:1}}>Groep {g}</span>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{items.length} land{items.length!==1?'en':''}</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--green)'}}>+{fmt(grpPts)}</span>
+                <span style={{color:'var(--muted)',fontSize:12}}>{isOpen?'▲':'▼'}</span>
+              </div>
+            </div>
+            {isOpen&&<div style={{background:'var(--dark3)',borderTop:'1px solid var(--border)'}}>
+              {items.map((d,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 14px 8px 22px',borderBottom:i<items.length-1?'1px solid var(--border)':'none',fontSize:13}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:10,color:d.cat==='kwal_juist'?'var(--green)':'var(--gold)'}}>{d.cat==='kwal_juist'?'🎯':'✓'}</span>
+                    <span>{d.label}</span>
+                  </div>
+                  <span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)',flexShrink:0}}>+{fmt(d.pts)}</span>
+                </div>
+              ))}
+            </div>}
+          </div>);
+        })}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--dark2)',borderTop:'1px solid var(--border)'}}>
+          <span style={{fontSize:12,color:'var(--muted)'}}>Totaal kwalificatie</span>
+          <span style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--green)'}}>+{fmt(kwalDet.reduce((s,d)=>s+d.pts,0))}</span>
+        </div>
+      </div>);
+    })()}
 
-    {/* KO-FASE */}
-    {koDet.length>0&&<div className="card">
-      <div className="card-title">🏆 KO-fase</div>
-      {koDet.map((d,i)=>(
-        <div className="pts-row" key={i}><span>{d.label}</span><span className={d.pts>=0?'pp':'pn'}>{d.pts>=0?'+':''}{fmt(d.pts)}</span></div>
-      ))}
-    </div>}
+    {/* KO-FASE — per ronde uitklapbaar, per land */}
+    {koDet.length>0&&(()=>{
+      const KO_RONDES=[
+        {id:'R32',label:'16e finales'},{id:'R16',label:'8e finales'},
+        {id:'KF',label:'Kwartfinales'},{id:'HF',label:'Halve finales'},
+        {id:'KF3',label:'Kleine finale'},{id:'F',label:'Finale'},
+      ];
+      return(<div className="card" style={{padding:0,overflow:'hidden'}}>
+        <div style={{padding:'14px 14px 10px',borderBottom:'1px solid var(--border)'}}>
+          <div className="card-title" style={{margin:0}}>🏆 KO-fase</div>
+        </div>
+        {KO_RONDES.map(r=>{
+          const items=koDet.filter(d=>d.round===r.id);
+          if(!items.length)return null;
+          const rondePts=items.reduce((s,d)=>s+d.pts,0);
+          const isOpen=openKORonde===r.id;
+          const perLand={};
+          for(const d of items){
+            const naam=d.label.replace(/^[🎯✓]\s*/,'').replace(/\s*\(.*\)$/,'').trim();
+            if(!perLand[naam])perLand[naam]=[];
+            perLand[naam].push(d);
+          }
+          const landNamen=Object.keys(perLand);
+          return(<div key={r.id} style={{borderBottom:'1px solid var(--border)'}}>
+            <div onClick={()=>setOpenKORonde(isOpen?null:r.id)}
+              style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',cursor:'pointer',background:isOpen?'var(--dark3)':'transparent'}}
+              onMouseEnter={e=>e.currentTarget.style.background='var(--dark3)'}
+              onMouseLeave={e=>e.currentTarget.style.background=isOpen?'var(--dark3)':'transparent'}
+            >
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--muted)',letterSpacing:1}}>{r.label}</span>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{landNamen.length} land{landNamen.length!==1?'en':''}</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontFamily:'Bebas Neue',fontSize:18,color:rondePts>=0?'var(--green)':'var(--red)'}}>{rondePts>=0?'+':''}{fmt(rondePts)}</span>
+                <span style={{color:'var(--muted)',fontSize:12}}>{isOpen?'▲':'▼'}</span>
+              </div>
+            </div>
+            {isOpen&&<div style={{background:'var(--dark3)',borderTop:'1px solid var(--border)'}}>
+              {landNamen.map((naam,li)=>{
+                const landItems=perLand[naam];
+                const landPts=landItems.reduce((s,d)=>s+d.pts,0);
+                const landKey=r.id+'__'+naam;
+                const landOpen=!!openKOLand[landKey];
+                const heeftDetail=landItems.length>1;
+                return(<div key={naam} style={{borderBottom:li<landNamen.length-1?'1px solid var(--border)':'none'}}>
+                  <div
+                    onClick={heeftDetail?()=>toggleKOLand(r.id,naam):undefined}
+                    style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 14px 8px 22px',cursor:heeftDetail?'pointer':'default'}}
+                    onMouseEnter={e=>{if(heeftDetail)e.currentTarget.style.background='var(--dark2)';}}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <div style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}>
+                      {heeftDetail&&<span style={{color:'var(--muted)',fontSize:10}}>{landOpen?'▲':'▼'}</span>}
+                      <span style={{fontWeight:500}}>{naam}</span>
+                      {!heeftDetail&&<span style={{fontSize:10,color:'var(--muted)'}}>{landItems[0].cat==='juist'?'🎯 juiste match':'✓ in ronde'}</span>}
+                    </div>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:16,color:landPts>=0?'var(--green)':'var(--red)',flexShrink:0}}>{landPts>=0?'+':''}{fmt(landPts)}</span>
+                  </div>
+                  {heeftDetail&&landOpen&&landItems.map((d,di)=>(
+                    <div key={di} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 14px 5px 36px',fontSize:11,color:'var(--muted)',borderTop:'1px solid var(--border)'}}>
+                      <span>{d.cat==='juist'?'🎯 Juiste match':'✓ In ronde'}</span>
+                      <span style={{color:d.pts>=0?'var(--green)':'var(--red)',fontFamily:'Bebas Neue',fontSize:13}}>{d.pts>=0?'+':''}{fmt(d.pts)}</span>
+                    </div>
+                  ))}
+                </div>);
+              })}
+            </div>}
+          </div>);
+        })}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--dark2)',borderTop:'1px solid var(--border)'}}>
+          <span style={{fontSize:12,color:'var(--muted)'}}>Totaal KO-fase</span>
+          <span style={{fontFamily:'Bebas Neue',fontSize:18,color:koDet.reduce((s,d)=>s+d.pts,0)>=0?'var(--green)':'var(--red)'}}>{koDet.reduce((s,d)=>s+d.pts,0)>=0?'+':''}{fmt(koDet.reduce((s,d)=>s+d.pts,0))}</span>
+        </div>
+      </div>);
+    })()}
 
     {totaal===0&&matchDet.length===0&&<div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:20}}>Nog geen wedstrijden gespeeld.</div>}
   </div>);
