@@ -2385,9 +2385,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m));
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
-              // Oranje: gekozen ploeg verliest deze match maar gaat wel door via andere match
-              const volgendeRonde={R32:'R16',R16:'KF',KF:'HF',HF:'F',HF2:'KF3'}[m.round];
-              const gekozenGaatDoor=fout&&volgendeRonde&&koMatches.filter(x=>x.round===volgendeRonde).some(x=>x.winner===gekozen);
+              // Oranje: gekozen ploeg verliest deze match maar heeft een andere match in dezelfde ronde gewonnen
+              const gekozenGaatDoor=fout&&koMatches.some(x=>x.round===m.round&&x.id!==m.id&&x.winner===gekozen);
               const borderClr=correct?'var(--green)':gekozenGaatDoor?'var(--gold)':fout?'var(--red)':'var(--border)';
               const isBlocked=!vorigeOk&&!isReal;
               // Ploegen die al gekozen zijn in een andere match van dezelfde ronde
