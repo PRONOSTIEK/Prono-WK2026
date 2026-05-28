@@ -2380,6 +2380,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m));
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
+              // Oranje: gekozen ploeg verliest deze match maar gaat wel door via andere match
+              const volgendeRonde={R32:'R16',R16:'KF',KF:'HF',HF:'F',HF2:'KF3'}[m.round];
+              const gekozenGaatDoor=fout&&volgendeRonde&&koMatches.filter(x=>x.round===volgendeRonde).some(x=>x.winner===gekozen);
+              const borderClr=correct?'var(--green)':gekozenGaatDoor?'var(--gold)':fout?'var(--red)':'var(--border)';
               const isBlocked=!vorigeOk&&!isReal;
               return(<div key={m.id} className="match-card" style={{marginBottom:6}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
@@ -2389,7 +2393,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                       disabled={isBlocked||readOnly}
                       value={gekozen}
                       onChange={e=>saveKO(m.id,e.target.value,'home')}
-                      style={{flex:1,background:'var(--card)',border:`1px solid ${correct?'var(--green)':fout?'var(--red)':'var(--border)'}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:(isBlocked||readOnly)?'default':'pointer',opacity:isBlocked?0.6:1}}
+                      style={{flex:1,background:'var(--card)',border:`1px solid ${borderClr}`,borderRadius:6,padding:'8px 10px',color:gekozen?'var(--text)':'var(--muted)',fontFamily:'inherit',fontSize:13,outline:'none',cursor:(isBlocked||readOnly)?'default':'pointer',opacity:isBlocked?0.6:1}}
                     >
                       <option value="">— Kies winnaar —</option>
                       {teams.map(t=><option key={t} value={t}>{t}</option>)}
@@ -2399,7 +2403,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                       {teams.length===1?`${teams[0]} vs ?`:'Vul vorige ronde in'}
                     </div>
                   )}
-                  {isReal&&<span className={`tag ${correct?'tag-green':'tag-red'}`}>{correct?'✓':'✗'}</span>}
+                  {isReal&&<span className={`tag ${correct?'tag-green':gekozenGaatDoor?'tag-gold':fout?'tag-red':''}`}>{correct?'✓':gekozenGaatDoor?'~':'✗'}</span>}
                   {isReal&&<span style={{fontSize:11,color:'var(--gold)',marginLeft:2}}>→ {m.winner}</span>}
                 </div>
                 <div style={{paddingLeft:28,marginTop:4,display:'flex',flexDirection:'column',gap:2}}>
