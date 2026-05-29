@@ -3599,6 +3599,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
   const[adminLFP,setAdminLFP]=useState(fpAll['admin']||{});
   const adminLFPVersion=useRef(0); // versieteller: lokale wijzigingen winnen van refresh
+  const editorRef=useRef(null);
   const adminLFPSaved=useRef({}); // bijhouden wat al opgeslagen is
 
   useEffect(()=>{
@@ -3703,7 +3704,6 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&(()=>{
-      const editorRef=React.useRef(null);
       function cmd(command,value=null){editorRef.current.focus();document.execCommand(command,false,value);}
       function saveHtml(){
         const html=editorRef.current.innerHTML;
