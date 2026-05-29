@@ -3721,10 +3721,10 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Opmaak via de toolbar. Wijzigingen worden opgeslagen met 💾.</div>
         {/* Toolbar */}
         <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8,padding:'8px',background:'var(--dark3)',borderRadius:'6px 6px 0 0',border:'1px solid var(--border)',borderBottom:'none'}}>
-          {btnS('Vet','bold',<strong>V</strong>)}
-          {btnS('Cursief','italic',<em>S</em>)}
-          {btnS('Onderstrepen','underline',<span style={{textDecoration:'underline'}}>O</span>)}
-          {btnS('Doorhalen','strikeThrough',<span style={{textDecoration:'line-through'}}>D</span>)}
+          {btnS('Vet',()=>cmd('bold'),<strong>V</strong>)}
+          {btnS('Cursief',()=>cmd('italic'),<em>S</em>)}
+          {btnS('Onderstrepen',()=>cmd('underline'),<span style={{textDecoration:'underline'}}>O</span>)}
+          {btnS('Doorhalen',()=>cmd('strikeThrough'),<span style={{textDecoration:'line-through'}}>D</span>)}
           <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
           {btnS('Klein',()=>cmd('fontSize','2'),<span style={{fontSize:11}}>A</span>)}
           {btnS('Normaal',()=>cmd('fontSize','3'),<span style={{fontSize:13}}>A</span>)}
