@@ -1642,7 +1642,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         return{...u,d};
       });
       const colVals={};
-      for(const c of cols)colVals[c.key]=rows.map(r=>r.d[c.key]);
+      const visCols=cols.filter(c=>c.sticky||c.actief!==false);
+      for(const c of visCols)colVals[c.key]=rows.map(r=>r.d[c.key]);
       const thS={padding:'3px 4px',borderBottom:'2px solid var(--border)',verticalAlign:'bottom',textAlign:'center'};
       const tdS=(bg,sep)=>({padding:'3px 4px',borderBottom:'1px solid var(--border)',borderRight:sep?'2px solid var(--gold)':'1px solid var(--border)',textAlign:'right',background:bg,minWidth:36});
       const stickyBg='#1e2b26';
@@ -1655,7 +1656,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               <th className="st-sticky-0" style={{textAlign:'center',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">#</div></th>
               <th className="st-sticky-1" style={{textAlign:'left',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">Naam</div></th>
               <th className="st-sticky-2" style={{textAlign:'left',verticalAlign:'bottom',padding:'3px 4px'}}><div className="st-rotated">Totaal punten</div></th>
-              {cols.filter(c=>!c.sticky).map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)'}}><div className="st-rotated">{c.label}</div></th>)}
+              {visCols.filter(c=>!c.sticky).map(c=><th key={c.key} style={{...thS,borderRight:c.sep?'2px solid var(--gold)':'1px solid var(--border)'}}><div className="st-rotated">{c.label}</div></th>)}
             </tr></thead>
             <tbody>
               {rows.map((u,i)=>{
@@ -1670,12 +1671,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td className="st-sticky-2" style={{textAlign:'right'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--gold)'}}>{u.d['tot']!=null?(u.d['tot']>0?'+':'')+fmt(u.d['tot']):'–'}</span>
                   </td>
-                  {cols.filter(c=>!c.sticky).map((c,ci)=>{
+                  {visCols.filter(c=>!c.sticky).map((c,ci)=>{
                     const val=u.d[c.key];
                     const clr=colClr(colVals[c.key],val);
-                    const disp=!c.actief?'–':val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const disp=val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
                     return(<td key={c.key} style={{...tdS(rowBg,c.sep)}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:!c.actief?'var(--border)':clr}}>{disp}</span>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -1683,7 +1684,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               {betalenden.length>0&&(()=>{
                 const avgBg='#1a3a2a';
                 const avgRow={};
-                for(const c of cols){const vs=rows.filter(u=>u.betaald||toonAlles).map(r=>r.d[c.key]).filter(v=>v!=null);avgRow[c.key]=vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*100)/100:null;}
+                for(const c of visCols){const vs=rows.filter(u=>u.betaald||toonAlles).map(r=>r.d[c.key]).filter(v=>v!=null);avgRow[c.key]=vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*100)/100:null;}
                 return(<tr className="st-avg" style={{borderTop:'2px solid var(--green)'}}>
                   <td className="st-sticky-0" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>∅</span>
@@ -1694,11 +1695,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   <td className="st-sticky-2" style={{textAlign:'right'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{avgRow['tot']!=null?(avgRow['tot']>0?'+':'')+fmt(avgRow['tot']):'–'}</span>
                   </td>
-                  {cols.filter(c=>!c.sticky).map((c,ci)=>{
+                  {visCols.filter(c=>!c.sticky).map((c,ci)=>{
                     const val=avgRow[c.key];
-                    const disp=!c.actief?'–':val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const disp=val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
                     return(<td key={c.key} style={{...tdS(avgBg,c.sep)}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:!c.actief?'var(--border)':'var(--green)'}}>{disp}</span>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--green)'}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
