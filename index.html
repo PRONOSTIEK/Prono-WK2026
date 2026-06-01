@@ -1865,6 +1865,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   const myFP=fpAll[cur.id]||{};
   const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'A'),[saved,setSaved]=useState(false);
+  // Aparte lokale state voor spelersnamen — wordt NIET gereset bij refresh
+  const[lSpeler,setLSpeler]=useState({});
   const timer=useRef(null);
   const gfDeadline=config.groep_deadline||'';
   const gfManueel=config['actief_groep_deadline']==='1';
@@ -2007,13 +2009,21 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {[0,1,2].map(i=>{
               const rankColors=['#ffd600','#cccccc','#cd7f32'];
               const rankColor=rankColors[i];
+              const key=bv.id+`_${i+1}`;
+              // Gebruik lSpeler als er iets ingevuld is, anders lPB (server-waarde)
+              const val=lSpeler[key]!==undefined?lSpeler[key]:(lPB[key]||'');
               return(<div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                 <div style={{fontFamily:'Bebas Neue',fontSize:16,color:rankColor,width:18,textAlign:'center'}}>{i+1}</div>
                 <input
                   disabled={dlPassed||readOnly}
-                  value={lPB[bv.id+`_${i+1}`]||''}
-                  onChange={e=>setLPB(p=>({...p,[bv.id+`_${i+1}`]:e.target.value}))}
-                  onBlur={e=>hB(bv.id+`_${i+1}`,e.target.value)}
+                  value={val}
+                  onChange={e=>setLSpeler(p=>({...p,[key]:e.target.value}))}
+                  onBlur={e=>{
+                    if(readOnly||dlPassed)return;
+                    const v=e.target.value;
+                    setLPB(p=>({...p,[key]:v}));
+                    saveBv(key,v);
+                  }}
                   placeholder={`Naam ${i+1}`}
                   style={{flex:1,background:'var(--card)',border:`1px solid ${rankColor}`,borderRadius:5,padding:'7px 10px',color:'var(--text)',fontFamily:'inherit',outline:'none',fontSize:12}}
                 />
