@@ -25,8 +25,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .btn-logout:hover{border-color:var(--red);color:var(--red);}
 
 /* LAYOUT */
-.main{display:flex;flex:1;position:relative;}
-.sidebar{width:185px;background:var(--dark2);border-right:1px solid var(--border);padding:12px 0;flex-shrink:0;}
+.main{display:flex;flex:1;position:relative;align-items:flex-start;}
+.sidebar{width:185px;background:var(--dark2);border-right:1px solid var(--border);padding:12px 0;flex-shrink:0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;}
 .nav-item{display:flex;align-items:center;gap:8px;padding:11px 15px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;border-left:3px solid transparent;}
 .nav-item:hover{background:var(--dark3);color:var(--text);}
 .nav-item.active{background:var(--dark3);color:var(--green);border-left-color:var(--green);}
@@ -2701,14 +2701,6 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
       </div>);
     })}
 
-    {/* BIJVRAGEN */}
-    {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').length>0&&<div className="card">
-      <div className="card-title">⭐ Bijvragen</div>
-      {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').map((d,i)=>(
-        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
-      ))}
-    </div>}
-
     {/* KO-PUNTEN — kwalificatie + alle rondes in één kaart */}
     {(kwalDet.length>0||koDet.length>0)&&(()=>{
       const KO_RONDES=[
@@ -2781,6 +2773,15 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
             </div>}
           </div>);
         })()}
+
+    {/* BIJVRAGEN */}
+    {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').length>0&&<div className="card">
+      <div className="card-title">⭐ Bijvragen</div>
+      {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').map((d,i)=>(
+        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
+      ))}
+    </div>}
+
 
         {/* KO-rondes */}
         {KO_RONDES.map(r=>{
