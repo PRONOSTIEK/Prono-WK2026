@@ -388,13 +388,22 @@ function isFaseActief(config,key){
 
 // ─── SPELER3 PUNTENTELLING ────────────────────────────────────────────────────
 // Topschutter & assistkoning: punten = som van doelpunten/assists van gekozen spelers
+// Verdubbeling als de speler in de officiële top-3 staat
 function calcSpeler3Punten(bvId, gekozenNamen, spelerStats){
   const stats=spelerStats.filter(s=>s.bv_id===bvId);
+  // Bouw top-3 op basis van stat1 (doelpunten of assists)
+  const gesorteerd=[...stats].filter(s=>s.stat1>0).sort((a,b)=>Number(b.stat1)-Number(a.stat1));
+  const top3Namen=new Set(gesorteerd.slice(0,3).map(s=>s.naam.toLowerCase().trim()));
   let tot=0;const det=[];
   for(const naam of gekozenNamen){
     if(!naam||!naam.trim())continue;
     const st=stats.find(s=>s.naam.toLowerCase().trim()===naam.toLowerCase().trim());
-    if(st&&st.stat1){tot+=Number(st.stat1);det.push({naam,pts:Number(st.stat1)});}
+    if(st&&st.stat1){
+      const pts=Number(st.stat1);
+      const inTop3=top3Namen.has(naam.toLowerCase().trim());
+      const totPts=inTop3?pts*2:pts;
+      tot+=totPts;det.push({naam,pts:totPts,inTop3});
+    }
   }
   return{tot,det};
 }
@@ -4129,6 +4138,22 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
               ))}
             </tbody>
           </table>}
+          {/* Top-3 ranking preview voor topschutter & assistkoning */}
+          {!isKeeper&&stats.length>0&&(()=>{
+            const gesorteerd=[...stats].filter(s=>s.stat1>0).sort((a,b)=>Number(b.stat1)-Number(a.stat1));
+            if(!gesorteerd.length)return null;
+            return(<div style={{marginTop:12}}>
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ({isTopschutter?'doelpunten':'assists'}) — deze spelers geven ×2:</div>
+              {gesorteerd.slice(0,3).map((s,i)=>(
+                <div key={s.naam} style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                  <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{i+1}</span>
+                  <span style={{flex:1}}>{s.naam}</span>
+                  <span style={{color:'var(--green)'}}>{Number(s.stat1)} {isTopschutter?'goals':'assists'}</span>
+                  <span style={{color:'var(--gold)',fontSize:11}}>×2</span>
+                </div>
+              ))}
+            </div>);
+          })()}
           {/* Keeper ranking preview */}
           {isKeeper&&keeperRanking.length>0&&<div style={{marginTop:12}}>
             <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ranking:</div>
