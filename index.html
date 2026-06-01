@@ -3005,12 +3005,16 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
         <div style={{fontSize:11,color:'var(--muted)',textAlign:'center'}}>
           {new Date(next.ts).toLocaleString('nl-BE',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}
         </div>
-        {deadlines.length>1&&<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:3}}>
-          {deadlines.slice(1).map(d=><div key={d.key} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--muted)'}}>
-            <span>{d.label}</span>
-            <span>{new Date(d.ts).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
-          </div>)}
-        </div>}
+        {deadlines.length>1&&(()=>{
+          const anders=deadlines.slice(1).filter(d=>Math.abs(d.ts-next.ts)>60000);
+          if(!anders.length)return null;
+          return(<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:3}}>
+            {anders.map(d=><div key={d.key} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--muted)'}}>
+              <span>{d.label}</span>
+              <span>{new Date(d.ts).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+            </div>)}
+          </div>);
+        })()}
       </div>);
     })()}
 
@@ -5005,7 +5009,7 @@ function App(){
           const m=Math.floor((diff%3600000)/60000);
           const s=Math.floor((diff%60000)/1000);
           const clr=diff<3600000?'var(--red)':diff<86400000?'var(--gold)':'var(--green)';
-          const txt=d>0?`${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`:
+          const txt=d>0?`${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:
                        `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
           return(<div style={{fontFamily:'Bebas Neue',fontSize:15,color:clr,letterSpacing:1,opacity:.9}}>⏱ {txt}</div>);
         })()}
