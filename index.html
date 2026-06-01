@@ -2288,12 +2288,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         return prevRounds.every(pr=>rondeGeldigEnVolledig(pr));
       }
       const ROUNDS=[
-        {id:'R32',label:'16e finales',nextLabel:'8e finales',nextId:'R16'},
-        {id:'R16',label:'8e finales',nextLabel:'Kwartfinales',nextId:'KF'},
-        {id:'KF',label:'Kwartfinales',nextLabel:'Halve finales',nextId:'HF'},
-        {id:'HF',label:'Halve finales',nextLabel:'Finale / Kl. finale',nextId:'F'},
-        {id:'KF3',label:'Kleine finale',nextLabel:'Kleine finale',nextId:'KF3'},
-        {id:'F',label:'Finale',nextLabel:'Finale',nextId:'F'},
+        {id:'R32',label:'Winnaars 16e finales',nextId:'R16'},
+        {id:'R16',label:'Winnaars 8e finales',nextId:'KF'},
+        {id:'KF',label:'Winnaars Kwartfinales',nextId:'HF'},
+        {id:'HF',label:'Halve finales',nextId:null},
+        {id:'KF3',label:'Kleine finale',nextId:null},
+        {id:'F',label:'Finale',nextId:null},
       ].map(r=>({...r,matches:koMatches.filter(m=>m.round===r.id)}));
 
       // Bereken beschikbare ploegen per ronde op basis van lKO keuzes
@@ -2370,14 +2370,34 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         </div>}
         {ROUNDS.map(r=>(
           <div key={r.id} style={{marginBottom:16}}>
-            <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
-              {r.id==='F'||r.id==='KF3'?r.label:`Winnaars ${r.label}`}
-              <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans',marginLeft:4}}>
-                <span style={{color:'var(--green)'}}>{koPunten[r.nextId+'_juist']??2}pt</span>
-                <span style={{color:'var(--muted)',fontSize:10}}>/</span>
-                <span style={{color:'var(--gold)'}}>{koPunten[r.nextId+'_aanwezig']??1}pt</span>
-              </span>
-            </div>
+            {r.id==='HF'?(
+              <div style={{marginBottom:6}}>
+                <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)'}}>Halve finales</div>
+                <div style={{display:'flex',gap:16,marginTop:4}}>
+                  <span style={{fontSize:12,fontFamily:'DM Sans',color:'var(--muted)'}}>
+                    Verliezers → Kleine finale&nbsp;
+                    <span style={{color:'var(--green)'}}>{koPunten['KF3_juist']??2}pt</span>
+                    <span style={{color:'var(--muted)',fontSize:10}}>/</span>
+                    <span style={{color:'var(--gold)'}}>{koPunten['KF3_aanwezig']??1}pt</span>
+                  </span>
+                  <span style={{fontSize:12,fontFamily:'DM Sans',color:'var(--muted)'}}>
+                    Winnaars → Finale&nbsp;
+                    <span style={{color:'var(--green)'}}>{koPunten['F_juist']??2}pt</span>
+                    <span style={{color:'var(--muted)',fontSize:10}}>/</span>
+                    <span style={{color:'var(--gold)'}}>{koPunten['F_aanwezig']??1}pt</span>
+                  </span>
+                </div>
+              </div>
+            ):(
+              <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+                {r.label}
+                {r.nextId&&<span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans',marginLeft:4}}>
+                  <span style={{color:'var(--green)'}}>{koPunten[r.nextId+'_juist']??2}pt</span>
+                  <span style={{color:'var(--muted)',fontSize:10}}>/</span>
+                  <span style={{color:'var(--gold)'}}>{koPunten[r.nextId+'_aanwezig']??1}pt</span>
+                </span>}
+              </div>
+            )}
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
@@ -2391,7 +2411,22 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               const isBlocked=!vorigeOk&&!isReal;
               // Ploegen die al gekozen zijn in een andere match van dezelfde ronde
               const alGekozenInRonde=new Set(r.matches.filter(x=>x.id!==m.id&&lKO[x.id]).map(x=>lKO[x.id]));
-              return(<div key={m.id} className="match-card" style={{marginBottom:6}}>
+              return(<div key={m.id} className="match-card" style={{marginBottom:8}}>
+                {/* Rij 1: Prono */}
+                {teams.length>=2&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>
+                  <span style={{marginRight:4}}>Prono:</span>
+                  <span style={{color:'var(--text)'}}>{teams[0]} vs {teams[1]}</span>
+                </div>}
+                {/* Rij 2: Echte match */}
+                {(()=>{
+                  const echte=getEchteMatchTeams(m);
+                  if(echte.length<1)return null;
+                  return<div style={{fontSize:11,color:'var(--muted)',marginBottom:5}}>
+                    <span style={{marginRight:4}}>Match:</span>
+                    <span style={{color:'var(--gold)'}}>{echte[0]||'?'} vs {echte[1]||'?'}</span>
+                  </div>;
+                })()}
+                {/* Rij 3: Keuzevak + winnaar */}
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   <div style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>{m.position}</div>
                   {teams.length>=2?(
@@ -2411,19 +2446,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
                   )}
                   {isReal&&<span className={`tag ${correct?'tag-green':gekozenGaatDoor?'tag-gold':fout?'tag-red':''}`}>{correct?'✓':gekozenGaatDoor?'~':'✗'}</span>}
                   {isReal&&<span style={{fontSize:11,color:'var(--gold)',marginLeft:2}}>→ {m.winner}</span>}
-                </div>
-                <div style={{paddingLeft:28,marginTop:4,display:'flex',flexDirection:'column',gap:2}}>
-                  {teams.length>=2&&<div style={{fontSize:11,color:'var(--muted)'}}>
-                    <span style={{marginRight:4}}>Prono:</span>{teams[0]} vs {teams[1]}
-                  </div>}
-                  {(()=>{
-                    const echte=getEchteMatchTeams(m);
-                    if(echte.length<1)return null;
-                    return<div style={{fontSize:11,marginTop:2}}>
-                      <span style={{color:'var(--muted)',marginRight:4}}>Match:</span>
-                      <span style={{color:'var(--gold)'}}>{echte[0]||'?'} vs {echte[1]||'?'}</span>
-                    </div>;
-                  })()}
                 </div>
               </div>);
             })}
