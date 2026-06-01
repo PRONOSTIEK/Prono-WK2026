@@ -1501,7 +1501,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
-      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const jaanOk=u.is_avg&&(config['toon_jaan']==='1'||cur.is_admin);const stVis=st.filter(u=>u.betaald||toonAlles||(u.is_avg&&jaanOk));
       const matchVals=stVis.map(u=>u.matchPts).filter(v=>v!=null&&!isNaN(v));
       const jokerVals=stVis.map(u=>u.jokerPts).filter(v=>v!=null&&!isNaN(v));
       const maxMatch=matchVals.length?Math.max(...matchVals):null;
@@ -1536,7 +1536,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
-              const show=u.betaald||toonAlles||u.is_avg;
+              const show=u.betaald||toonAlles||(u.is_avg&&(config['toon_jaan']==='1'||cur.is_admin));
               if(!show)return null;
               const rowBg=u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
               const tdS={padding:'9px 8px',borderBottom:'1px solid var(--border)',fontSize:13,background:rowBg};
@@ -1593,7 +1593,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* OVERZICHTSTABEL */}
     {(()=>{
-      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const jaanOk2=u.is_avg&&(config['toon_jaan']==='1'||cur.is_admin);const stVis=st.filter(u=>u.betaald||toonAlles||(u.is_avg&&jaanOk2));
       const betalenden=st.filter(u=>u.betaald||toonAlles);
       // Bijvraag-labels uit bvs array (niet uit punten, zodat alle bijvragen verschijnen)
       const allBvLabels=bvs.map(b=>b.question);
@@ -1922,8 +1922,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       {cur.is_test&&<span className="tag tag-test">🧪 TEST</span>}
     </div>
     {cur.is_test&&<div className="info-test">🧪 <strong>Testmodus:</strong> Jouw inzendingen tellen niet mee.</div>}
-    {gfDeadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline groepswedstrijden: <strong style={{color:gfStart?'var(--red)':'var(--gold)'}}>{new Date(gfDeadline).toLocaleString('nl-BE')}</strong></div>}
-    {deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline bijvragen: <strong style={{color:dlPassed?'var(--red)':'var(--gold)'}}>{new Date(deadline).toLocaleString('nl-BE')}</strong></div>}
     {config.ko_deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline KO-fase: <strong style={{color:koDlPassed?'var(--red)':'var(--gold)'}}>{new Date(config.ko_deadline).toLocaleString('nl-BE')}</strong></div>}
 
     <div className="groep-tabs">
@@ -2290,13 +2288,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         return prevRounds.every(pr=>rondeGeldigEnVolledig(pr));
       }
       const ROUNDS=[
-        {id:'R32',label:'16e finales',matches:koMatches.filter(m=>m.round==='R32')},
-        {id:'R16',label:'8e finales',matches:koMatches.filter(m=>m.round==='R16')},
-        {id:'KF',label:'Kwartfinales',matches:koMatches.filter(m=>m.round==='KF')},
-        {id:'HF',label:'Halve finales',matches:koMatches.filter(m=>m.round==='HF')},
-        {id:'KF3',label:'Kleine finale',matches:koMatches.filter(m=>m.round==='KF3')},
-        {id:'F',label:'Finale',matches:koMatches.filter(m=>m.round==='F')},
-      ];
+        {id:'R32',label:'16e finales',nextLabel:'8e finales',nextId:'R16'},
+        {id:'R16',label:'8e finales',nextLabel:'Kwartfinales',nextId:'KF'},
+        {id:'KF',label:'Kwartfinales',nextLabel:'Halve finales',nextId:'HF'},
+        {id:'HF',label:'Halve finales',nextLabel:'Finale / Kl. finale',nextId:'F'},
+        {id:'KF3',label:'Kleine finale',nextLabel:'Kleine finale',nextId:'KF3'},
+        {id:'F',label:'Finale',nextLabel:'Finale',nextId:'F'},
+      ].map(r=>({...r,matches:koMatches.filter(m=>m.round===r.id)}));
 
       // Bereken beschikbare ploegen per ronde op basis van lKO keuzes
       function getTeamsForRound(round){
@@ -2373,11 +2371,11 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         {ROUNDS.map(r=>(
           <div key={r.id} style={{marginBottom:16}}>
             <div style={{fontFamily:'Bebas Neue',fontSize:15,letterSpacing:1,color:'var(--muted)',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
-              {r.label}
-              <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans'}}>
-                <span style={{color:'var(--green)'}}>{koPunten[r.id+'_juist']??2}pt</span>
+              {r.id==='F'||r.id==='KF3'?r.label:`Winnaars ${r.label}`}
+              <span style={{fontSize:11,color:'var(--gold)',fontFamily:'DM Sans',marginLeft:4}}>
+                <span style={{color:'var(--green)'}}>{koPunten[r.nextId+'_juist']??2}pt</span>
                 <span style={{color:'var(--muted)',fontSize:10}}>/</span>
-                <span style={{color:'var(--gold)'}}>{koPunten[r.id+'_aanwezig']??1}pt</span>
+                <span style={{color:'var(--gold)'}}>{koPunten[r.nextId+'_aanwezig']??1}pt</span>
               </span>
             </div>
             {r.matches.map(m=>{
@@ -2978,10 +2976,6 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
       const bijna=diff<86400000;
       const clr=urgent?'var(--red)':bijna?'var(--gold)':'var(--green)';
       return(<div className="card" style={{marginBottom:14,border:`1px solid ${clr}`,background:'var(--dark2)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-          <div style={{fontSize:12,color:'var(--muted)'}}>⏱️ Volgende deadline</div>
-          <div style={{fontSize:11,color:clr,fontWeight:600}}>{next.label}</div>
-        </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:6}}>
           {d>0&&<div style={{textAlign:'center'}}>
             <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1}}>{String(d).padStart(2,'0')}</div>
@@ -4535,6 +4529,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" value={avgNaam} onChange={e=>setAvgNaam(e.target.value)} placeholder="Jaan Mehdi" style={{flex:1,minWidth:180}}/>
           <button className="btn btn-sm btn-outline" onClick={saveAvgNaam}>Opslaan</button>
         </div>
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,marginTop:12,padding:'8px 10px',background:'var(--dark3)',borderRadius:8,border:'1px solid var(--border)'}}>
+          <input type="checkbox" checked={config['toon_jaan']==='1'}
+            onChange={async e=>{await sb.from('config').upsert({key:'toon_jaan',value:e.target.checked?'1':'0'});onRefresh();}}
+            style={{accentColor:'var(--green)',width:16,height:16}}
+          />
+          <div>
+            <div style={{fontWeight:500}}>Zichtbaar voor deelnemers</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Aan = {avgNaam||'Jaan Mehdi'} verschijnt in het klassement voor alle deelnemers. Uit = enkel zichtbaar voor de admin.</div>
+          </div>
+        </label>
         <div style={{marginTop:10}}>
           <button className="btn btn-sm btn-outline" onClick={()=>viewPronoOf({id:JAAN_ID,name:avgNaam,is_avg:true})}>📋 Bekijk pronostiek</button>
         </div>
