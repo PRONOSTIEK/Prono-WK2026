@@ -1510,7 +1510,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const maxJoker=jokerVals.length?Math.max(...jokerVals):null;
       const minJoker=jokerVals.length?Math.min(...jokerVals):null;
       function hlClr(val,max,min){if(val==null||max==null)return'var(--text)';if(val===max&&max!==min)return'var(--green)';if(val===min&&max!==min)return'var(--red)';return'var(--text)';}
-      const betalenden=st.filter(u=>u.betaald||toonAlles);
+      const betalenden=st.filter(u=>(u.betaald||toonAlles)&&!u.is_avg);
       const koVals=stVis.map(u=>u.koTot??0);
       const maxKo=koVals.length?Math.max(...koVals):null;
       const minKo=koVals.length?Math.min(...koVals):null;
@@ -1595,7 +1595,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     {/* OVERZICHTSTABEL */}
     {(()=>{
       const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
-      const betalenden=st.filter(u=>u.betaald||toonAlles);
+      const betalenden=st.filter(u=>(u.betaald||toonAlles)&&!u.is_avg);
       // Bijvraag-labels uit bvs array (niet uit punten, zodat alle bijvragen verschijnen)
       const allBvLabels=bvs.map(b=>b.question);
       const allBvCols=bvs.map(b=>({question:b.question,colLabel:b.col_label||b.question}));
@@ -1799,7 +1799,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               })}
               {st.length>0&&(()=>{
                 const avgBg='#1a3a2a';
-                const betalenden=st.filter(u=>u.betaald||toonAlles);
+                const betalenden=st.filter(u=>(u.betaald||toonAlles)&&!u.is_avg);
                 return(<tr style={{borderTop:'2px solid var(--green)'}}>
                   <td className="st-sticky-0" style={{textAlign:'center'}}>
                     <span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--green)'}}>∅</span>
