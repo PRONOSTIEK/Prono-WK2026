@@ -2774,13 +2774,6 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
           </div>);
         })()}
 
-    {/* BIJVRAGEN */}
-    {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').length>0&&<div className="card">
-      <div className="card-title">⭐ Bijvragen</div>
-      {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').map((d,i)=>(
-        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
-      ))}
-    </div>}
 
 
         {/* KO-rondes */}
@@ -2841,6 +2834,14 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
         })}
       </div>);
     })()}
+
+    {/* BIJVRAGEN */}
+    {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').length>0&&<div className="card">
+      <div className="card-title">⭐ Bijvragen</div>
+      {det.filter(d=>d.cat==='bijvraag'||d.cat==='speler3').map((d,i)=>(
+        <div className="pts-row" key={i}><span>{d.label}</span><span className="pp">+{fmt(d.pts)}</span></div>
+      ))}
+    </div>}
 
     {totaal===0&&matchDet.length===0&&<div style={{color:'var(--muted)',fontSize:13,textAlign:'center',padding:20}}>Nog geen wedstrijden gespeeld.</div>}
   </div>);
