@@ -1425,8 +1425,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const fakeTellenPV=config['fake_tellen_pv']==='1';
   const jaanOk=config['toon_jaan']==='1'||cur.is_admin;
   const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test&&(!u.is_avg||jaanOk));
-  const pvUserIds=new Set(echteUsers.filter(u=>fakeTellenPV||!u.name?.startsWith('Test_')).map(u=>u.id));
-  const echteUserIds=new Set(echteUsers.map(u=>u.id));
+  const pvUserIds=new Set(echteUsers.filter(u=>!u.is_avg&&(fakeTellenPV||!u.name?.startsWith('Test_'))).map(u=>u.id));
+  const echteUserIds=new Set(echteUsers.filter(u=>!u.is_avg).map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>pvUserIds.has(p.user_id)));
   const teldatum=config['tel_bijvragen']||config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum)||isFaseActief(config,'bijvragen');
