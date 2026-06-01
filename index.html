@@ -2851,6 +2851,8 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n');
+  const [countNow,setCountNow]=useState(Date.now());
+  useEffect(()=>{const t=setInterval(()=>setCountNow(Date.now()),1000);return()=>clearInterval(t);},[]);
 
   const myPM=pmAll[cur.id]||{};
   const myPB=pbAll[cur.id]||{};
@@ -2954,6 +2956,63 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
 
   return(<div>
     <div className="section-title">📖 Handleiding</div>
+
+    {/* AFTELKLOK */}
+    {(()=>{
+      const deadlines=[
+        {label:'Puntenverdeling',key:'pv_deadline',val:config.pv_deadline},
+        {label:'Groepswedstrijden',key:'groep_deadline',val:config.groep_deadline},
+        {label:'KO-fase',key:'ko_deadline',val:config.ko_deadline},
+        {label:'Bijvragen',key:'bijvragen_deadline',val:config.bijvragen_deadline},
+      ].filter(d=>d.val).map(d=>({...d,ts:new Date(d.val).getTime()}))
+       .filter(d=>!isNaN(d.ts)&&d.ts>Date.now())
+       .sort((a,b)=>a.ts-b.ts);
+      const next=deadlines[0];
+      if(!next)return null;
+      const diff=Math.max(0,next.ts-countNow);
+      const d=Math.floor(diff/86400000);
+      const h=Math.floor((diff%86400000)/3600000);
+      const m=Math.floor((diff%3600000)/60000);
+      const s=Math.floor((diff%60000)/1000);
+      const urgent=diff<3600000;
+      const bijna=diff<86400000;
+      const clr=urgent?'var(--red)':bijna?'var(--gold)':'var(--green)';
+      return(<div className="card" style={{marginBottom:14,border:`1px solid ${clr}`,background:'var(--dark2)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+          <div style={{fontSize:12,color:'var(--muted)'}}>⏱️ Volgende deadline</div>
+          <div style={{fontSize:11,color:clr,fontWeight:600}}>{next.label}</div>
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:6}}>
+          {d>0&&<div style={{textAlign:'center'}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1}}>{String(d).padStart(2,'0')}</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>dagen</div>
+          </div>}
+          <div style={{textAlign:'center'}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1}}>{String(h).padStart(2,'0')}</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>uur</div>
+          </div>
+          <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1,alignSelf:'flex-start',marginTop:4}}>:</div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1}}>{String(m).padStart(2,'0')}</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>min</div>
+          </div>
+          <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1,alignSelf:'flex-start',marginTop:4}}>:</div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:36,color:clr,lineHeight:1}}>{String(s).padStart(2,'0')}</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>sec</div>
+          </div>
+        </div>
+        <div style={{fontSize:11,color:'var(--muted)',textAlign:'center'}}>
+          {new Date(next.ts).toLocaleString('nl-BE',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}
+        </div>
+        {deadlines.length>1&&<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:3}}>
+          {deadlines.slice(1).map(d=><div key={d.key} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--muted)'}}>
+            <span>{d.label}</span>
+            <span>{new Date(d.ts).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+          </div>)}
+        </div>}
+      </div>);
+    })()}
 
     {tekst&&<div className="card">
       <div dangerouslySetInnerHTML={{__html:tekst}} style={{fontSize:13,lineHeight:1.7,color:'var(--text)'}}/>
@@ -4800,6 +4859,8 @@ function App(){
   const[fpAll,setFpAll]=useState({}),[config,setConfig]=useState({}),[spelerStats,setSpelerStats]=useState([]);
   const[koMatches,setKoMatches]=useState([]),[koPronosAll,setKoPronosAll]=useState({}),[koPunten,setKoPunten]=useState({});
   const[fifaRanking,setFifaRanking]=useState([]);
+  const[appNow,setAppNow]=useState(Date.now());
+  useEffect(()=>{const t=setInterval(()=>setAppNow(Date.now()),1000);return()=>clearInterval(t);},[]);
 
   async function loadAll(silent=false){
     // Laad kleine tabellen parallel, grote tabellen sequentieel
@@ -4928,7 +4989,27 @@ function App(){
 
   return(<div className="app">
     <div className="topbar">
-      <div className="topbar-title">⚽ WK <span>2026</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <div className="topbar-title">⚽ WK <span>2026</span></div>
+        {(()=>{
+          const next=[
+            {val:config.pv_deadline},{val:config.groep_deadline},
+            {val:config.ko_deadline},{val:config.bijvragen_deadline},
+          ].map(d=>d.val?new Date(d.val).getTime():null)
+           .filter(t=>t&&!isNaN(t)&&t>appNow)
+           .sort((a,b)=>a-b)[0];
+          if(!next)return null;
+          const diff=Math.max(0,next-appNow);
+          const d=Math.floor(diff/86400000);
+          const h=Math.floor((diff%86400000)/3600000);
+          const m=Math.floor((diff%3600000)/60000);
+          const s=Math.floor((diff%60000)/1000);
+          const clr=diff<3600000?'var(--red)':diff<86400000?'var(--gold)':'var(--green)';
+          const txt=d>0?`${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`:
+                       `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          return(<div style={{fontFamily:'Bebas Neue',fontSize:15,color:clr,letterSpacing:1,opacity:.9}}>⏱ {txt}</div>);
+        })()}
+      </div>
       <div className="user-badge">
         <strong>{user.name}</strong>
         {user.is_admin&&<span className="badge-admin">ADMIN</span>}
