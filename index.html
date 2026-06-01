@@ -1423,7 +1423,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const isAdmin=cur.is_admin;
   const[toonAlles,setToonAlles]=useState(false);
   const fakeTellenPV=config['fake_tellen_pv']==='1';
-  const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test);
+  const jaanOk=config['toon_jaan']==='1'||cur.is_admin;
+  const echteUsers=users.filter(u=>!u.is_admin&&!u.is_test&&(!u.is_avg||jaanOk));
   const pvUserIds=new Set(echteUsers.filter(u=>fakeTellenPV||!u.name?.startsWith('Test_')).map(u=>u.id));
   const echteUserIds=new Set(echteUsers.map(u=>u.id));
   const pt=avgPT(pvAll.filter(p=>pvUserIds.has(p.user_id)));
@@ -1501,7 +1502,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
-      const jaanOk=config['toon_jaan']==='1'||cur.is_admin;const stVis=st.filter(u=>u.betaald||toonAlles||(u.is_avg&&jaanOk));
+      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
       const matchVals=stVis.map(u=>u.matchPts).filter(v=>v!=null&&!isNaN(v));
       const jokerVals=stVis.map(u=>u.jokerPts).filter(v=>v!=null&&!isNaN(v));
       const maxMatch=matchVals.length?Math.max(...matchVals):null;
@@ -1536,7 +1537,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
-              const show=u.betaald||toonAlles||(u.is_avg&&(config['toon_jaan']==='1'||cur.is_admin));
+              const show=u.betaald||toonAlles||u.is_avg;
               if(!show)return null;
               const rowBg=u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
               const tdS={padding:'9px 8px',borderBottom:'1px solid var(--border)',fontSize:13,background:rowBg};
@@ -1593,7 +1594,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* OVERZICHTSTABEL */}
     {(()=>{
-      const jaanOk2=config['toon_jaan']==='1'||cur.is_admin;const stVis=st.filter(u=>u.betaald||toonAlles||(u.is_avg&&jaanOk2));
+      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
       const betalenden=st.filter(u=>u.betaald||toonAlles);
       // Bijvraag-labels uit bvs array (niet uit punten, zodat alle bijvragen verschijnen)
       const allBvLabels=bvs.map(b=>b.question);
@@ -2414,7 +2415,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               return(<div key={m.id} className="match-card" style={{marginBottom:8}}>
                 {/* Rij 1: Prono */}
                 {teams.length>=2&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>
-                  <span style={{marginRight:4}}>Prono:</span>
+                  <span style={{marginRight:4}}>Mijn prono:</span>
                   <span style={{color:'var(--text)'}}>{teams[0]} vs {teams[1]}</span>
                 </div>}
                 {/* Rij 2: Echte match */}
