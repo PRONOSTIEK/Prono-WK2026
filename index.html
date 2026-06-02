@@ -2534,7 +2534,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              const gekozen=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
+              const gekozenRaw=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
+              const gekozen=(gekozenRaw&&teams.length>=2&&!teams.includes(gekozenRaw))?'':gekozenRaw;
               const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m));
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
