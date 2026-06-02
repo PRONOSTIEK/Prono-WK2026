@@ -4219,7 +4219,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     {tab==='stats'&&<div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:12,color:'var(--muted)'}}>Voer hier de statistieken in per speler. De punten worden automatisch berekend.</div>
-        <button className="btn btn-sm btn-outline" onClick={()=>{document.activeElement?.blur();setTimeout(()=>onRefresh(),100);}}>💾 Opslaan & vernieuwen</button>
+        <button className="btn btn-sm btn-outline" onClick={async()=>{document.activeElement?.blur();await new Promise(r=>setTimeout(r,300));setLiveStatsMap({});onRefresh();}}>💾 Opslaan & vernieuwen</button>
       </div>
       {speler3Bvs.map(bv=>{
         const isKeeper=bv.id==='bv_kee';
