@@ -1551,7 +1551,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
     const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
     return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch,matchPts,jokerPts,koTot,koPtsPerRonde,kwalTot,kwalPerGroep,kwal3des,bijvraagPts,bijvraagDet};
-  }).sort((a,b)=>b.tot-a.tot);
+  }).sort((a,b)=>(!cur.is_admin&&!gfActief)?a.name?.localeCompare(b.name,'nl'):b.tot-a.tot);
 
   function ptKleur(pts){
     if(pts==null)return'var(--muted)';
@@ -1752,22 +1752,24 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <tbody>
               {rows.map((u,i)=>{
                 const rowBg=u.id===cur.id?'#152018':i%2===0?'#1e2b26':'#1a2420';
+                const isOwn=u.id===cur.id||u.is_avg;
+                const verberg=!cur.is_admin&&!isOwn&&!gfActief;
                 return(<tr key={u.id} className={u.id===cur.id?'st-me':''}>
                   <td className="st-sticky-0" style={{textAlign:'center'}}>
-                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{verberg?'–':i+1}</span>
                   </td>
                   <td className="st-sticky-1">
                     <span style={{color:u.id===cur.id?'var(--green)':'var(--text)',fontWeight:u.id===cur.id?600:400,fontSize:11}}>{u.name}</span>
                   </td>
                   <td className="st-sticky-2" style={{textAlign:'right'}}>
-                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--gold)'}}>{u.d['tot']!=null?(u.d['tot']>0?'+':'')+fmt(u.d['tot']):'–'}</span>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:12,color:'var(--gold)'}}>{verberg?'–':u.d['tot']!=null?(u.d['tot']>0?'+':'')+fmt(u.d['tot']):'–'}</span>
                   </td>
                   {visCols.filter(c=>!c.sticky).map((c,ci)=>{
                     const val=u.d[c.key];
                     const clr=colClr(colVals[c.key],val);
-                    const disp=val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
+                    const disp=verberg?'–':val==null?'–':val===0?'0':(val>0?'+':'')+(c.noDecimal?Math.round(val):fmt(val));
                     return(<td key={c.key} style={{...tdS(rowBg,c.sep)}}>
-                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:clr}}>{disp}</span>
+                      <span style={{fontFamily:'Bebas Neue',fontSize:12,color:verberg?'var(--border)':clr}}>{disp}</span>
                     </td>);
                   })}
                 </tr>);
@@ -1853,7 +1855,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                       {p&&p.home_pred!=null
                         ?<div>
                           {gespeeld&&<div style={{fontFamily:'Bebas Neue',fontSize:11,color:ptKleur(pts??0)}}>{pts!=null?(pts>0?'+':'')+fmt(pts):'0'}</div>}
-                          <div style={{fontSize:8,color:'var(--muted)'}}>{p.home_pred}–{p.away_pred}</div>
+                          {(gespeeld||isMe||cur.is_admin)&&<div style={{fontSize:8,color:'var(--muted)'}}>{p.home_pred}–{p.away_pred}</div>}
                         </div>
                         :<span style={{color:'var(--border)'}}>–</span>
                       }
