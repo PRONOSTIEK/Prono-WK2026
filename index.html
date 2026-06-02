@@ -301,7 +301,7 @@ function calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronos,koMatch
     }
     const cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
     if(!cat)continue;
-    const wb=isGF&&cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout'?waaghals(p.home_pred,p.away_pred):0,pts=(pt[cat]+wb)*(isJ?2:1);
+    const wb=isGF&&(config?.waaghals_mode==='alles'?cat==='alles_juist':cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout')?waaghals(p.home_pred,p.away_pred):0,pts=(pt[cat]+wb)*(isJ?2:1);
     if(isGF)matchDet.push({group:m.group,matchId:m.id,home:m.home,away:m.away,homePred:p.home_pred,awayPred:p.away_pred,homeScore:m.home_score,awayScore:m.away_score,pts,isJ,cat,wb});
     if(pts!==0){tot+=pts;det.push({label:`${m.home}–${m.away}`,pts,isJ,cat,group:m.group,matchId:m.id,home:m.home,away:m.away,homePred:p.home_pred,awayPred:p.away_pred,homeScore:m.home_score,awayScore:m.away_score,wb});}
   }
@@ -2234,7 +2234,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               }
               <div className="team-name right">{m.away}</div>
             </div>
-            {lk&&(()=>{if(hp===''||hp==null)return<div className="match-result"><span className="tag tag-gray">Niet ingevuld</span></div>;const cat=catMatch(hp,ap,m.home_score,m.away_score),wb=cat&&cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout'?waaghals(hp,ap):0;return<div className="match-result"><span className={`tag ${CT[cat]}`}>{CL[cat]}</span>{wb>0&&<span className="tag tag-blue">+{wb}w</span>}{isJ&&<span className="tag tag-gold">🃏×2</span>}</div>;})()}
+            {lk&&(()=>{if(hp===''||hp==null)return<div className="match-result"><span className="tag tag-gray">Niet ingevuld</span></div>;const cat=catMatch(hp,ap,m.home_score,m.away_score),waaghalsOk=config?.waaghals_mode==='alles'?cat==='alles_juist':cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout',wb=waaghalsOk?waaghals(hp,ap):0;return<div className="match-result"><span className={`tag ${CT[cat]}`}>{CL[cat]}</span>{wb>0&&<span className="tag tag-blue">+{wb}w</span>}{isJ&&<span className="tag tag-gold">🃏×2</span>}</div>;})()}
             {isS&&!lk&&<div className="locked-msg">🔒 Match begonnen</div>}
           </div>);
         })}
@@ -4342,6 +4342,30 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     </div>}
 
     {tab==='ko'&&<div>
+      <div className="card">
+        <div className="card-title">🎯 Waaghalsbonus</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Bepaal wanneer de waaghalsbonus geldt.</div>
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,padding:'8px 10px',background:'var(--dark3)',borderRadius:8,border:`1px solid ${config['waaghals_mode']==='alles'?'var(--green)':'var(--border)'}`}}>
+          <input type="radio" name="waaghals_mode" checked={config['waaghals_mode']!=='alles'}
+            onChange={async()=>{await sb.from('config').upsert({key:'waaghals_mode',value:'winnaar'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          <div>
+            <div style={{fontWeight:500}}>Winnaar juist</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Bonus als de winnaar correct voorspeld is (ook bij 1 of 0 scores juist)</div>
+          </div>
+        </label>
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,marginTop:8,padding:'8px 10px',background:'var(--dark3)',borderRadius:8,border:`1px solid ${config['waaghals_mode']==='alles'?'var(--green)':'var(--border)'}`}}>
+          <input type="radio" name="waaghals_mode" checked={config['waaghals_mode']==='alles'}
+            onChange={async()=>{await sb.from('config').upsert({key:'waaghals_mode',value:'alles'});onRefresh();}}
+            style={{accentColor:'var(--green)'}}
+          />
+          <div>
+            <div style={{fontWeight:500}}>Alles juist</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Bonus enkel als beide scores én winnaar correct zijn</div>
+          </div>
+        </label>
+      </div>
       <div className="card">
         <div className="card-title">🎫 Punten KO-kwalificatie (groepsfase)</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Punten voor het correct voorspellen welke teams zich plaatsen voor de KO-fase (top 2 per groep + beste 8 derden).</div>
