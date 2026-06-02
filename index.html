@@ -1850,7 +1850,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const pts=u.ptsPerMatch[m.id];
                     const isJ=(jAll[u.id]||[]).map(j=>j.match_id).includes(m.id);
                     const gespeeld=m.home_score!=null;
-                    const cellBg=isJ?rowBg:!gespeeld?'var(--dark2)':rowBg;
+                    const cellBg=(isJ&&toonProno)?rowBg:!gespeeld?'var(--dark2)':rowBg;
                     const toonProno=gespeeld||isMe||cur.is_admin;
                     return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:(isJ&&toonProno)?'2px solid var(--gold)':'none',outlineOffset:'-2px',background:cellBg}}>
                       {p&&p.home_pred!=null
