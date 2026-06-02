@@ -3273,7 +3273,6 @@ function SpelerStatRow({s,isKeeper,bvId,onSave,onDel,onStatChange,onFocus,onBlur
   const[v1,setV1]=useState(String(s.stat1));
   const[v2,setV2]=useState(String(s.stat2));
   const[v3,setV3]=useState(String(s.stat3));
-  // Synchroniseer met props als de data extern geüpdatet wordt (bijv. via auto-refresh)
   useEffect(()=>{setV1(String(s.stat1));},[s.stat1]);
   useEffect(()=>{setV2(String(s.stat2));},[s.stat2]);
   useEffect(()=>{setV3(String(s.stat3));},[s.stat3]);
@@ -3853,6 +3852,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
+  function switchTab(newTab){document.activeElement?.blur();setTab(newTab);}
 
   // Admin fairplay: gebruik user_id='admin' in fairplay tabel
   const[adminLFP,setAdminLFP]=useState(fpAll['admin']||{});
@@ -3959,7 +3959,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>switchTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&(()=>{
       function cmd(command,value=null){editorRef.current.focus();document.execCommand(command,false,value);}
@@ -4217,8 +4217,9 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     </div>}
 
     {tab==='stats'&&<div>
-      <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>
-        Voer hier de statistieken in per speler. De punten worden automatisch berekend.
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontSize:12,color:'var(--muted)'}}>Voer hier de statistieken in per speler. De punten worden automatisch berekend.</div>
+        <button className="btn btn-sm btn-outline" onClick={()=>{document.activeElement?.blur();setTimeout(()=>onRefresh(),100);}}>💾 Opslaan & vernieuwen</button>
       </div>
       {speler3Bvs.map(bv=>{
         const isKeeper=bv.id==='bv_kee';
