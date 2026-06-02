@@ -3816,12 +3816,6 @@ function FifaTab({matches,fifaRanking,config,onRefresh}){
 function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,spelerStats,onLiveStatsChange}){
   const[liveStats,setLiveStats]=useState(()=>Object.fromEntries(stats.map(s=>[s.naam,{stat1:Number(s.stat1)||0,stat2:Number(s.stat2)||0,stat3:Number(s.stat3)||0}])));
   const focusRef=useRef(false);
-  useEffect(()=>{
-    if(focusRef.current)return; // niet resetten als admin aan het typen is
-    const updated=Object.fromEntries(stats.map(s=>[s.naam,{stat1:Number(s.stat1)||0,stat2:Number(s.stat2)||0,stat3:Number(s.stat3)||0}]));
-    setLiveStats(updated);
-    onLiveStatsChange&&onLiveStatsChange(updated);
-  },[spelerStats]);
   function handleStatChange(naam,veld,val){
     const updated={...liveStats,[naam]:{...liveStats[naam],[veld]:Number(val)||0}};
     setLiveStats(updated);
@@ -4219,7 +4213,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     {tab==='stats'&&<div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:12,color:'var(--muted)'}}>Voer hier de statistieken in per speler. De punten worden automatisch berekend.</div>
-        <button className="btn btn-sm btn-outline" onClick={async()=>{document.activeElement?.blur();await new Promise(r=>setTimeout(r,300));setLiveStatsMap({});onRefresh();}}>💾 Opslaan & vernieuwen</button>
+        <button className="btn btn-sm btn-outline" onClick={async()=>{document.activeElement?.blur();await new Promise(r=>setTimeout(r,300));onRefresh();}}>💾 Opslaan & vernieuwen</button>
       </div>
       {speler3Bvs.map(bv=>{
         const isKeeper=bv.id==='bv_kee';
