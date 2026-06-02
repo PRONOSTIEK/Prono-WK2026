@@ -3269,7 +3269,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
   </div>);}
 
 // SPELER STAT RIJ — lokale state om verspringen te voorkomen
-function SpelerStatRow({s,isKeeper,bvId,onSave,onDel,onStatChange}){
+function SpelerStatRow({s,isKeeper,bvId,onSave,onDel,onStatChange,onFocus,onBlurRow}){
   const[v1,setV1]=useState(String(s.stat1));
   const[v2,setV2]=useState(String(s.stat2));
   const[v3,setV3]=useState(String(s.stat3));
@@ -3284,13 +3284,13 @@ function SpelerStatRow({s,isKeeper,bvId,onSave,onDel,onStatChange}){
     <td style={{padding:'5px 6px',borderBottom:'1px solid var(--border)'}}>{s.naam}</td>
     {isKeeper?(
       <>
-        <td style={td}><input className="ii" type="number" style={inp} value={v1} onChange={e=>{setV1(e.target.value);onStatChange&&onStatChange(s.naam,'stat1',e.target.value);}} onBlur={e=>onSave(bvId,s.naam,'stat1',e.target.value)} min="0"/></td>
-        <td style={td}><input className="ii" type="number" style={inp} value={v2} onChange={e=>{setV2(e.target.value);onStatChange&&onStatChange(s.naam,'stat2',e.target.value);}} onBlur={e=>onSave(bvId,s.naam,'stat2',e.target.value)} min="0"/></td>
-        <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v3} onChange={e=>{setV3(e.target.value);onStatChange&&onStatChange(s.naam,'stat3',e.target.value);}} onBlur={e=>onSave(bvId,s.naam,'stat3',e.target.value)} min="1"/></td>
+        <td style={td}><input className="ii" type="number" style={inp} value={v1} onChange={e=>{setV1(e.target.value);onStatChange&&onStatChange(s.naam,'stat1',e.target.value);}} onFocus={onFocus} onBlur={e=>{onSave(bvId,s.naam,'stat1',e.target.value);onBlurRow&&onBlurRow();}} min="0"/></td>
+        <td style={td}><input className="ii" type="number" style={inp} value={v2} onChange={e=>{setV2(e.target.value);onStatChange&&onStatChange(s.naam,'stat2',e.target.value);}} onFocus={onFocus} onBlur={e=>{onSave(bvId,s.naam,'stat2',e.target.value);onBlurRow&&onBlurRow();}} min="0"/></td>
+        <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v3} onChange={e=>{setV3(e.target.value);onStatChange&&onStatChange(s.naam,'stat3',e.target.value);}} onFocus={onFocus} onBlur={e=>{onSave(bvId,s.naam,'stat3',e.target.value);onBlurRow&&onBlurRow();}} min="1"/></td>
         <td style={{...td,color:'var(--gold)'}}>{score}</td>
       </>
     ):(
-      <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v1} onChange={e=>{setV1(e.target.value);onStatChange&&onStatChange(s.naam,'stat1',e.target.value);}} onBlur={e=>onSave(bvId,s.naam,'stat1',e.target.value)} min="0"/></td>
+      <td style={td}><input className="ii" type="number" style={{...inp,width:70}} value={v1} onChange={e=>{setV1(e.target.value);onStatChange&&onStatChange(s.naam,'stat1',e.target.value);}} onFocus={onFocus} onBlur={e=>{onSave(bvId,s.naam,'stat1',e.target.value);onBlurRow&&onBlurRow();}} min="0"/></td>
     )}
     <td style={{padding:'5px 6px',borderBottom:'1px solid var(--border)'}}><button className="btn btn-sm btn-danger" onClick={()=>onDel(bvId,s.naam)}>✕</button></td>
   </tr>);
@@ -3816,7 +3816,9 @@ function FifaTab({matches,fifaRanking,config,onRefresh}){
 
 function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,spelerStats,onLiveStatsChange}){
   const[liveStats,setLiveStats]=useState(()=>Object.fromEntries(stats.map(s=>[s.naam,{stat1:Number(s.stat1)||0,stat2:Number(s.stat2)||0,stat3:Number(s.stat3)||0}])));
+  const focusRef=useRef(false);
   useEffect(()=>{
+    if(focusRef.current)return; // niet resetten als admin aan het typen is
     const updated=Object.fromEntries(stats.map(s=>[s.naam,{stat1:Number(s.stat1)||0,stat2:Number(s.stat2)||0,stat3:Number(s.stat3)||0}]));
     setLiveStats(updated);
     onLiveStatsChange&&onLiveStatsChange(updated);
@@ -3841,7 +3843,7 @@ function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,speler
     </tr></thead>
     <tbody>
       {stats.map(s=>(
-        <SpelerStatRow key={s.naam} s={s} isKeeper={isKeeper} bvId={bvId} onSave={onSave} onDel={onDel} onStatChange={handleStatChange}/>
+        <SpelerStatRow key={s.naam} s={s} isKeeper={isKeeper} bvId={bvId} onSave={onSave} onDel={onDel} onStatChange={handleStatChange} onFocus={()=>focusRef.current=true} onBlurRow={()=>focusRef.current=false}/>
       ))}
     </tbody>
   </table>);
