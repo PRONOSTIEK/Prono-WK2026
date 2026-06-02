@@ -2119,7 +2119,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         return(<div className="bv-card" key={bv.id}>
           <div className="bv-q">{bv.question}{' '}
             {isGetal
-              ?<span className="tag tag-gold">{bv.points} pt · dichts bij{verdubbeling&&<span> · <span style={{color:'var(--gold)'}}>×2 exact</span></span>}</span>
+              ?<span className="tag tag-gold">{bv.points} pt · dichtst bij{verdubbeling&&<span> · <span style={{color:'var(--gold)'}}>×2 exact</span></span>}</span>
               :<span className="tag tag-gold">{bv.points} pt</span>
             }
           </div>
