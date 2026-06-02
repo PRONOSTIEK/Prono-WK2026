@@ -249,6 +249,20 @@ const SURL='https://aomckthckwmynanbymgj.supabase.co';
 const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvbWNrdGhja3dteW5hbmJ5bWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDE4NzIsImV4cCI6MjA4OTQxNzg3Mn0.juHys0xPFlSYh3OL3mKiA5x-1Fm5aeEEn__WUWAsLzg';
 const sb=supabase.createClient(SURL,SKEY);
 const GRP=['A','B','C','D','E','F','G','H','I','J','K','L'];
+const GF_MATCH_TIJDEN={
+  'A_1':'11 jun, 21:00','A_2':'12 jun, 04:00','A_3':'18 jun, 18:00','A_4':'19 jun, 03:00','A_5':'25 jun, 03:00','A_6':'25 jun, 03:00',
+  'B_1':'12 jun, 21:00','B_2':'13 jun, 21:00','B_3':'18 jun, 21:00','B_4':'19 jun, 00:00','B_5':'24 jun, 21:00','B_6':'24 jun, 21:00',
+  'C_1':'14 jun, 00:00','C_2':'14 jun, 03:00','C_3':'20 jun, 00:00','C_4':'20 jun, 02:30','C_5':'25 jun, 00:00','C_6':'25 jun, 00:00',
+  'D_1':'13 jun, 03:00','D_2':'14 jun, 06:00','D_3':'19 jun, 21:00','D_4':'20 jun, 05:00','D_5':'26 jun, 04:00','D_6':'26 jun, 04:00',
+  'E_1':'14 jun, 19:00','E_2':'15 jun, 01:00','E_3':'20 jun, 22:00','E_4':'21 jun, 02:00','E_5':'25 jun, 22:00','E_6':'25 jun, 22:00',
+  'F_1':'14 jun, 22:00','F_2':'15 jun, 04:00','F_3':'20 jun, 19:00','F_4':'21 jun, 06:00','F_5':'26 jun, 01:00','F_6':'26 jun, 01:00',
+  'G_1':'15 jun, 21:00','G_2':'16 jun, 03:00','G_3':'21 jun, 21:00','G_4':'22 jun, 03:00','G_5':'27 jun, 05:00','G_6':'27 jun, 05:00',
+  'H_1':'15 jun, 18:00','H_2':'16 jun, 00:00','H_3':'21 jun, 18:00','H_4':'22 jun, 00:00','H_5':'27 jun, 02:00','H_6':'27 jun, 02:00',
+  'I_1':'16 jun, 21:00','I_2':'17 jun, 00:00','I_3':'22 jun, 23:00','I_4':'23 jun, 02:00','I_5':'26 jun, 21:00','I_6':'26 jun, 21:00',
+  'J_1':'17 jun, 03:00','J_2':'17 jun, 06:00','J_3':'22 jun, 19:00','J_4':'23 jun, 05:00','J_5':'28 jun, 04:00','J_6':'28 jun, 04:00',
+  'K_1':'17 jun, 19:00','K_2':'18 jun, 04:00','K_3':'23 jun, 19:00','K_4':'24 jun, 04:00','K_5':'28 jun, 01:30','K_6':'28 jun, 01:30',
+  'L_1':'17 jun, 22:00','L_2':'18 jun, 01:00','L_3':'23 jun, 22:00','L_4':'24 jun, 01:00','L_5':'27 jun, 23:00','L_6':'27 jun, 23:00',
+};
 const WK_LANDEN=['Algerije','Argentinië','Australië','België','Brazilië','Canada','Colombia','Curaçao','Duitsland','Ecuador','Egypte','Engeland','Frankrijk','Ghana','Haïti','IC-1 winner','IC-2 winner','Iran','Ivoorkust','Japan','Jordanië','Kaapverdië','Kroatië','Marokko','Mexico','Nederland','Nieuw-Zeeland','Noorwegen','Oezbekistan','Oostenrijk','Panama','Paraguay','PO-A winner','PO-B winner','PO-C winner','PO-D winner','Portugal','Qatar','Saudi-Arabië','Schotland','Senegal','Spanje','Tunesië','Uruguay','VS','Zuid-Afrika','Zuid-Korea','Zwitserland'].sort();
 
 function fmt(n){if(typeof n!=='number')return n;return Number.isInteger(n)?n.toFixed(2):n.toFixed(2);}
@@ -2184,15 +2198,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           return(<div className={`match-card ${isJ?'joker-on':''}`} key={m.id}>
             <div className="match-header">
               <span>{(()=>{
-                if(!m.date)return'';
-                const d=new Date(m.date);
-                if(isNaN(d.getTime()))return m.date;
-                // Als er een tijdcomponent is, toon in Belgische tijd (CEST)
-                const hasTime=m.date.includes('T')||m.date.includes(' ');
-                if(hasTime){
-                  return d.toLocaleString('nl-BE',{timeZone:'Europe/Brussels',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+' (Belgische tijd)';
-                }
-                return d.toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'});
+                const gm_sorted=(mbg[m.group]||[]).slice().sort((a,b)=>a.date?.localeCompare(b.date)||0);
+                const idx=gm_sorted.findIndex(x=>x.id===m.id)+1;
+                const tijd=GF_MATCH_TIJDEN[`${m.group}_${idx}`];
+                return tijd?`${tijd} (Belgische tijd)`:m.date;
               })()}</span>
               <div style={{display:'flex',gap:5,alignItems:'center'}}>
                 {isJ&&<span className="tag tag-gold">🃏×2</span>}
