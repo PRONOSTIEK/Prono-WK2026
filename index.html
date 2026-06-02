@@ -2183,7 +2183,17 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           const p=lPM[m.id]||{home_pred:'',away_pred:''},lk=m.home_score!=null,isS=new Date(m.date)<now,isJ=lJ.includes(m.id),hp=p.home_pred,ap=p.away_pred;
           return(<div className={`match-card ${isJ?'joker-on':''}`} key={m.id}>
             <div className="match-header">
-              <span>{m.date}</span>
+              <span>{(()=>{
+                if(!m.date)return'';
+                const d=new Date(m.date);
+                if(isNaN(d.getTime()))return m.date;
+                // Als er een tijdcomponent is, toon in Belgische tijd (CEST)
+                const hasTime=m.date.includes('T')||m.date.includes(' ');
+                if(hasTime){
+                  return d.toLocaleString('nl-BE',{timeZone:'Europe/Brussels',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+' (Belgische tijd)';
+                }
+                return d.toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'});
+              })()}</span>
               <div style={{display:'flex',gap:5,alignItems:'center'}}>
                 {isJ&&<span className="tag tag-gold">🃏×2</span>}
                 {!lk&&<button className={`joker-btn ${isJ?'on':''}`} disabled={gfStart||readOnly} onClick={()=>togJ(m.id,m.group)}>🃏 {isJ?'Annuleer':'Joker'}</button>}
@@ -2367,6 +2377,26 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         if(!prevRounds.length)return true;
         return prevRounds.every(pr=>rondeGeldigEnVolledig(pr));
       }
+      // Chronologische volgorde per ronde (op basis van officieel FIFA-schema)
+      const KO_CHRONOLOGISCH={
+        'R32': {1:1,4:2,2:3,3:4,6:5,5:6,7:7,8:8,10:9,9:10,12:11,11:12,13:13,16:14,14:15,15:16},
+        'R16': {2:1,1:2,3:3,4:4,6:5,5:6,7:7,8:8},
+        'KF':  {1:1,2:2,3:3,4:4},
+        'HF':  {1:1,2:2},
+        'KF3': {1:1},
+        'F':   {1:1},
+      };
+      const KO_MATCH_TIJDEN={
+        'R32_1':'28 jun, 21:00','R32_4':'29 jun, 19:00','R32_2':'29 jun, 22:30','R32_3':'30 jun, 03:00',
+        'R32_6':'30 jun, 19:00','R32_5':'30 jun, 23:00','R32_7':'01 jul, 03:00','R32_8':'01 jul, 18:00',
+        'R32_10':'01 jul, 22:00','R32_9':'02 jul, 02:00','R32_12':'02 jul, 21:00','R32_11':'03 jul, 01:00',
+        'R32_13':'03 jul, 05:00','R32_16':'03 jul, 20:00','R32_14':'04 jul, 00:00','R32_15':'04 jul, 03:30',
+        'R16_1':'04 jul, 19:00','R16_2':'04 jul, 23:00','R16_3':'05 jul, 22:00','R16_4':'06 jul, 02:00',
+        'R16_5':'06 jul, 21:00','R16_6':'07 jul, 02:00','R16_7':'07 jul, 18:00','R16_8':'07 jul, 22:00',
+        'KF_1':'09 jul, 22:00','KF_2':'10 jul, 21:00','KF_3':'11 jul, 23:00','KF_4':'12 jul, 03:00',
+        'HF_1':'14 jul, 21:00','HF_2':'15 jul, 21:00',
+        'KF3_1':'18 jul, 23:00','F_1':'19 jul, 21:00',
+      };
       const ROUNDS=[
         {id:'R32',label:'Winnaars 16e finales',nextId:'R16'},
         {id:'R16',label:'Winnaars 8e finales',nextId:'KF'},
@@ -2374,7 +2404,10 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         {id:'HF',label:'Halve finales',nextId:null},
         {id:'KF3',label:'Kleine finale',nextId:null},
         {id:'F',label:'Finale',nextId:null},
-      ].map(r=>({...r,matches:koMatches.filter(m=>m.round===r.id)}));
+      ].map(r=>({...r,matches:koMatches.filter(m=>m.round===r.id).sort((a,b)=>{
+        const ord=KO_CHRONOLOGISCH[r.id]||{};
+        return (ord[a.position]||a.position)-(ord[b.position]||b.position);
+      })}));
 
       // Bereken beschikbare ploegen per ronde op basis van lKO keuzes
       function getTeamsForRound(round){
@@ -2491,7 +2524,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               const isBlocked=!vorigeOk&&!isReal;
               // Ploegen die al gekozen zijn in een andere match van dezelfde ronde
               const alGekozenInRonde=new Set(r.matches.filter(x=>x.id!==m.id&&lKO[x.id]).map(x=>lKO[x.id]));
+              const tijdKey=`${r.id}_${m.position}`;
+              const matchTijd=KO_MATCH_TIJDEN[tijdKey];
               return(<div key={m.id} className="match-card" style={{marginBottom:8}}>
+                {/* Tijd */}
+                {matchTijd&&<div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>
+                  🕐 {matchTijd} <span style={{opacity:.6}}>(Belgische tijd)</span>
+                </div>}
                 {/* Rij 1: Prono */}
                 {teams.length>=2&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:3}}>
                   <span style={{marginRight:4}}>Mijn prono:</span>
