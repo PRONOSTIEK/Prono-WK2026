@@ -1550,7 +1550,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const bijvraagDet={};
     for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
     const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?matchPts:0,matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{}};
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{}};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
