@@ -1551,7 +1551,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
     const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
     return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch,matchPts,jokerPts,koTot,koPtsPerRonde,kwalTot,kwalPerGroep,kwal3des,bijvraagPts,bijvraagDet};
-  }).sort((a,b)=>(!cur.is_admin&&!gfActief)?a.name?.localeCompare(b.name,'nl'):b.tot-a.tot);
+  }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
     if(pts==null)return'var(--muted)';
