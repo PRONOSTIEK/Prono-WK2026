@@ -1593,7 +1593,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
-      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const stVis=st;
       const matchVals=stVis.map(u=>u.matchPts).filter(v=>v!=null&&!isNaN(v));
       const jokerVals=stVis.map(u=>u.jokerPts).filter(v=>v!=null&&!isNaN(v));
       const maxMatch=matchVals.length?Math.max(...matchVals):null;
@@ -1685,7 +1685,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {/* OVERZICHTSTABEL */}
     {(()=>{
-      const stVis=st.filter(u=>u.betaald||toonAlles||u.is_avg);
+      const stVis=st;
       const betalenden=st.filter(u=>(u.betaald||toonAlles)&&!u.is_avg);
       // Bijvraag-labels uit bvs array (niet uit punten, zodat alle bijvragen verschijnen)
       const allBvLabels=bvs.map(b=>b.question);
