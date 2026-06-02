@@ -2446,7 +2446,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       // Bereken de 2 specifieke ploegen voor een R32 match
       function getMatchTeams(m){
         if(m.round==='R32'){
-          return getR32Teams(m.id,winnaars,runners,top8Derden,m.position,derdenMetGroep);
+          return getR32Teams(m.id,winnaars,runners,top8Derden,m.position,derdenMetGroep)||[];
         }
         // Voor latere rondes: winnaars van de 2 vorige matches
         const prevRound={R16:'R32',KF:'R16',HF:'KF',KF3:'HF',F:'HF'}[m.round];
@@ -2534,9 +2534,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              const gekozenRaw=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
-              const gekozen=(gekozenRaw&&teams.length>=2&&!teams.includes(gekozenRaw))?'':gekozenRaw;
-              const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m));
+              const gekozen=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
+              const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m)||[]);
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
               // Oranje: gekozen ploeg verliest deze match maar heeft een andere match in dezelfde ronde gewonnen
