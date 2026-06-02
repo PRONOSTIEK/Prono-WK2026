@@ -1756,7 +1756,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 const verberg=!cur.is_admin&&!isOwn&&!gfActief;
                 return(<tr key={u.id} className={u.id===cur.id?'st-me':''}>
                   <td className="st-sticky-0" style={{textAlign:'center'}}>
-                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{verberg?'–':i+1}</span>
+                    <span style={{fontFamily:'Bebas Neue',fontSize:13,color:i===0?'var(--gold)':i===1?'#ccc':i===2?'#cd7f32':'var(--muted)'}}>{i+1}</span>
                   </td>
                   <td className="st-sticky-1">
                     <span style={{color:u.id===cur.id?'var(--green)':'var(--text)',fontWeight:u.id===cur.id?600:400,fontSize:11}}>{u.name}</span>
@@ -1851,11 +1851,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const isJ=(jAll[u.id]||[]).map(j=>j.match_id).includes(m.id);
                     const gespeeld=m.home_score!=null;
                     const cellBg=isJ?rowBg:!gespeeld?'var(--dark2)':rowBg;
-                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:isJ?'2px solid var(--gold)':'none',outlineOffset:'-2px',background:cellBg}}>
+                    const toonProno=gespeeld||isMe||cur.is_admin;
+                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:(isJ&&toonProno)?'2px solid var(--gold)':'none',outlineOffset:'-2px',background:cellBg}}>
                       {p&&p.home_pred!=null
                         ?<div>
                           {gespeeld&&<div style={{fontFamily:'Bebas Neue',fontSize:11,color:ptKleur(pts??0)}}>{pts!=null?(pts>0?'+':'')+fmt(pts):'0'}</div>}
-                          {(gespeeld||isMe||cur.is_admin)&&<div style={{fontSize:8,color:'var(--muted)'}}>{p.home_pred}–{p.away_pred}</div>}
+                          {toonProno&&<div style={{fontSize:8,color:'var(--muted)'}}>{p.home_pred}–{p.away_pred}</div>}
                         </div>
                         :<span style={{color:'var(--border)'}}>–</span>
                       }
