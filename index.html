@@ -405,9 +405,11 @@ function isFaseActief(config,key){
 // Verdubbeling als de speler in de officiële top-3 staat
 function calcSpeler3Punten(bvId, gekozenNamen, spelerStats){
   const stats=spelerStats.filter(s=>s.bv_id===bvId);
-  // Bouw top-3 op basis van stat1 (doelpunten of assists)
+  // Bouw top-3 unieke rangen op basis van stat1
   const gesorteerd=[...stats].filter(s=>s.stat1>0).sort((a,b)=>Number(b.stat1)-Number(a.stat1));
-  const top3Namen=new Set(gesorteerd.slice(0,3).map(s=>s.naam.toLowerCase().trim()));
+  const uniekeScores=[...new Set(gesorteerd.map(s=>Number(s.stat1)))].sort((a,b)=>b-a);
+  const drempel=uniekeScores.length>=3?uniekeScores[2]:uniekeScores[uniekeScores.length-1]||0;
+  const top3Namen=new Set(gesorteerd.filter(s=>Number(s.stat1)>=drempel).map(s=>s.naam.toLowerCase().trim()));
   let tot=0;const det=[];
   for(const naam of gekozenNamen){
     if(!naam||!naam.trim())continue;
@@ -2195,7 +2197,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
           return(<div className={`match-card ${isJ?'joker-on':''}`} key={m.id}>
             <div className="match-header">
               <span>{(()=>{
-                const gm_sorted=(mbg[m.group]||[]).slice().sort((a,b)=>a.date?.localeCompare(b.date)||0);
+                const gm_sorted=mbg[m.group]||[];
                 const idx=gm_sorted.findIndex(x=>x.id===m.id)+1;
                 const tijd=GF_MATCH_TIJDEN[`${m.group}_${idx}`];
                 return tijd?`${tijd} (Belgische tijd)`:m.date;
@@ -4257,11 +4259,19 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           {!isKeeper&&stats.length>0&&(()=>{
             const gesorteerd=[...stats].filter(s=>s.stat1>0).sort((a,b)=>Number(b.stat1)-Number(a.stat1));
             if(!gesorteerd.length)return null;
+            const uniekeScores=[...new Set(gesorteerd.map(s=>Number(s.stat1)))].sort((a,b)=>b-a);
+            const drempel=uniekeScores.length>=3?uniekeScores[2]:uniekeScores[uniekeScores.length-1]||0;
+            const top3=gesorteerd.filter(s=>Number(s.stat1)>=drempel);
+            let rang=1;
+            const metRang=top3.map((s,i,arr)=>{
+              if(i>0&&Number(arr[i-1].stat1)!==Number(s.stat1))rang++;
+              return{...s,rang};
+            });
             return(<div style={{marginTop:12}}>
-              <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ({isTopschutter?'doelpunten':'assists'}) — deze spelers geven ×2:</div>
-              {gesorteerd.slice(0,3).map((s,i)=>(
+              <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ({isTopschutter?'doelpunten':'assists'}) — deze spelers geven ×2{top3.length>3?` (${top3.length} ex-aequo):`:''}:</div>
+              {metRang.map((s)=>(
                 <div key={s.naam} style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
-                  <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{i+1}</span>
+                  <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{s.rang}</span>
                   <span style={{flex:1}}>{s.naam}</span>
                   <span style={{color:'var(--green)'}}>{Number(s.stat1)} {isTopschutter?'goals':'assists'}</span>
                   <span style={{color:'var(--gold)',fontSize:11}}>×2</span>
@@ -4272,14 +4282,22 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           {/* Keeper ranking preview */}
           {isKeeper&&keeperRanking.length>0&&<div style={{marginTop:12}}>
             <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontWeight:600}}>Huidige top 3 ranking:</div>
-            {keeperRanking.slice(0,3).map((k,i)=>(
-              <div key={k.naam} style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
-                <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{i+1}</span>
-                <span style={{flex:1}}>{k.naam}</span>
-                <span style={{color:'var(--muted)'}}>{k.score.toFixed(3)}</span>
-                <span style={{color:'var(--green)',fontSize:11}}>{i===0?'+11pt':i===1?'+8pt':'+7pt'}</span>
-              </div>
-            ))}
+            {(()=>{
+              let rang=1;
+              const metRang=keeperRanking.map((k,i,arr)=>{
+                if(i>0&&arr[i-1].score!==k.score)rang++;
+                return{...k,rang};
+              });
+              const drempelRang=metRang.length>=3?metRang.find(k=>k.rang===3)?.rang:metRang[metRang.length-1]?.rang;
+              return metRang.filter(k=>k.rang<=(drempelRang||3)).map(k=>(
+                <div key={k.naam} style={{display:'flex',gap:8,padding:'4px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+                  <span style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--gold)',width:18}}>{k.rang}</span>
+                  <span style={{flex:1}}>{k.naam}</span>
+                  <span style={{color:'var(--muted)'}}>{k.score.toFixed(3)}</span>
+                  <span style={{color:'var(--green)',fontSize:11}}>{k.rang===1?'+11pt':k.rang===2?'+8pt':'+7pt'}</span>
+                </div>
+              ));
+            })()}
           </div>}
         </div>);
       })}
