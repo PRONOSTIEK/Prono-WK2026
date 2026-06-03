@@ -2013,7 +2013,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       {cur.is_test&&<span className="tag tag-test">🧪 TEST</span>}
     </div>
     {cur.is_test&&<div className="info-test">🧪 <strong>Testmodus:</strong> Jouw inzendingen tellen niet mee.</div>}
-    {config.ko_deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline KO-fase: <strong style={{color:koDlPassed?'var(--red)':'var(--gold)'}}>{new Date(config.ko_deadline).toLocaleString('nl-BE')}</strong></div>}
+    {config.ko_deadline&&<div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>⏰ Deadline: <strong style={{color:koDlPassed?'var(--red)':'var(--gold)'}}>{new Date(config.ko_deadline).toLocaleString('nl-BE')}</strong></div>}
 
     <div className="groep-tabs">
       {GRP.map(g=><div key={g} className={`groep-tab ${tab===g?'active':''} ${jPG[g]?'joker':''}`} onClick={()=>setTab(g)}>{g}{jPG[g]?'🃏':''}</div>)}
