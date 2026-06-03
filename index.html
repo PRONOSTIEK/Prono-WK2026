@@ -1984,7 +1984,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   }
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
-  useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
+  useEffect(()=>setLKO(prev=>({...prev,...(koPronosAll[cur.id]||{})})),[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
@@ -1994,7 +1994,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     } else {
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     }
-    sv();onRefresh();
+    sv();
+    await onRefresh();
   }
   function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
@@ -4836,6 +4837,32 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           </div>
         </div>);
       })()}
+      {/* Backup knop */}
+      <div style={{marginBottom:14}}>
+        <button className="btn btn-sm btn-outline" onClick={async()=>{
+          const[{data:pm},{data:pb},{data:kp},{data:cfg},{data:km},{data:bv},{data:ss},{data:fr},{data:pv},{data:fp},{data:us}]=await Promise.all([
+            sb.from('pronos_matches').select('*'),
+            sb.from('pronos_bijvragen').select('*'),
+            sb.from('ko_pronos').select('*'),
+            sb.from('config').select('*'),
+            sb.from('ko_matches').select('*'),
+            sb.from('bijvragen').select('*'),
+            sb.from('speler_stats').select('*'),
+            sb.from('fifa_ranking').select('*'),
+            sb.from('punten_vragen').select('*'),
+            sb.from('fairplay').select('*'),
+            sb.from('users').select('*'),
+          ]);
+          const backup={datum:new Date().toISOString(),pronos_matches:pm,pronos_bijvragen:pb,ko_pronos:kp,config:cfg,ko_matches:km,bijvragen:bv,speler_stats:ss,fifa_ranking:fr,punten_vragen:pv,fairplay:fp,users:us};
+          const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');
+          a.href=url;a.download=`backup-wk2026-${new Date().toISOString().slice(0,10)}.json`;a.click();
+          URL.revokeObjectURL(url);
+        }}>💾 Backup database</button>
+        <span style={{fontSize:11,color:'var(--muted)',marginLeft:10}}>Download alle data als JSON</span>
+      </div>
+
       {/* Excel export knop */}
       <div style={{marginBottom:14}}>
         <button className="btn btn-sm btn-outline" onClick={()=>{
