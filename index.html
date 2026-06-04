@@ -1983,12 +1983,20 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     sv();onRefresh();
   }
   const myKO=koPronosAll[cur.id]||{};
-  const[lKO,setLKO]=useState(myKO);
-  useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
+  const sessionKey=`lKO_${cur.id}`;
+  const sessionData=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
+  const[lKO,setLKO]=useState({...myKO,...sessionData});
+  useEffect(()=>{
+    setLKO(prev=>{
+      const merged={...(koPronosAll[cur.id]||{}),...prev};
+      sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+      return merged;
+    });
+  },[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
-    setLKO(p=>({...p,[key]:winner}));
+    setLKO(p=>{const n={...p,[key]:winner};sessionStorage.setItem(sessionKey,JSON.stringify(n));return n;});
     if(side==='away'){
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,away_pred:winner},{onConflict:'user_id,match_id'});
     } else {
