@@ -2371,8 +2371,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     {tab==='ko'&&koDlPassed&&<div className="info-deadline">🔒 Deadline verstreken — KO-pronostiek is gesloten.</div>}
     {tab==='ko'&&(()=>{
       const fpDerden3de=lFP['3de'];
+      const lPMcount=Object.keys(lPM).length;
       const{winnaars,runners,top8Derden,derdenMetGroep}=calcKOTeams(matches,lPM,lFP,fifaRanking,Array.isArray(fpDerden3de)?fpDerden3de:null);
+      const winnaarCount=Object.keys(winnaars).length;
       const KO_ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
+      // DEBUG - tijdelijk
+      console.log('lPM entries:', lPMcount, 'winnaars:', winnaarCount, Object.keys(winnaars));
       // Controleer recursief: een ronde is pas geldig als alle vorige rondes ook geldig én volledig zijn
       function rondeGeldigEnVolledig(roundId){
         const prMatches=koMatches.filter(m=>m.round===roundId);
