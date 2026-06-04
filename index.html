@@ -1982,12 +1982,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
     sv();onRefresh();
   }
-  const myKO={...(koPronosAll[cur.id]||{}),...(lKOCache||{})};
+  const myKO={...(koPronosAll[cur.id]||{}),...((lKOCache&&lKOCache[cur.id])||{})};
   const[lKO,setLKO]=useState(myKO);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
-    setLKO(p=>{const n={...p,[key]:winner};setLKOCache&&setLKOCache(n);return n;});
+    setLKO(p=>{const n={...p,[key]:winner};setLKOCache&&setLKOCache(prev=>({...prev,[cur.id]:n}));return n;});
     if(side==='away'){
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,away_pred:winner},{onConflict:'user_id,match_id'});
     } else {
