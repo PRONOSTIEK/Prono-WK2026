@@ -2377,8 +2377,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       const KO_ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
       // DEBUG - tijdelijk
       console.log('lPM entries:', lPMcount, 'winnaars:', winnaarCount, Object.keys(winnaars));
-      const r32matches=koMatches.filter(m=>m.round==='R32');
-      console.log('R32 matches:', r32matches.length, 'teams per match:', r32matches.map(m=>({pos:m.position,teams:getR32Teams(m.id,winnaars,runners,top8Derden,m.position,derdenMetGroep)?.length})));
+      console.log('top8Derden:', top8Derden, 'derdenMetGroep:', derdenMetGroep?.length);
       // Controleer recursief: een ronde is pas geldig als alle vorige rondes ook geldig én volledig zijn
       function rondeGeldigEnVolledig(roundId){
         const prMatches=koMatches.filter(m=>m.round===roundId);
