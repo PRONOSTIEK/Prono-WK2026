@@ -1944,7 +1944,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   </div>);}
 
 // PRONOSTIEK
-function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,initialTab,onRefresh,readOnly}){
+function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,koMatches,koPronosAll,koPunten,fifaRanking,initialTab,onRefresh,readOnly,lKOCache,setLKOCache}){
   const myPM=pmAll[cur.id]||{},myPB=pbAll[cur.id]||{},myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
   const myFP=fpAll[cur.id]||{};
   const[lPM,setLPM]=useState(myPM),[lPB,setLPB]=useState(myPB),[lJ,setLJ]=useState(myJ),[lFP,setLFP]=useState(myFP),[tab,setTab]=useState(initialTab||'A'),[saved,setSaved]=useState(false);
@@ -1982,12 +1982,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
     sv();onRefresh();
   }
-  const myKO=koPronosAll[cur.id]||{};
+  const myKO={...(koPronosAll[cur.id]||{}),...(lKOCache||{})};
   const[lKO,setLKO]=useState(myKO);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
-    setLKO(p=>({...p,[key]:winner}));
+    setLKO(p=>{const n={...p,[key]:winner};setLKOCache&&setLKOCache(n);return n;});
     if(side==='away'){
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,away_pred:winner},{onConflict:'user_id,match_id'});
     } else {
@@ -5130,6 +5130,7 @@ function calcJaanMehdi(users,matches,bvs,pmAll,pbAll,jAll,koPronosAll,koMatches,
 function App(){
   const[user,setUser]=useState(null),[page,setPage]=useState('klassement'),[load,setLoad]=useState(true);
   const[pronoTab,setPronoTab]=useState('A');
+  const[lKOCache,setLKOCache]=useState({});
   const[viewAsUser,setViewAsUser]=useState(null); // admin kan pronostiek van andere deelnemer bekijken
   const[users,setUsers]=useState([]),[matches,setMatches]=useState([]),[bvs,setBvs]=useState([]);
   const[pmAll,setPmAll]=useState({}),[pbAll,setPbAll]=useState({}),[jAll,setJAll]=useState({}),[pvAll,setPvAll]=useState([]);
@@ -5317,7 +5318,7 @@ function App(){
               <span style={{fontSize:12,color:'var(--gold)'}}>👁 Admin-weergave: pronostiek van <strong>{viewAsUser.name}</strong></span>
               <button style={{background:'none',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:5,padding:'3px 8px',cursor:'pointer',fontSize:11}} onClick={()=>setViewAsUser(null)}>✕ Eigen pronostiek</button>
             </div>}
-            <Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)}/>
+            <Pronostiek matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)} lKOCache={lKOCache} setLKOCache={setLKOCache}/>
           </div>);
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
