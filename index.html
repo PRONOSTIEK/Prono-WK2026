@@ -1982,20 +1982,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
     sv();onRefresh();
   }
-  const myKO={...(koPronosAll[cur.id]||{}),...((lKOCache&&lKOCache[cur.id])||{})};
+  const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
-  const lKOInitialized=useRef(false);
-  useEffect(()=>{
-    const dbData=koPronosAll[cur.id]||{};
-    if(Object.keys(dbData).length>0&&!lKOInitialized.current){
-      lKOInitialized.current=true;
-      setLKO(prev=>({...dbData,...prev}));
-    }
-  });  // geen dependency array - runt bij elke render tot geïnitialiseerd
+  useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
-    setLKO(p=>{const n={...p,[key]:winner};setLKOCache&&setLKOCache(prev=>({...prev,[cur.id]:n}));return n;});
+    setLKO(p=>({...p,[key]:winner}));
     if(side==='away'){
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,away_pred:winner},{onConflict:'user_id,match_id'});
     } else {
