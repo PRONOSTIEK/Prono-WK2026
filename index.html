@@ -1986,11 +1986,12 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const[lKO,setLKO]=useState(myKO);
   const lKOInitialized=useRef(false);
   useEffect(()=>{
-    if(!lKOInitialized.current&&Object.keys(koPronosAll[cur.id]||{}).length>0){
+    const dbData=koPronosAll[cur.id]||{};
+    if(Object.keys(dbData).length>0&&!lKOInitialized.current){
       lKOInitialized.current=true;
-      setLKO(prev=>({...(koPronosAll[cur.id]||{}),...prev}));
+      setLKO(prev=>({...dbData,...prev}));
     }
-  },[koPronosAll,cur.id]);
+  });  // geen dependency array - runt bij elke render tot geïnitialiseerd
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
