@@ -1984,7 +1984,14 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   }
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
-  useEffect(()=>setLKO(prev=>({...prev,...(koPronosAll[cur.id]||{})})),[koPronosAll,cur.id]);
+  useEffect(()=>{
+    setLKO(prev=>{
+      const db=koPronosAll[cur.id]||{};
+      // Enkel db-waarden toevoegen die nog niet lokaal gezet zijn
+      const merged={...db,...prev};
+      return merged;
+    });
+  },[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
@@ -1994,8 +2001,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     } else {
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     }
-    sv();
-    await onRefresh();
+    sv();onRefresh();
   }
   function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
