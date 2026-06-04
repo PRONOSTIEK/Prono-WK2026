@@ -3994,7 +3994,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
                 <input className="ii" style={{flex:1,fontSize:12}}
                   defaultValue={config[key]||''}
                   placeholder={placeholder}
-                  onBlur={async e=>{await sb.from('config').upsert({key,value:e.target.value});onRefresh();}}
+                  onBlur={async e=>{await sb.from('config').upsert({key,value:e.target.value});}}
                 />
               </div>
             </div>
