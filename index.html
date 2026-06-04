@@ -1497,7 +1497,9 @@ function Login({onLogin}){
         <input value={name} onChange={e=>setName(e.target.value)} placeholder="Jouw naam" autoComplete="username"/>
         {reg&&<div style={{fontSize:10,color:'var(--gold)',marginTop:3}}>⚠️ Deze naam is zichtbaar voor alle deelnemers in het klassement.</div>}
       </div>
-      <div className="field"><label>Wachtwoord</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••" autoComplete={reg?'new-password':'current-password'}/></div>
+      <div className="field"><label>Wachtwoord</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••" autoComplete={reg?'new-password':'current-password'}/>
+        {reg&&<div style={{fontSize:10,color:'var(--red)',marginTop:3}}>⚠️ Gebruik geen wachtwoord dat je elders ook gebruikt — de admin en andere nerds kunnen de wachtwoorden mogelijks raadplegen.</div>}
+      </div>
       {reg&&<div className="field">
         <label>E-mailadres</label>
         <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="naam@voorbeeld.be" autoComplete="email"/>
@@ -2002,7 +2004,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     } else {
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     }
-    sv();
+    sv();onRefresh();
   }
   function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
@@ -5162,7 +5164,7 @@ function App(){
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
       sb.from('punten_vragen').select('*'),
       sb.from('fairplay').select('*'),
-      sb.from('ko_pronos').select('*').limit(100000),
+      user?.is_admin?sb.from('ko_pronos').select('*').limit(100000):sb.from('ko_pronos').select('*').eq('user_id',user?.id||''),
     ]);
     // Grote tabellen sequentieel laden
     const{data:pm}=await sb.from('pronos_matches').select('*').limit(10000);
