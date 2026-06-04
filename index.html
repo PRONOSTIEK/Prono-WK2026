@@ -1984,7 +1984,16 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   }
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
-  useEffect(()=>setLKO(koPronosAll[cur.id]||{}),[koPronosAll,cur.id]);
+  const lKOLoaded=useRef(Object.keys(myKO).length>0);
+  useEffect(()=>{
+    if(!lKOLoaded.current){
+      const data=koPronosAll[cur.id]||{};
+      if(Object.keys(data).length>0){
+        lKOLoaded.current=true;
+        setLKO(data);
+      }
+    }
+  },[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
