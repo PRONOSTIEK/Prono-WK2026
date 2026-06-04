@@ -5154,7 +5154,7 @@ function App(){
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
       sb.from('punten_vragen').select('*'),
       sb.from('fairplay').select('*'),
-      sb.from('ko_pronos').select('*').limit(10000),
+      sb.from('ko_pronos').select('*').limit(100000),
     ]);
     // Grote tabellen sequentieel laden
     const{data:pm}=await sb.from('pronos_matches').select('*').limit(10000);
