@@ -1994,9 +1994,8 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     } else {
       await sb.from('ko_pronos').upsert({user_id:cur.id,match_id:matchId,winner_pred:winner},{onConflict:'user_id,match_id'});
     }
-    sv();onRefresh();
-  }
-  function hB(bid,val){if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
+    sv();
+  }{if(readOnly||dlPassed)return;setLPB(p=>({...p,[bid]:val}));if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>saveBv(bid,val),800);}
   function hFP(grp,ranking){if(readOnly)return;setLFP(p=>({...p,[grp]:ranking}));saveFP(grp,ranking);}
 
   function hM(mid,side,val){if(readOnly||gfStart)return;const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
