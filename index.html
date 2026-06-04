@@ -1984,14 +1984,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   }
   const myKO=koPronosAll[cur.id]||{};
   const[lKO,setLKO]=useState(myKO);
-  useEffect(()=>{
-    setLKO(prev=>{
-      const db=koPronosAll[cur.id]||{};
-      // Enkel db-waarden toevoegen die nog niet lokaal gezet zijn
-      const merged={...db,...prev};
-      return merged;
-    });
-  },[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
