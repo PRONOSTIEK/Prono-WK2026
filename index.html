@@ -1988,6 +1988,22 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const sessionKey=`lKO_${cur.id}`;
   const sessionData=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
   const[lKO,setLKO]=useState({...myKO,...sessionData});
+  // Laad eigen KO-data direct als koPronosAll nog leeg is
+  useEffect(()=>{
+    if(Object.keys(koPronosAll[cur.id]||{}).length===0&&!readOnly){
+      sb.from('ko_pronos').select('*').eq('user_id',cur.id).then(({data})=>{
+        if(data&&data.length>0){
+          const own={};
+          for(const p of data){own[p.match_id]=p.winner_pred;if(p.away_pred)own[p.match_id+'_away']=p.away_pred;}
+          setLKO(prev=>{
+            const merged={...own,...prev};
+            sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+            return merged;
+          });
+        }
+      });
+    }
+  },[cur.id]);
   useEffect(()=>{
     setLKO(prev=>{
       const merged={...(koPronosAll[cur.id]||{}),...prev};
