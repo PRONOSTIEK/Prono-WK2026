@@ -2559,11 +2559,13 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              const heeftData=!!lKO[m.id];
+              const heeftData=!!(lKO[m.id]||(koPronosAll[cur.id]||{})[m.id]);
               // Toon data als de deelnemer iets heeft ingevuld, ook als vorige ronde niet volledig is
               const toonData=vorigeOk||isReal||heeftData;
               const gekozenRaw=!toonData?'':(lKO[m.id]||'');
-              const teams=!toonData?[]:(getMatchTeams(m)||[]);
+              const teamsBerekend=!toonData?[]:(getMatchTeams(m)||[]);
+              // Als deelnemer al een keuze heeft, toon die keuze ook als teams nog niet beschikbaar zijn
+              const teams=heeftData&&teamsBerekend.length<2?[gekozenRaw].filter(Boolean):teamsBerekend;
               const gekozen=gekozenRaw;
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
