@@ -1960,7 +1960,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const dlPassed=isDeadlinePassed(deadline)||config['actief_bijvragen_deadline']==='1';
   const koDlPassed=isDeadlinePassed(config.ko_deadline||'')||config['actief_ko_deadline']==='1';
 
-  useEffect(()=>setLPM(pmAll[cur.id]||{}),[pmAll,cur.id]);
+  useEffect(()=>setLPM(prev=>({...(pmAll[cur.id]||{}),...prev})),[pmAll,cur.id]);
   useEffect(()=>setLPB(pbAll[cur.id]||{}),[pbAll,cur.id]);
   useEffect(()=>setLJ((jAll[cur.id]||[]).map(j=>j.match_id)),[jAll,cur.id]);
   useEffect(()=>setLFP(fpAll[cur.id]||{}),[fpAll,cur.id]);
@@ -4685,6 +4685,18 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
     {tab==='fifa'&&<FifaTab matches={matches} fifaRanking={fifaRanking} config={config} onRefresh={onRefresh}/>}
 
     {tab==='deadline'&&<div>
+      <div className="card" style={{marginBottom:14}}>
+        <div className="card-title">🔄 Auto-refresh interval</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Hoe vaak de app data herlaadt (in seconden). Gebruik 12s tijdens het WK, 60s voor de start.</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <input className="ii" type="number" min="5" max="300"
+            defaultValue={config['refresh_interval']||60}
+            style={{width:80}}
+            onBlur={async e=>{await sb.from('config').upsert({key:'refresh_interval',value:e.target.value});onRefresh();}}
+          />
+          <span style={{fontSize:12,color:'var(--muted)'}}>seconden (huidig: {config['refresh_interval']||60}s)</span>
+        </div>
+      </div>
       <div className="card">
         <div className="card-title">📅 Teldatums per fase</div>
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Stel per fase in vanaf wanneer de punten meetellen in het klassement. Laat leeg = nog niet actief.</div>
@@ -5295,7 +5307,11 @@ function App(){
     if(!silent)setLoad(false);
   }
   useEffect(()=>{loadAll();},[]);
-  useEffect(()=>{const t=setInterval(()=>loadAll(true),12000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{
+    const interval=Number(config['refresh_interval']||60)*1000;
+    const t=setInterval(()=>loadAll(true),interval);
+    return()=>clearInterval(t);
+  },[config['refresh_interval']]);
 
   if(load)return<div className="spinner">⚽ Laden...</div>;
   if(!user)return<Login onLogin={u=>{setUser(u);setPage(u.is_admin?'admin':'uitleg');}} config={config}/>;
