@@ -1984,35 +1984,16 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
     sv();onRefresh();
   }
-  const myKO=koPronosAll[cur.id]||{};
   const sessionKey=`lKO_${cur.id}`;
-  const sessionData=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
-  // Merge: database wint over sessionStorage voor bestaande keys, maar sessionStorage behoudt nieuwe keys
-  const initKO={...myKO,...sessionData};
-  const[lKO,setLKO]=useState(initKO);
-  // Sync sessionStorage met database bij eerste load
+  const myKO={...(koPronosAll[cur.id]||{}),...JSON.parse(sessionStorage.getItem(sessionKey)||'{}')};
+  const[lKO,setLKO]=useState(myKO);
   useEffect(()=>{
-    const dbData=koPronosAll[cur.id]||{};
-    if(Object.keys(dbData).length>0){
-      setLKO(prev=>{
-        const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
-        const merged={...dbData,...stored};
-        sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-        return merged;
-      });
-    }
-  },[cur.id]);
-  // Update als koPronosAll later bijgewerkt wordt
-  useEffect(()=>{
-    const dbData=koPronosAll[cur.id]||{};
-    if(Object.keys(dbData).length>0){
-      setLKO(prev=>{
-        const merged={...dbData,...prev};
-        sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-        return merged;
-      });
-    }
-  },[koPronosAll]);
+    const db=koPronosAll[cur.id]||{};
+    const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
+    const merged={...db,...stored};
+    sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+    setLKO(merged);
+  },[koPronosAll,cur.id]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
@@ -2559,7 +2540,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              const heeftData=!!(lKO[m.id]||(koPronosAll[cur.id]||{})[m.id]);
+              const heeftData=!!(lKO[m.id]);
               // Toon data als de deelnemer iets heeft ingevuld, ook als vorige ronde niet volledig is
               const toonData=vorigeOk||isReal||heeftData;
               const gekozenRaw=!toonData?'':(lKO[m.id]||'');
@@ -5375,13 +5356,13 @@ function App(){
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
           const pronoUser=viewAsUser&&user.is_admin?viewAsUser:freshUser;
-          const koLoaded=Object.keys(koPronosAll[pronoUser.id]||{}).length>0||true;
+          const koLoaded=Object.keys(koPronosAll[pronoUser.id]||{}).length>0;
           return(<div>
             {viewAsUser&&user.is_admin&&<div style={{background:'var(--dark3)',border:'1px solid var(--gold)',borderRadius:7,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
               <span style={{fontSize:12,color:'var(--gold)'}}>👁 Admin-weergave: pronostiek van <strong>{viewAsUser.name}</strong></span>
               <button style={{background:'none',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:5,padding:'3px 8px',cursor:'pointer',fontSize:11}} onClick={()=>setViewAsUser(null)}>✕ Eigen pronostiek</button>
             </div>}
-            <Pronostiek key={`${pronoUser.id}-${Object.keys(koPronosAll[pronoUser.id]||{}).length}`} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)} lKOCache={lKOCache} setLKOCache={setLKOCache}/>
+            <Pronostiek key={`${pronoUser.id}-${koLoaded?'loaded':'empty'}`} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)} lKOCache={lKOCache} setLKOCache={setLKOCache}/>
           </div>);
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
