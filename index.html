@@ -2559,15 +2559,18 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
             {r.matches.map(m=>{
               const vorigeOk=vorigeRondeVolledig(r.id);
               const isReal=!!m.winner;
-              const gekozenRaw=(!isReal&&!vorigeOk)?'':(lKO[m.id]||'');
-              const teams=(!isReal&&!vorigeOk)?[]:(getMatchTeams(m)||[]);
+              const heeftData=!!lKO[m.id];
+              // Toon data als de deelnemer iets heeft ingevuld, ook als vorige ronde niet volledig is
+              const toonData=vorigeOk||isReal||heeftData;
+              const gekozenRaw=!toonData?'':(lKO[m.id]||'');
+              const teams=!toonData?[]:(getMatchTeams(m)||[]);
               const gekozen=gekozenRaw;
               const correct=isReal&&gekozen&&gekozen===m.winner;
               const fout=isReal&&gekozen&&gekozen!==m.winner;
               // Oranje: gekozen ploeg verliest deze match maar heeft een andere match in dezelfde ronde gewonnen
               const gekozenGaatDoor=fout&&koMatches.some(x=>x.round===m.round&&x.id!==m.id&&x.winner===gekozen);
               const borderClr=correct?'var(--green)':gekozenGaatDoor?'var(--gold)':fout?'var(--red)':'var(--border)';
-              const isBlocked=!vorigeOk&&!isReal;
+              const isBlocked=!vorigeOk&&!isReal&&!heeftData;
               // Ploegen die al gekozen zijn in een andere match van dezelfde ronde
               const alGekozenInRonde=new Set(r.matches.filter(x=>x.id!==m.id&&lKO[x.id]).map(x=>lKO[x.id]));
               const tijdKey=`${r.id}_${m.position}`;
