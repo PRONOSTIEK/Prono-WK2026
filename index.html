@@ -4903,16 +4903,16 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       <div style={{marginBottom:14}}>
         <button className="btn btn-sm btn-outline" onClick={async()=>{
           const[{data:pm},{data:pb},{data:kp},{data:cfg},{data:km},{data:bv},{data:ss},{data:fr},{data:pv},{data:fp},{data:us}]=await Promise.all([
-            sb.from('pronos_matches').select('*'),
-            sb.from('pronos_bijvragen').select('*'),
-            sb.from('ko_pronos').select('*'),
+            sb.from('pronos_matches').select('*').limit(100000),
+            sb.from('pronos_bijvragen').select('*').limit(100000),
+            sb.from('ko_pronos').select('*').limit(100000),
             sb.from('config').select('*'),
             sb.from('ko_matches').select('*'),
             sb.from('bijvragen').select('*'),
             sb.from('speler_stats').select('*'),
             sb.from('fifa_ranking').select('*'),
-            sb.from('punten_vragen').select('*'),
-            sb.from('fairplay').select('*'),
+            sb.from('punten_vragen').select('*').limit(10000),
+            sb.from('fairplay').select('*').limit(100000),
             sb.from('users').select('*'),
           ]);
           const backup={datum:new Date().toISOString(),pronos_matches:pm,pronos_bijvragen:pb,ko_pronos:kp,config:cfg,ko_matches:km,bijvragen:bv,speler_stats:ss,fifa_ranking:fr,punten_vragen:pv,fairplay:fp,users:us};
@@ -5208,14 +5208,14 @@ function App(){
     const[{data:us},{data:ma},{data:bv},{data:cfg},{data:ss},{data:km},{data:kpt},{data:fr},{data:pv},{data:fp},{data:kp}]=await Promise.all([
       sb.from('users').select('*'),
       sb.from('matches').select('*').order('group').order('date').order('id'),
-      sb.from('bijvragen').select('*').order('sort_order'),
+      sb.from('bijvragen').select('*').order('sort_order').limit(1000),
       sb.from('config').select('*'),
       sb.from('speler_stats').select('*'),
       sb.from('ko_matches').select('*').order('round_order').order('position'),
       sb.from('ko_punten').select('*'),
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
-      sb.from('punten_vragen').select('*'),
-      sb.from('fairplay').select('*'),
+      sb.from('punten_vragen').select('*').limit(10000),
+      sb.from('fairplay').select('*').limit(100000),
       user?.is_admin?sb.from('ko_pronos').select('*').limit(100000):sb.from('ko_pronos').select('*').eq('user_id',user?.id||''),
     ]);
     // Grote tabellen sequentieel laden
