@@ -1970,19 +1970,19 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   async function saveBv(bid,ans){
     if(readOnly)return;
     await sb.from('pronos_bijvragen').upsert({user_id:cur.id,bv_id:bid,answer:ans},{onConflict:'user_id,bv_id'});
-    sv();onRefresh();
+    sv();
   }
   async function saveFP(grp,ranking){
     if(readOnly)return;
     await sb.from('fairplay').upsert({user_id:cur.id,group:grp,team:JSON.stringify(ranking)},{onConflict:'user_id,group'});
-    sv();onRefresh();
+    sv();
   }
   async function togJ(mid,grp){
     if(gfStart||readOnly)return;
     const has=lJ.includes(mid);
     if(has){await sb.from('jokers').delete().eq('user_id',cur.id).eq('match_id',mid);setLJ(j=>j.filter(x=>x!==mid));}
     else{const ex=(jAll[cur.id]||[]).find(j=>j.group===grp);if(ex)await sb.from('jokers').delete().eq('user_id',cur.id).eq('group',grp);await sb.from('jokers').insert({user_id:cur.id,match_id:mid,group:grp});setLJ(j=>[...j.filter(x=>{const m=matches.find(mm=>mm.id===x);return m&&m.group!==grp;}),mid]);}
-    sv();onRefresh();
+    sv();
   }
   const sessionKey=`lKO_${cur.id}`;
   const myKO={...(koPronosAll[cur.id]||{}),...JSON.parse(sessionStorage.getItem(sessionKey)||'{}')};
