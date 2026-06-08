@@ -5365,13 +5365,12 @@ function App(){
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
           const pronoUser=viewAsUser&&user.is_admin?viewAsUser:freshUser;
-          const koLoaded=Object.keys(koPronosAll[pronoUser.id]||{}).length>0;
           return(<div>
             {viewAsUser&&user.is_admin&&<div style={{background:'var(--dark3)',border:'1px solid var(--gold)',borderRadius:7,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
               <span style={{fontSize:12,color:'var(--gold)'}}>👁 Admin-weergave: pronostiek van <strong>{viewAsUser.name}</strong></span>
               <button style={{background:'none',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:5,padding:'3px 8px',cursor:'pointer',fontSize:11}} onClick={()=>setViewAsUser(null)}>✕ Eigen pronostiek</button>
             </div>}
-            <Pronostiek key={`${pronoUser.id}-${koLoaded?'loaded':'empty'}`} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)} lKOCache={lKOCache} setLKOCache={setLKOCache}/>
+            <Pronostiek key={pronoUser.id} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} cur={pronoUser} config={config} spelerStats={spelerStats} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} initialTab={pronoTab} onRefresh={loadAll} readOnly={!!(viewAsUser&&user.is_admin)} lKOCache={lKOCache} setLKOCache={setLKOCache}/>
           </div>);
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
