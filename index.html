@@ -1987,30 +1987,32 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myKO=koPronosAll[cur.id]||{};
   const sessionKey=`lKO_${cur.id}`;
   const sessionData=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
-  const[lKO,setLKO]=useState({...myKO,...sessionData});
-  // Laad eigen KO-data direct als koPronosAll nog leeg is
+  // Merge: database wint over sessionStorage voor bestaande keys, maar sessionStorage behoudt nieuwe keys
+  const initKO={...myKO,...sessionData};
+  const[lKO,setLKO]=useState(initKO);
+  // Sync sessionStorage met database bij eerste load
   useEffect(()=>{
-    if(Object.keys(koPronosAll[cur.id]||{}).length===0&&!readOnly){
-      sb.from('ko_pronos').select('*').eq('user_id',cur.id).then(({data})=>{
-        if(data&&data.length>0){
-          const own={};
-          for(const p of data){own[p.match_id]=p.winner_pred;if(p.away_pred)own[p.match_id+'_away']=p.away_pred;}
-          setLKO(prev=>{
-            const merged={...own,...prev};
-            sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-            return merged;
-          });
-        }
+    const dbData=koPronosAll[cur.id]||{};
+    if(Object.keys(dbData).length>0){
+      setLKO(prev=>{
+        const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
+        const merged={...dbData,...stored};
+        sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+        return merged;
       });
     }
   },[cur.id]);
+  // Update als koPronosAll later bijgewerkt wordt
   useEffect(()=>{
-    setLKO(prev=>{
-      const merged={...(koPronosAll[cur.id]||{}),...prev};
-      sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-      return merged;
-    });
-  },[koPronosAll,cur.id]);
+    const dbData=koPronosAll[cur.id]||{};
+    if(Object.keys(dbData).length>0){
+      setLKO(prev=>{
+        const merged={...dbData,...prev};
+        sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+        return merged;
+      });
+    }
+  },[koPronosAll]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
