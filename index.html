@@ -1966,7 +1966,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   useEffect(()=>setLFP(fpAll[cur.id]||{}),[fpAll,cur.id]);
 
   function sv(){if(readOnly)return;setSaved(true);setTimeout(()=>setSaved(false),1800);}
-  async function saveM(mid,h,a){if(readOnly||gfStart)return;await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();onRefresh();}
+  async function saveM(mid,h,a){if(readOnly||gfStart)return;await sb.from('pronos_matches').upsert({user_id:cur.id,match_id:mid,home_pred:parseInt(h),away_pred:parseInt(a)},{onConflict:'user_id,match_id'});sv();}
   async function saveBv(bid,ans){
     if(readOnly)return;
     await sb.from('pronos_bijvragen').upsert({user_id:cur.id,bv_id:bid,answer:ans},{onConflict:'user_id,bv_id'});
