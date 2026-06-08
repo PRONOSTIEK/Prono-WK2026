@@ -2003,15 +2003,6 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
       }
     });
   },[cur.id]);
-  useEffect(()=>{
-    const db=koPronosAll[cur.id]||{};
-    if(Object.keys(db).length>0){
-      const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
-      const merged={...db,...stored};
-      sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-      setLKO(merged);
-    }
-  },[koPronosAll]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
