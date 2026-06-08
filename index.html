@@ -1988,12 +1988,30 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   const myKO={...(koPronosAll[cur.id]||{}),...JSON.parse(sessionStorage.getItem(sessionKey)||'{}')};
   const[lKO,setLKO]=useState(myKO);
   useEffect(()=>{
+    // Laad eigen KO-data direct uit Supabase bij mount
+    sb.from('ko_pronos').select('*').eq('user_id',cur.id).then(({data})=>{
+      if(data&&data.length>0){
+        const own={};
+        for(const p of data){
+          own[p.match_id]=p.winner_pred;
+          if(p.away_pred)own[p.match_id+'_away']=p.away_pred;
+        }
+        const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
+        const merged={...own,...stored};
+        sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+        setLKO(merged);
+      }
+    });
+  },[cur.id]);
+  useEffect(()=>{
     const db=koPronosAll[cur.id]||{};
-    const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
-    const merged={...db,...stored};
-    sessionStorage.setItem(sessionKey,JSON.stringify(merged));
-    setLKO(merged);
-  },[koPronosAll,cur.id]);
+    if(Object.keys(db).length>0){
+      const stored=JSON.parse(sessionStorage.getItem(sessionKey)||'{}');
+      const merged={...db,...stored};
+      sessionStorage.setItem(sessionKey,JSON.stringify(merged));
+      setLKO(merged);
+    }
+  },[koPronosAll]);
   async function saveKO(matchId,winner,side='home',roundMatches){
     if(readOnly||koDlPassed)return;
     const key=side==='away'?matchId+'_away':matchId;
