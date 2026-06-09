@@ -3054,10 +3054,17 @@ function MatchDay({matches, pmAll, cur, config}){
   if(dagen.length===0)return(<div><div className="section-title">🗓️ Match Day</div><div style={{color:'var(--muted)',fontSize:13,padding:16}}>Geen wedstrijden gevonden.</div></div>);
 
   const huidigeDag=dagen[dagIdx];
-  const dagMatches=matches.filter(m=>m.date?.slice(0,10)===huidigeDag).sort((a,b)=>a.date?.localeCompare(b.date)||0);
+  const dagMatches=matches.filter(m=>m.date?.slice(0,10)===huidigeDag).sort((a,b)=>{
+    const groepMatchesA=matches.filter(x=>x.group===a.group).sort((x,y)=>x.date?.localeCompare(y.date)||0);
+    const groepMatchesB=matches.filter(x=>x.group===b.group).sort((x,y)=>x.date?.localeCompare(y.date)||0);
+    const idxA=groepMatchesA.findIndex(x=>x.id===a.id)+1;
+    const idxB=groepMatchesB.findIndex(x=>x.id===b.id)+1;
+    const tijdA=GF_MATCH_TIJDEN[`${a.group}_${idxA}`]||'';
+    const tijdB=GF_MATCH_TIJDEN[`${b.group}_${idxB}`]||'';
+    return tijdA.localeCompare(tijdB);
+  });
   const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   const isVandaag=huidigeDag===vandaag;
-
   return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
     <div className="section-title">🗓️ Match Day</div>
     {/* Dag navigatie */}
