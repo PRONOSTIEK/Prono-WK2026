@@ -3032,6 +3032,74 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 }
 
 // UITLEG PAGINA + CHECKLIST
+function MatchDay({matches, pmAll, cur, config}){
+  // Alle unieke speeldagen gesorteerd
+  const dagen=[...new Set(matches.map(m=>m.date?.slice(0,10)).filter(Boolean))].sort();
+  const vandaag=new Date().toISOString().slice(0,10);
+  const initIdx=Math.max(0,dagen.indexOf(vandaag)===-1?0:dagen.indexOf(vandaag));
+  const[dagIdx,setDagIdx]=useState(initIdx);
+  const touchStart=useRef(null);
+
+  function handleTouchStart(e){touchStart.current=e.touches[0].clientX;}
+  function handleTouchEnd(e){
+    if(touchStart.current===null)return;
+    const diff=touchStart.current-e.changedTouches[0].clientX;
+    if(Math.abs(diff)>50){
+      if(diff>0)setDagIdx(i=>Math.min(i+1,dagen.length-1));
+      else setDagIdx(i=>Math.max(i-1,0));
+    }
+    touchStart.current=null;
+  }
+
+  if(dagen.length===0)return(<div><div className="section-title">🗓️ Match Day</div><div style={{color:'var(--muted)',fontSize:13,padding:16}}>Geen wedstrijden gevonden.</div></div>);
+
+  const huidigeDag=dagen[dagIdx];
+  const dagMatches=matches.filter(m=>m.date?.slice(0,10)===huidigeDag).sort((a,b)=>a.date?.localeCompare(b.date)||0);
+  const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+  const isVandaag=huidigeDag===vandaag;
+
+  return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="section-title">🗓️ Match Day</div>
+    {/* Dag navigatie */}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,gap:8}}>
+      <button className="btn btn-sm btn-outline" onClick={()=>setDagIdx(i=>Math.max(i-1,0))} disabled={dagIdx===0} style={{minWidth:36}}>◀</button>
+      <div style={{textAlign:'center',flex:1}}>
+        <div style={{fontSize:14,fontWeight:600,color:isVandaag?'var(--green)':'var(--text)'}}>{isVandaag?'Vandaag':dagLabel}</div>
+        {!isVandaag&&<div style={{fontSize:11,color:'var(--muted)'}}>{dagLabel}</div>}
+        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{dagIdx+1} / {dagen.length}</div>
+      </div>
+      <button className="btn btn-sm btn-outline" onClick={()=>setDagIdx(i=>Math.min(i+1,dagen.length-1))} disabled={dagIdx===dagen.length-1} style={{minWidth:36}}>▶</button>
+    </div>
+    {/* Wedstrijden van die dag */}
+    {dagMatches.map(m=>{
+      const p=pmAll[cur.id]?.[m.id];
+      const tijdKey=`${m.group}_${(matches.filter(x=>x.group===m.group).sort((a,b)=>a.date?.localeCompare(b.date)||0).findIndex(x=>x.id===m.id))+1}`;
+      const tijd=GF_MATCH_TIJDEN[tijdKey];
+      const gespeeld=m.home_score!=null;
+      return(<div key={m.id} className="card" style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+          <span style={{fontSize:11,color:'var(--muted)'}}>Groep {m.group}</span>
+          {tijd&&<span style={{fontSize:11,color:'var(--muted)'}}>{tijd} (Belgische tijd)</span>}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+          <span style={{fontWeight:600,flex:1}}>{m.home}</span>
+          <div style={{textAlign:'center',minWidth:60}}>
+            {gespeeld
+              ?<span style={{fontFamily:'Bebas Neue',fontSize:24,color:'var(--gold)'}}>{m.home_score}–{m.away_score}</span>
+              :<span style={{color:'var(--muted)',fontSize:13}}>–</span>
+            }
+          </div>
+          <span style={{fontWeight:600,flex:1,textAlign:'right'}}>{m.away}</span>
+        </div>
+        {p&&p.home_pred!=null&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,textAlign:'center',fontSize:12,color:'var(--muted)'}}>
+          Mijn prono: <strong style={{color:'var(--text)'}}>{p.home_pred}–{p.away_pred}</strong>
+        </div>}
+        {!p&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,textAlign:'center',fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Niet ingevuld</div>}
+      </div>);
+    })}
+  </div>);
+}
+
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n');
@@ -5326,7 +5394,11 @@ function App(){
     setPage('prono');
     setPronoTab('bijvragen');
   }
+  const vandaag=new Date().toISOString().slice(0,10);
+  const matchesToday=matches.filter(m=>m.date&&m.date.slice(0,10)===vandaag);
+  const heeftMatchDay=matchesToday.length>0;
   const nav=[
+    {id:'matchday',icon:'🗓️',label:'Match Day'},
     {id:'uitleg',icon:'📖',label:'Handleiding'},
     {id:'klassement',icon:'🏆',label:'Klassement'},
     {id:'prono',icon:'📋',label:'Pronostiek'},
@@ -5379,7 +5451,7 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
+        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config}/>} config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
           const pronoUser=viewAsUser&&user.is_admin?viewAsUser:freshUser;
