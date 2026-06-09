@@ -3033,8 +3033,8 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 
 // UITLEG PAGINA + CHECKLIST
 function MatchDay({matches, pmAll, cur, config}){
-  // Alle unieke speeldagen gesorteerd
-  const dagen=[...new Set(matches.map(m=>m.date?.slice(0,10)).filter(Boolean))].sort();
+  const getdag=m=>(m.display_date||m.date||'').slice(0,10);
+  const dagen=[...new Set(matches.map(m=>getdag(m)).filter(Boolean))].sort();
   const vandaag=new Date().toISOString().slice(0,10);
   const initIdx=Math.max(0,dagen.indexOf(vandaag)===-1?0:dagen.indexOf(vandaag));
   const[dagIdx,setDagIdx]=useState(initIdx);
@@ -3054,7 +3054,7 @@ function MatchDay({matches, pmAll, cur, config}){
   if(dagen.length===0)return(<div><div className="section-title">🗓️ Match Day</div><div style={{color:'var(--muted)',fontSize:13,padding:16}}>Geen wedstrijden gevonden.</div></div>);
 
   const huidigeDag=dagen[dagIdx];
-  const dagMatches=matches.filter(m=>m.date?.slice(0,10)===huidigeDag).sort((a,b)=>{
+  const dagMatches=matches.filter(m=>getdag(m)===huidigeDag).sort((a,b)=>{
     const groepMatchesA=matches.filter(x=>x.group===a.group).sort((x,y)=>x.date?.localeCompare(y.date)||0);
     const groepMatchesB=matches.filter(x=>x.group===b.group).sort((x,y)=>x.date?.localeCompare(y.date)||0);
     const idxA=groepMatchesA.findIndex(x=>x.id===a.id)+1;
@@ -4246,7 +4246,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       })()
       :(
         <div>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan. De "Match Day datum" is de datum die getoond wordt in de Match Day tab (laat leeg om de gewone datum te gebruiken).</div>
       {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
           <input className="ii" style={{width:108}} defaultValue={m.date} onBlur={e=>setMField(m.id,'date',e.target.value)} placeholder="Datum"/>
@@ -4254,11 +4254,40 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.away} onBlur={e=>setMField(m.id,'away',e.target.value)} placeholder="Uit"/>
         </div>
-        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+        <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:4}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Uitslag:</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.home_score??''} onBlur={e=>setMScore(m.id,'home_score',e.target.value)} placeholder="–"/>
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
+        </div>
+        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
+          <input className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
+            defaultValue={m.display_date?m.display_date.slice(8,10):''}
+            placeholder="dag"
+            onBlur={async e=>{
+              const dag=e.target.value.padStart(2,'0');
+              const huidig=m.display_date||m.date||'';
+              const uur=huidig.slice(11,16)||'00:00';
+              const val=dag?`2026-06-${dag}T${uur}`:null;
+              await sb.from('matches').update({display_date:val}).eq('id',m.id);
+              onRefresh();
+            }}
+          />
+          <span style={{fontSize:11,color:'var(--muted)'}}>juni &nbsp; uur:</span>
+          <input className="ii" type="time" style={{width:80}}
+            defaultValue={m.display_date?m.display_date.slice(11,16):''}
+            placeholder="uur"
+            onBlur={async e=>{
+              const uur=e.target.value||'00:00';
+              const huidig=m.display_date||m.date||'';
+              const dag=huidig.slice(8,10)||m.date?.slice(8,10)||'11';
+              const val=`2026-06-${dag}T${uur}`;
+              await sb.from('matches').update({display_date:val}).eq('id',m.id);
+              onRefresh();
+            }}
+          />
+          {m.display_date&&<span style={{fontSize:10,color:'var(--green)'}}>✓ {m.display_date.slice(8,10)} jun {m.display_date.slice(11,16)}</span>}
         </div>
       </div>)}
 
