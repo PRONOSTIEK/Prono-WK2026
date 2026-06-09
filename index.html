@@ -5451,7 +5451,8 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config}/>} config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
+        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config}/>}
+        {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
           const pronoUser=viewAsUser&&user.is_admin?viewAsUser:freshUser;
