@@ -5216,7 +5216,7 @@ function App(){
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
       sb.from('punten_vragen').select('*').limit(10000),
       sb.from('fairplay').select('*').limit(100000),
-      user?.is_admin?sb.from('ko_pronos').select('*').limit(100000):sb.from('ko_pronos').select('*').eq('user_id',user?.id||''),
+      (user?.is_admin?sb.from('ko_pronos').select('*').limit(100000):sb.from('ko_pronos').select('*').eq('user_id',user?.id||'x')),
     ]);
     // Grote tabellen sequentieel laden
     const{data:pm}=await sb.from('pronos_matches').select('*').limit(10000);
@@ -5307,6 +5307,7 @@ function App(){
     if(!silent)setLoad(false);
   }
   useEffect(()=>{loadAll();},[]);
+  useEffect(()=>{if(user?.id)loadAll();},[user?.id]);
   useEffect(()=>{
     const interval=Number(config['refresh_interval']||60)*1000;
     const t=setInterval(()=>loadAll(true),interval);
