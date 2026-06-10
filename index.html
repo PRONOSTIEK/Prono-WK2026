@@ -1524,7 +1524,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const teldatum=config['tel_bijvragen']||config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum)||isFaseActief(config,'bijvragen');
 
-  const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>a.date?.localeCompare(b.date)||0);
+  const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>(a.display_date||a.date||'').localeCompare(b.display_date||b.date||''));
 
   const KO_RONDES=[{id:'R32',label:'16e'},{id:'R16',label:'8e'},{id:'KF',label:'KF'},{id:'HF',label:'HF'},{id:'KF3',label:'KF3'},{id:'F',label:'F'}];
   const st=echteUsers.map(u=>{
