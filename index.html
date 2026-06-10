@@ -2222,8 +2222,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               <span>{(()=>{
                 const gm_sorted=mbg[m.group]||[];
                 const idx=gm_sorted.findIndex(x=>x.id===m.id)+1;
+                if(m.display_date){
+                  const d=new Date(m.display_date);
+                  const dag=d.getDate();
+                  const maand=d.toLocaleDateString('nl-BE',{month:'long'});
+                  const uur=m.display_date.slice(11,16);
+                  return `${dag} ${maand}, ${uur} (Belgische tijd)`;
+                }
                 const tijd=GF_MATCH_TIJDEN[`${m.group}_${idx}`];
-                return tijd?`${tijd} (Belgische tijd)`:m.date;
+                return tijd?`${tijd} (Belgische tijd)`:'';
               })()}</span>
               <div style={{display:'flex',gap:5,alignItems:'center'}}>
                 {isJ&&<span className="tag tag-gold">🃏×2</span>}
@@ -4262,26 +4269,24 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         </div>
         <div style={{display:'flex',gap:4,alignItems:'center'}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
-          <input className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
+          <input key={`dag-${m.id}-${m.display_date}`} className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
             defaultValue={m.display_date?m.display_date.slice(8,10):''}
             placeholder="dag"
             onBlur={async e=>{
               const dag=e.target.value.padStart(2,'0');
-              const huidig=m.display_date||m.date||'';
-              const uur=huidig.slice(11,16)||'00:00';
+              const uur=(m.display_date||'').slice(11,16)||'00:00';
               const val=dag?`2026-06-${dag}T${uur}`:null;
               await sb.from('matches').update({display_date:val}).eq('id',m.id);
               onRefresh();
             }}
           />
           <span style={{fontSize:11,color:'var(--muted)'}}>juni &nbsp; uur:</span>
-          <input className="ii" type="time" style={{width:80}}
+          <input key={`uur-${m.id}-${m.display_date}`} className="ii" type="time" style={{width:80}}
             defaultValue={m.display_date?m.display_date.slice(11,16):''}
             placeholder="uur"
             onBlur={async e=>{
               const uur=e.target.value||'00:00';
-              const huidig=m.display_date||m.date||'';
-              const dag=huidig.slice(8,10)||m.date?.slice(8,10)||'11';
+              const dag=(m.display_date||m.date||'').slice(8,10)||'11';
               const val=`2026-06-${dag}T${uur}`;
               await sb.from('matches').update({display_date:val}).eq('id',m.id);
               onRefresh();
