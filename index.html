@@ -3070,7 +3070,7 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
   const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   const isVandaag=huidigeDag===vandaag;
   const myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
-  const pt=avgPT(pvAll?.filter(p=>p.user_id===cur.id)||[]);
+  const pt=avgPT(pvAll||[]);
 
   return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
     <div className="section-title">🗓️ Match Day</div>
