@@ -3963,40 +3963,62 @@ function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,speler
 
 function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPronosAll,config){
   const GRP_ALL=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const pm=pmAll[u.id]||{};
-  const fp=fpAll[u.id]||{};
-  const myJ=(jAll[u.id]||[]).map(j=>j.group);
-  const pb=pbAll[u.id]||{};
+  const myPM=pmAll[u.id]||{};
+  const myFP=fpAll[u.id]||{};
+  const myJ=(jAll[u.id]||[]);
+  const myPB=pbAll[u.id]||{};
   const myKO=koPronosAll[u.id]||{};
-  const groepStatus=GRP_ALL.map(g=>{
-    const gm=matches.filter(m=>m.group===g);
-    const ingevuld=gm.filter(m=>pm[m.id]?.home_pred!=null).length;
-    const volledig=ingevuld===gm.length&&gm.length>0;
-    const heeftJoker=myJ.includes(g);
-    const heeftFP=!!(fp[g]&&(Array.isArray(fp[g])?fp[g].length>=4:true));
-    return{g,volledig,heeftJoker,heeftFP};
-  });
-  const bvVolledig=bvs.length>0?bvs.every(b=>pb[b.id]!=null&&pb[b.id]!==''):null;
-  const pvIngevuld=(pvAll||[]).some(p=>p.user_id===u.id&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>p[k]!=null));
+  const myPV=(pvAll||[]).find(p=>p.user_id===u.id);
+
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+
+  const groepStatus=GRP_ALL.map(grp=>{
+    const gm=mbg[grp]||[];
+    if(gm.length===0)return null;
+    const teams=new Set();
+    for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
+    const ingevuld=gm.filter(m=>{const p=myPM[m.id];return p&&p.home_pred!=null&&p.away_pred!=null;}).length;
+    const heeftJoker=myJ.some(j=>j.group===grp);
+    let fpVal=myFP[grp];
+    if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+    const heeftFP=Array.isArray(fpVal)&&fpVal.length===teams.size;
+    return{grp,aantalMatches:gm.length,ingevuld,volledig:ingevuld===gm.length,heeftJoker,heeftFP};
+  }).filter(Boolean);
+
+  let _ac=0;
+  const telBareBvs=bvs.filter(bv=>{if(bv.type==='speler3')return true;if(_ac<4){_ac++;return false;}return true;});
+  const aantalBv=telBareBvs.length;
+  const ingevuldBv=telBareBvs.filter(bv=>{
+    if(bv.type==='speler3')return[1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
+    const a=myPB[bv.id];return a&&a.trim()!=='';
+  }).length;
+  const bvVolledig=aantalBv>0&&ingevuldBv===aantalBv;
+  const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
+
   const ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
-  function koRondeVolledig(r){
+  function koRondeGeldigEnVolledig(roundId){
+    const prMatches=koMatches.filter(m=>m.round===roundId);
+    if(!prMatches.length)return true;
+    const prevRounds=ROUND_ORDER.slice(0,ROUND_ORDER.indexOf(roundId));
+    if(!prevRounds.every(pr=>koRondeGeldigEnVolledig(pr)))return false;
+    return prMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
+  }
+  const koRondStatus=['R32','R16','KF','HF','KF3','F'].map(r=>{
     const rMatches=koMatches.filter(m=>m.round===r);
     if(!rMatches.length)return null;
     const prevRounds=ROUND_ORDER.slice(0,ROUND_ORDER.indexOf(r));
-    const vorigeOk=prevRounds.every(pr=>{
-      const prMatches=koMatches.filter(m=>m.round===pr);
-      return prMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
-    });
-    if(!vorigeOk)return false;
-    return rMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
-  }
-  const koRondStatus=ROUND_ORDER.map(r=>koRondeVolledig(r)).filter(v=>v!==null);
+    const vorigeOk=prevRounds.every(pr=>koRondeGeldigEnVolledig(pr));
+    const ingevuld=vorigeOk?rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length:0;
+    return{r,totaal:rMatches.length,ingevuld,volledig:vorigeOk&&ingevuld===rMatches.length};
+  }).filter(Boolean);
+
   const checks=[
     ...groepStatus.map(g=>g.volledig),
     ...groepStatus.map(g=>g.heeftJoker),
     ...groepStatus.map(g=>g.heeftFP),
     bvVolledig,pvIngevuld,
-    ...koRondStatus,
+    ...koRondStatus.map(r=>r.volledig),
     u.betaald,
   ].filter(v=>v!==null);
   return checks.length?Math.round(checks.filter(Boolean).length/checks.length*100):0;
