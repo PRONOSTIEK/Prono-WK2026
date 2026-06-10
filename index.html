@@ -4267,31 +4267,23 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
         </div>
-        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+        <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
-          <input key={`dag-${m.id}-${m.display_date}`} className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
+          <input id={`dd-dag-${m.id}`} className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
             defaultValue={m.display_date?m.display_date.slice(8,10):''}
             placeholder="dag"
-            onBlur={async e=>{
-              const dag=e.target.value.padStart(2,'0');
-              const uur=(m.display_date||'').slice(11,16)||'00:00';
-              const val=dag?`2026-06-${dag}T${uur}`:null;
-              await sb.from('matches').update({display_date:val}).eq('id',m.id);
-              onRefresh();
-            }}
           />
-          <span style={{fontSize:11,color:'var(--muted)'}}>juni &nbsp; uur:</span>
-          <input key={`uur-${m.id}-${m.display_date}`} className="ii" type="time" style={{width:80}}
+          <span style={{fontSize:11,color:'var(--muted)'}}>juni</span>
+          <input id={`dd-uur-${m.id}`} className="ii" type="time" style={{width:80}}
             defaultValue={m.display_date?m.display_date.slice(11,16):''}
-            placeholder="uur"
-            onBlur={async e=>{
-              const uur=e.target.value||'00:00';
-              const dag=(m.display_date||m.date||'').slice(8,10)||'11';
-              const val=`2026-06-${dag}T${uur}`;
-              await sb.from('matches').update({display_date:val}).eq('id',m.id);
-              onRefresh();
-            }}
           />
+          <button className="btn btn-sm btn-outline" onClick={async()=>{
+            const dag=document.getElementById(`dd-dag-${m.id}`)?.value;
+            const uur=document.getElementById(`dd-uur-${m.id}`)?.value||'00:00';
+            const val=dag?`2026-06-${dag.padStart(2,'0')}T${uur}`:null;
+            await sb.from('matches').update({display_date:val}).eq('id',m.id);
+            onRefresh();
+          }}>💾</button>
           {m.display_date&&<span style={{fontSize:10,color:'var(--green)'}}>✓ {m.display_date.slice(8,10)} jun {m.display_date.slice(11,16)}</span>}
         </div>
       </div>)}
