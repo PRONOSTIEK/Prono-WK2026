@@ -4275,6 +4275,17 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.home_score??''} onBlur={e=>setMScore(m.id,'home_score',e.target.value)} placeholder="–"/>
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
+          {m.id==='gA1'&&<button className="btn btn-sm btn-outline" title="Wissel thuis/uit" onClick={async()=>{
+            if(!window.confirm(`Wissel ${m.home} en ${m.away}? Dit past ook alle pronostieken van deelnemers aan.`))return;
+            // Wissel teams
+            await sb.from('matches').update({home:m.away,away:m.home,home_score:m.away_score,away_score:m.home_score}).eq('id',m.id);
+            // Wissel pronostieken van alle deelnemers
+            const{data:pronos}=await sb.from('pronos_matches').select('*').eq('match_id',m.id);
+            for(const p of(pronos||[])){
+              await sb.from('pronos_matches').update({home_pred:p.away_pred,away_pred:p.home_pred}).eq('user_id',p.user_id).eq('match_id',m.id);
+            }
+            onRefresh();
+          }}>🔄</button>}
         </div>
         <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
