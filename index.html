@@ -3115,7 +3115,7 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll, users}){
         </div>
         {p&&p.home_pred!=null&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:12,color:'var(--muted)'}}>Mijn prono: <strong style={{color:'var(--text)'}}>{p.home_pred}–{p.away_pred}</strong></span>
-          {pts!=null&&<span style={{fontFamily:'Bebas Neue',fontSize:14,color:pts>0?'var(--green)':pts===0?'var(--muted)':'var(--red)'}}>{pts>0?'+':''}{Math.round(pts*100)/100} pt{isJ?' 🃏':''}</span>}
+          {pts!=null&&cur.betaald&&<span style={{fontFamily:'Bebas Neue',fontSize:14,color:pts>0?'var(--green)':pts===0?'var(--muted)':'var(--red)'}}>{pts>0?'+':''}{Math.round(pts*100)/100} pt{isJ?' 🃏':''}</span>}
         </div>}
         {!p&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,textAlign:'center',fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Niet ingevuld</div>}
       </div>);
@@ -4263,7 +4263,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       :(
         <div>
           <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan. De "Match Day datum" is de datum die getoond wordt in de Match Day tab (laat leeg om de gewone datum te gebruiken).</div>
-      {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
+      {(mbg[ag]||[]).map(m=><div className="match-card" key={`${m.id}-${m.home}-${m.away}-${m.home_score}-${m.away_score}`} style={{marginBottom:6}}>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
           <input className="ii" style={{width:108}} defaultValue={m.date} onBlur={e=>setMField(m.id,'date',e.target.value)} placeholder="Datum"/>
           <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.home} onBlur={e=>setMField(m.id,'home',e.target.value)} placeholder="Thuis"/>
@@ -4275,7 +4275,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.home_score??''} onBlur={e=>setMScore(m.id,'home_score',e.target.value)} placeholder="–"/>
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
-          {m.id==='gA1'&&<button className="btn btn-sm btn-outline" title="Wissel thuis/uit" onClick={async()=>{
+          <button className="btn btn-sm btn-outline" title="Wissel thuis/uit" onClick={async()=>{
             if(!window.confirm(`Wissel ${m.home} en ${m.away}? Dit past ook alle pronostieken van deelnemers aan.`))return;
             // Wissel teams
             await sb.from('matches').update({home:m.away,away:m.home,home_score:m.away_score,away_score:m.home_score}).eq('id',m.id);
@@ -4285,7 +4285,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
               await sb.from('pronos_matches').update({home_pred:p.away_pred,away_pred:p.home_pred}).eq('user_id',p.user_id).eq('match_id',m.id);
             }
             onRefresh();
-          }}>🔄</button>}
+          }}>🔄</button>
         </div>
         <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
