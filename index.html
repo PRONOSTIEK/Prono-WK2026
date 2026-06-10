@@ -3040,7 +3040,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 }
 
 // UITLEG PAGINA + CHECKLIST
-function MatchDay({matches, pmAll, cur, config, jAll}){
+function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
   const getdag=m=>(m.display_date||m.date||'').slice(0,10);
   const dagen=[...new Set(matches.map(m=>getdag(m)).filter(Boolean))].sort();
   const vandaag=new Date().toISOString().slice(0,10);
@@ -3070,7 +3070,7 @@ function MatchDay({matches, pmAll, cur, config, jAll}){
   const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   const isVandaag=huidigeDag===vandaag;
   const myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
-  const pt=calcPtConfig(config);
+  const pt=avgPT(pvAll?.filter(p=>p.user_id===cur.id)||[]);
 
   return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
     <div className="section-title">🗓️ Match Day</div>
@@ -5489,7 +5489,7 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config} jAll={jAll}/>}
+        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config} jAll={jAll} pvAll={pvAll}/>}
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
