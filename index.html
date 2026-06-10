@@ -1524,7 +1524,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   const teldatum=config['tel_bijvragen']||config.bijvragen_teldatum||'';
   const telPunten=!teldatum||new Date()>=new Date(teldatum)||isFaseActief(config,'bijvragen');
 
-  const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>a.date?.localeCompare(b.date)||0);
+  const gespeeldeMatches=matches.filter(m=>GRP.includes(m.group)).sort((a,b)=>(a.display_date||a.date||'').localeCompare(b.display_date||b.date||''));
 
   const KO_RONDES=[{id:'R32',label:'16e'},{id:'R16',label:'8e'},{id:'KF',label:'KF'},{id:'HF',label:'HF'},{id:'KF3',label:'KF3'},{id:'F',label:'F'}];
   const st=echteUsers.map(u=>{
@@ -2020,6 +2020,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
   function hM(mid,side,val){if(readOnly||gfStart)return;const c=lPM[mid]||{home_pred:'',away_pred:''};const u={...c,[side]:val.replace(/\D/g,'').slice(0,2)};setLPM(p=>({...p,[mid]:u}));if(timer.current)clearTimeout(timer.current);if(u.home_pred!==''&&u.away_pred!=='')timer.current=setTimeout(()=>saveM(mid,u.home_pred,u.away_pred),600);}
   const now=new Date(),jPG={};for(const mid of lJ){const m=matches.find(x=>x.id===mid);if(m)jPG[m.group]=mid;}
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  for(const grp of Object.keys(mbg)){mbg[grp].sort((a,b)=>(a.display_date||a.date||'').localeCompare(b.display_date||b.date||''));}
   const CL={alles_juist:'Alles juist',een_juist_winnaar_juist:'1j+Win✓',niets_juist_winnaar_juist:'0j+Win✓',een_juist_winnaar_fout:'1j+Win✗',alles_fout:'Alles fout'};
   const CT={alles_juist:'tag-green',een_juist_winnaar_juist:'tag-green',niets_juist_winnaar_juist:'tag-gold',een_juist_winnaar_fout:'tag-gold',alles_fout:'tag-red'};
 
@@ -2222,8 +2223,15 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
               <span>{(()=>{
                 const gm_sorted=mbg[m.group]||[];
                 const idx=gm_sorted.findIndex(x=>x.id===m.id)+1;
+                if(m.display_date){
+                  const d=new Date(m.display_date);
+                  const dag=d.getDate();
+                  const maand=d.toLocaleDateString('nl-BE',{month:'long'});
+                  const uur=m.display_date.slice(11,16);
+                  return `${dag} ${maand}, ${uur} (Belgische tijd)`;
+                }
                 const tijd=GF_MATCH_TIJDEN[`${m.group}_${idx}`];
-                return tijd?`${tijd} (Belgische tijd)`:m.date;
+                return tijd?`${tijd} (Belgische tijd)`:'';
               })()}</span>
               <div style={{display:'flex',gap:5,alignItems:'center'}}>
                 {isJ&&<span className="tag tag-gold">🃏×2</span>}
@@ -3032,6 +3040,89 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 }
 
 // UITLEG PAGINA + CHECKLIST
+function MatchDay({matches, pmAll, cur, config, jAll, pvAll, users}){
+  const getdag=m=>(m.display_date||m.date||'').slice(0,10);
+  const dagen=[...new Set(matches.map(m=>getdag(m)).filter(Boolean))].sort();
+  const vandaag=new Date().toISOString().slice(0,10);
+  const initIdx=Math.max(0,dagen.indexOf(vandaag)===-1?0:dagen.indexOf(vandaag));
+  const[dagIdx,setDagIdx]=useState(initIdx);
+  const touchStart=useRef(null);
+
+  function handleTouchStart(e){touchStart.current=e.touches[0].clientX;}
+  function handleTouchEnd(e){
+    if(touchStart.current===null)return;
+    const diff=touchStart.current-e.changedTouches[0].clientX;
+    if(Math.abs(diff)>50){
+      if(diff>0)setDagIdx(i=>Math.min(i+1,dagen.length-1));
+      else setDagIdx(i=>Math.max(i-1,0));
+    }
+    touchStart.current=null;
+  }
+
+  if(dagen.length===0)return(<div><div className="section-title">🗓️ Match Day</div><div style={{color:'var(--muted)',fontSize:13,padding:16}}>Geen wedstrijden gevonden.</div></div>);
+
+  const huidigeDag=dagen[dagIdx];
+  const dagMatches=matches.filter(m=>getdag(m)===huidigeDag).sort((a,b)=>{
+    const tA=a.display_date?a.display_date.slice(11,16):(GF_MATCH_TIJDEN[`${a.group}_${(matches.filter(x=>x.group===a.group).sort((x,y)=>x.date?.localeCompare(y.date)||0).findIndex(x=>x.id===a.id))+1}`]||'');
+    const tB=b.display_date?b.display_date.slice(11,16):(GF_MATCH_TIJDEN[`${b.group}_${(matches.filter(x=>x.group===b.group).sort((x,y)=>x.date?.localeCompare(y.date)||0).findIndex(x=>x.id===b.id))+1}`]||'');
+    return tA.localeCompare(tB);
+  });
+  const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+  const isVandaag=huidigeDag===vandaag;
+  const myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
+  const echteUsers=(users||[]).filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg);
+  const pvUserIds=new Set(echteUsers.map(u=>u.id));
+  const pt=avgPT((pvAll||[]).filter(p=>pvUserIds.has(p.user_id)));
+
+  return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="section-title">🗓️ Match Day</div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,gap:8}}>
+      <button className="btn btn-sm btn-outline" onClick={()=>setDagIdx(i=>Math.max(i-1,0))} disabled={dagIdx===0} style={{minWidth:36}}>◀</button>
+      <div style={{textAlign:'center',flex:1}}>
+        <div style={{fontSize:14,fontWeight:600,color:isVandaag?'var(--green)':'var(--text)'}}>{isVandaag?'Vandaag':dagLabel}</div>
+        {!isVandaag&&<div style={{fontSize:11,color:'var(--muted)'}}>{dagLabel}</div>}
+        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{dagIdx+1} / {dagen.length}</div>
+      </div>
+      <button className="btn btn-sm btn-outline" onClick={()=>setDagIdx(i=>Math.min(i+1,dagen.length-1))} disabled={dagIdx===dagen.length-1} style={{minWidth:36}}>▶</button>
+    </div>
+    {dagMatches.map(m=>{
+      const p=pmAll[cur.id]?.[m.id];
+      const tijdStr=m.display_date?m.display_date.slice(11,16):(GF_MATCH_TIJDEN[`${m.group}_${(matches.filter(x=>x.group===m.group).sort((a,b)=>a.date?.localeCompare(b.date)||0).findIndex(x=>x.id===m.id))+1}`]||'');
+      const gespeeld=m.home_score!=null;
+      const isJ=myJ.includes(m.id);
+      if(isJ)console.log('Joker match:',m.id,'myJ:',myJ,'isJ:',isJ);
+      let pts=null;
+      if(gespeeld&&p&&p.home_pred!=null){
+        const cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
+        const wb=(config?.waaghals_mode==='alles'?cat==='alles_juist':cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout')?waaghals(p.home_pred,p.away_pred):0;
+        const basePts=pt[cat]+wb;
+        pts=isJ?basePts*2:basePts;
+      }
+      return(<div key={m.id} className="card" style={{marginBottom:10,outline:isJ?'2px solid var(--gold)':'none',outlineOffset:'-2px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+          <span style={{fontSize:11,color:'var(--muted)'}}>Groep {m.group}{isJ?<span style={{marginLeft:6,color:'var(--gold)'}}>🃏</span>:''}</span>
+          {tijdStr&&<span style={{fontSize:11,color:'var(--muted)'}}>{tijdStr} (Belgische tijd)</span>}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+          <span style={{fontWeight:600,flex:1}}>{m.home}</span>
+          <div style={{textAlign:'center',minWidth:60}}>
+            {gespeeld
+              ?<span style={{fontFamily:'Bebas Neue',fontSize:24,color:'var(--gold)'}}>{m.home_score}–{m.away_score}</span>
+              :<span style={{color:'var(--muted)',fontSize:13}}>–</span>
+            }
+          </div>
+          <span style={{fontWeight:600,flex:1,textAlign:'right'}}>{m.away}</span>
+        </div>
+        {p&&p.home_pred!=null&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:'var(--muted)'}}>Mijn prono: <strong style={{color:'var(--text)'}}>{p.home_pred}–{p.away_pred}</strong></span>
+          {pts!=null&&cur.betaald&&<span style={{fontFamily:'Bebas Neue',fontSize:14,color:pts>0?'var(--green)':pts===0?'var(--muted)':'var(--red)'}}>{pts>0?'+':''}{Math.round(pts*100)/100} pt{isJ?' 🃏':''}</span>}
+        </div>}
+        {!p&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,textAlign:'center',fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Niet ingevuld</div>}
+      </div>);
+    })}
+  </div>);
+}
+
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
   const paragrafen=tekst.split('\n');
@@ -3870,7 +3961,70 @@ function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,speler
   </table>);
 }
 
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
+function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPronosAll,config){
+  const GRP_ALL=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const myPM=pmAll[u.id]||{};
+  const myFP=fpAll[u.id]||{};
+  const myJ=(jAll[u.id]||[]);
+  const myPB=pbAll[u.id]||{};
+  const myKO=koPronosAll[u.id]||{};
+  const myPV=(pvAll||[]).find(p=>p.user_id===u.id);
+
+  const mbg={};
+  for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+
+  const groepStatus=GRP_ALL.map(grp=>{
+    const gm=mbg[grp]||[];
+    if(gm.length===0)return null;
+    const teams=new Set();
+    for(const m of gm){if(m.home)teams.add(m.home);if(m.away)teams.add(m.away);}
+    const ingevuld=gm.filter(m=>{const p=myPM[m.id];return p&&p.home_pred!=null&&p.away_pred!=null;}).length;
+    const heeftJoker=myJ.some(j=>j.group===grp);
+    let fpVal=myFP[grp];
+    if(typeof fpVal==='string'){try{fpVal=JSON.parse(fpVal);}catch{fpVal=null;}}
+    const heeftFP=Array.isArray(fpVal)&&fpVal.length===teams.size;
+    return{grp,aantalMatches:gm.length,ingevuld,volledig:ingevuld===gm.length,heeftJoker,heeftFP};
+  }).filter(Boolean);
+
+  let _ac=0;
+  const telBareBvs=bvs.filter(bv=>{if(bv.type==='speler3')return true;if(_ac<4){_ac++;return false;}return true;});
+  const aantalBv=telBareBvs.length;
+  const ingevuldBv=telBareBvs.filter(bv=>{
+    if(bv.type==='speler3')return[1,2,3].some(i=>{const a=myPB[bv.id+`_${i}`];return a&&a.trim()!=='';});
+    const a=myPB[bv.id];return a&&a.trim()!=='';
+  }).length;
+  const bvVolledig=aantalBv>0&&ingevuldBv===aantalBv;
+  const pvIngevuld=myPV&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>myPV[k]!==null&&myPV[k]!==undefined);
+
+  const ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
+  function koRondeGeldigEnVolledig(roundId){
+    const prMatches=koMatches.filter(m=>m.round===roundId);
+    if(!prMatches.length)return true;
+    const prevRounds=ROUND_ORDER.slice(0,ROUND_ORDER.indexOf(roundId));
+    if(!prevRounds.every(pr=>koRondeGeldigEnVolledig(pr)))return false;
+    return prMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
+  }
+  const koRondStatus=['R32','R16','KF','HF','KF3','F'].map(r=>{
+    const rMatches=koMatches.filter(m=>m.round===r);
+    if(!rMatches.length)return null;
+    const prevRounds=ROUND_ORDER.slice(0,ROUND_ORDER.indexOf(r));
+    const vorigeOk=prevRounds.every(pr=>koRondeGeldigEnVolledig(pr));
+    const ingevuld=vorigeOk?rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length:0;
+    return{r,totaal:rMatches.length,ingevuld,volledig:vorigeOk&&ingevuld===rMatches.length};
+  }).filter(Boolean);
+
+  const checks=[
+    ...groepStatus.map(g=>g.volledig),
+    ...groepStatus.map(g=>g.heeftJoker),
+    ...groepStatus.map(g=>g.heeftFP),
+    bvVolledig,pvIngevuld,
+    ...koRondStatus.map(r=>r.volledig),
+    u.betaald,
+  ].filter(v=>v!==null);
+  return checks.length?Math.round(checks.filter(Boolean).length/checks.length*100):0;
+}
+
+function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
@@ -3918,6 +4072,7 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
   const speler3Bvs=bvs.filter(b=>b.type==='speler3');
   const[newSpelerNaam,setNewSpelerNaam]=useState({});
   const mbg={};for(const m of matches){if(!mbg[m.group])mbg[m.group]=[];mbg[m.group].push(m);}
+  for(const g of Object.keys(mbg)){mbg[g].sort((a,b)=>(a.display_date||a.date||'').localeCompare(b.display_date||b.date||''));}
   const deelnemers=users.filter(u=>!u.is_admin).sort((a,b)=>a.name.localeCompare(b.name,'nl')),echteD=deelnemers.filter(u=>!u.is_test),testD=deelnemers.filter(u=>u.is_test),betaald=echteD.filter(u=>u.betaald).length;
   async function addBv(){if(!newQ.trim())return;await sb.from('bijvragen').insert({id:'bv'+Date.now(),question:newQ,type:newType,points:parseInt(newPts)||5,correct_answer:''});setNewQ('');onRefresh();}
   async function delBv(id){await sb.from('bijvragen').delete().eq('id',id);onRefresh();}
@@ -4171,19 +4326,49 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
       })()
       :(
         <div>
-          <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan.</div>
-      {(mbg[ag]||[]).map(m=><div className="match-card" key={m.id} style={{marginBottom:6}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Klik ergens anders na invullen om op te slaan. De "Match Day datum" is de datum die getoond wordt in de Match Day tab (laat leeg om de gewone datum te gebruiken).</div>
+      {(mbg[ag]||[]).map(m=><div className="match-card" key={`${m.id}-${m.home}-${m.away}-${m.home_score}-${m.away_score}`} style={{marginBottom:6}}>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
           <input className="ii" style={{width:108}} defaultValue={m.date} onBlur={e=>setMField(m.id,'date',e.target.value)} placeholder="Datum"/>
           <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.home} onBlur={e=>setMField(m.id,'home',e.target.value)} placeholder="Thuis"/>
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{flex:1,minWidth:70}} defaultValue={m.away} onBlur={e=>setMField(m.id,'away',e.target.value)} placeholder="Uit"/>
         </div>
-        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+        <div style={{display:'flex',gap:4,alignItems:'center',marginBottom:4}}>
           <span style={{fontSize:11,color:'var(--muted)'}}>Uitslag:</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.home_score??''} onBlur={e=>setMScore(m.id,'home_score',e.target.value)} placeholder="–"/>
           <span style={{color:'var(--muted)'}}>–</span>
           <input className="ii" style={{width:34,textAlign:'center'}} defaultValue={m.away_score??''} onBlur={e=>setMScore(m.id,'away_score',e.target.value)} placeholder="–"/>
+          <button className="btn btn-sm btn-outline" title="Wissel thuis/uit" onClick={async()=>{
+            if(!window.confirm(`Wissel ${m.home} en ${m.away}? Dit past ook alle pronostieken van deelnemers aan.`))return;
+            // Wissel teams
+            await sb.from('matches').update({home:m.away,away:m.home,home_score:m.away_score,away_score:m.home_score}).eq('id',m.id);
+            // Wissel pronostieken van alle deelnemers
+            const{data:pronos}=await sb.from('pronos_matches').select('*').eq('match_id',m.id);
+            for(const p of(pronos||[])){
+              await sb.from('pronos_matches').update({home_pred:p.away_pred,away_pred:p.home_pred}).eq('user_id',p.user_id).eq('match_id',m.id);
+            }
+            onRefresh();
+          }}>🔄</button>
+        </div>
+        <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
+          <span style={{fontSize:11,color:'var(--muted)'}}>Match Day:</span>
+          <input id={`dd-dag-${m.id}`} className="ii" type="number" min="11" max="28" style={{width:50,textAlign:'center'}} 
+            defaultValue={m.display_date?m.display_date.slice(8,10):''}
+            placeholder="dag"
+          />
+          <span style={{fontSize:11,color:'var(--muted)'}}>juni</span>
+          <input id={`dd-uur-${m.id}`} className="ii" type="time" style={{width:80}}
+            defaultValue={m.display_date?m.display_date.slice(11,16):''}
+          />
+          <button className="btn btn-sm btn-outline" onClick={async()=>{
+            const dag=document.getElementById(`dd-dag-${m.id}`)?.value;
+            const uur=document.getElementById(`dd-uur-${m.id}`)?.value||'00:00';
+            const val=dag?`2026-06-${dag.padStart(2,'0')}T${uur}`:null;
+            await sb.from('matches').update({display_date:val}).eq('id',m.id);
+            onRefresh();
+          }}>💾</button>
+          {m.display_date&&<span style={{fontSize:10,color:'var(--green)'}}>✓ {m.display_date.slice(8,10)} jun {m.display_date.slice(11,16)}</span>}
         </div>
       </div>)}
 
@@ -4859,13 +5044,17 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         <div className="stat-box"><div className="stat-n" style={{color:'var(--red)'}}>{echteD.length-betaald}</div><div className="stat-l">Niet betaald</div></div>
         <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{testD.length}</div><div className="stat-l">Test</div></div>
       </div>
-      {echteD.map(u=><div className="betaal-row" key={u.id}>
-        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-          <span>{u.name}</span>
-          {u.betaald?<span className="tag tag-green">✓</span>:<span className="tag tag-niet-betaald">⚠</span>}
-        </div>
-        <button className={`btn btn-sm ${u.betaald?'btn-danger':'btn-betaald'}`} onClick={()=>toggleBetaald(u.id,u.betaald)}>{u.betaald?'Onbetaald':'Betaald'}</button>
-      </div>)}
+      {echteD.map(u=>{
+        const pct=calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPronosAll,config);
+        return(<div className="betaal-row" key={u.id}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span>{u.name}</span>
+            {u.betaald?<span className="tag tag-green">✓</span>:<span className="tag tag-niet-betaald">⚠</span>}
+            <span style={{fontSize:11,color:pct===100?'var(--green)':pct>50?'var(--gold)':'var(--muted)'}}>{pct}%</span>
+          </div>
+          <button className={`btn btn-sm ${u.betaald?'btn-danger':'btn-betaald'}`} onClick={()=>toggleBetaald(u.id,u.betaald)}>{u.betaald?'Onbetaald':'Betaald'}</button>
+        </div>);
+      })}
     </div>}
 
     {tab==='users'&&<div className="card">
@@ -5326,7 +5515,11 @@ function App(){
     setPage('prono');
     setPronoTab('bijvragen');
   }
+  const vandaag=new Date().toISOString().slice(0,10);
+  const matchesToday=matches.filter(m=>m.date&&m.date.slice(0,10)===vandaag);
+  const heeftMatchDay=matchesToday.length>0;
   const nav=[
+    {id:'matchday',icon:'🗓️',label:'Match Day'},
     {id:'uitleg',icon:'📖',label:'Handleiding'},
     {id:'klassement',icon:'🏆',label:'Klassement'},
     {id:'prono',icon:'📋',label:'Pronostiek'},
@@ -5379,6 +5572,7 @@ function App(){
         </div>)}
       </div>
       <div className="content">
+        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config} jAll={jAll} pvAll={pvAll} users={users}/>}
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
@@ -5393,7 +5587,7 @@ function App(){
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} fifaRanking={fifaRanking} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pmAll={pmAll} pbAll={pbAll} pvAll={pvAll} jAll={jAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
