@@ -3040,7 +3040,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
 }
 
 // UITLEG PAGINA + CHECKLIST
-function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
+function MatchDay({matches, pmAll, cur, config, jAll, pvAll, users}){
   const getdag=m=>(m.display_date||m.date||'').slice(0,10);
   const dagen=[...new Set(matches.map(m=>getdag(m)).filter(Boolean))].sort();
   const vandaag=new Date().toISOString().slice(0,10);
@@ -3070,7 +3070,9 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
   const dagLabel=new Date(huidigeDag+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
   const isVandaag=huidigeDag===vandaag;
   const myJ=(jAll[cur.id]||[]).map(j=>j.match_id);
-  const pt=avgPT(pvAll||[]);
+  const echteUsers=(users||[]).filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg);
+  const pvUserIds=new Set(echteUsers.map(u=>u.id));
+  const pt=avgPT((pvAll||[]).filter(p=>pvUserIds.has(p.user_id)));
 
   return(<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
     <div className="section-title">🗓️ Match Day</div>
@@ -3088,11 +3090,13 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
       const tijdStr=m.display_date?m.display_date.slice(11,16):(GF_MATCH_TIJDEN[`${m.group}_${(matches.filter(x=>x.group===m.group).sort((a,b)=>a.date?.localeCompare(b.date)||0).findIndex(x=>x.id===m.id))+1}`]||'');
       const gespeeld=m.home_score!=null;
       const isJ=myJ.includes(m.id);
+      if(isJ)console.log('Joker match:',m.id,'myJ:',myJ,'isJ:',isJ);
       let pts=null;
       if(gespeeld&&p&&p.home_pred!=null){
         const cat=catMatch(p.home_pred,p.away_pred,m.home_score,m.away_score);
         const wb=(config?.waaghals_mode==='alles'?cat==='alles_juist':cat!=='alles_fout'&&cat!=='een_juist_winnaar_fout')?waaghals(p.home_pred,p.away_pred):0;
-        pts=(pt[cat]+wb)*(isJ?2:1);
+        const basePts=pt[cat]+wb;
+        pts=isJ?basePts*2:basePts;
       }
       return(<div key={m.id} className="card" style={{marginBottom:10,outline:isJ?'2px solid var(--gold)':'none',outlineOffset:'-2px'}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
@@ -3111,7 +3115,7 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll}){
         </div>
         {p&&p.home_pred!=null&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:12,color:'var(--muted)'}}>Mijn prono: <strong style={{color:'var(--text)'}}>{p.home_pred}–{p.away_pred}</strong></span>
-          {pts!=null&&<span style={{fontFamily:'Bebas Neue',fontSize:14,color:pts>0?'var(--green)':pts===0?'var(--muted)':'var(--red)'}}>{pts>0?'+':''}{pts} pt</span>}
+          {pts!=null&&<span style={{fontFamily:'Bebas Neue',fontSize:14,color:pts>0?'var(--green)':pts===0?'var(--muted)':'var(--red)'}}>{pts>0?'+':''}{Math.round(pts*100)/100} pt{isJ?' 🃏':''}</span>}
         </div>}
         {!p&&<div style={{marginTop:8,padding:'6px 10px',background:'var(--dark3)',borderRadius:6,textAlign:'center',fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Niet ingevuld</div>}
       </div>);
@@ -5489,7 +5493,7 @@ function App(){
         </div>)}
       </div>
       <div className="content">
-        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config} jAll={jAll} pvAll={pvAll}/>}
+        {page==='matchday'&&<MatchDay matches={matches} pmAll={pmAll} cur={freshUser} config={config} jAll={jAll} pvAll={pvAll} users={users}/>}
         {page==='uitleg'&&<Uitleg config={config} cur={freshUser} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} fpAll={fpAll} pvAll={pvAll} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} setPage={setPage} setPronoTab={setPronoTab}/>}
         {page==='klassement'&&<Klassement users={users} matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} fifaRanking={fifaRanking} cur={freshUser} viewPronoOf={user.is_admin?viewPronoOf:null}/>}
         {page==='prono'&&(()=>{
