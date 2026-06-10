@@ -3979,19 +3979,24 @@ function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPr
   const bvVolledig=bvs.length>0?bvs.every(b=>pb[b.id]!=null&&pb[b.id]!==''):null;
   const pvIngevuld=(pvAll||[]).some(p=>p.user_id===u.id&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>p[k]!=null));
   const ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
-  const koRondStatus=ROUND_ORDER.map(r=>{
+  function koRondeVolledig(r){
     const rMatches=koMatches.filter(m=>m.round===r);
     if(!rMatches.length)return null;
-    const ingevuld=rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length;
-    const volledig=ingevuld===rMatches.length;
-    return{r,volledig};
-  }).filter(Boolean);
+    const prevRounds=ROUND_ORDER.slice(0,ROUND_ORDER.indexOf(r));
+    const vorigeOk=prevRounds.every(pr=>{
+      const prMatches=koMatches.filter(m=>m.round===pr);
+      return prMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
+    });
+    if(!vorigeOk)return false;
+    return rMatches.every(m=>myKO[m.id]&&myKO[m.id].trim()!=='');
+  }
+  const koRondStatus=ROUND_ORDER.map(r=>koRondeVolledig(r)).filter(v=>v!==null);
   const checks=[
     ...groepStatus.map(g=>g.volledig),
     ...groepStatus.map(g=>g.heeftJoker),
     ...groepStatus.map(g=>g.heeftFP),
     bvVolledig,pvIngevuld,
-    ...koRondStatus.map(r=>r.volledig),
+    ...koRondStatus,
     u.betaald,
   ].filter(v=>v!==null);
   return checks.length?Math.round(checks.filter(Boolean).length/checks.length*100):0;
