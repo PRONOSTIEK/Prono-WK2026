@@ -3961,7 +3961,43 @@ function SpelerStatsTabel({stats,isKeeper,isTopschutter,bvId,onSave,onDel,speler
   </table>);
 }
 
-function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
+function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPronosAll,config){
+  const GRP_ALL=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const pm=pmAll[u.id]||{};
+  const fp=fpAll[u.id]||{};
+  const myJ=(jAll[u.id]||[]).map(j=>j.group);
+  const pb=pbAll[u.id]||{};
+  const myKO=koPronosAll[u.id]||{};
+  const groepStatus=GRP_ALL.map(g=>{
+    const gm=matches.filter(m=>m.group===g);
+    const ingevuld=gm.filter(m=>pm[m.id]?.home_pred!=null).length;
+    const volledig=ingevuld===gm.length&&gm.length>0;
+    const heeftJoker=myJ.includes(g);
+    const heeftFP=!!(fp[g]&&(Array.isArray(fp[g])?fp[g].length>=4:true));
+    return{g,volledig,heeftJoker,heeftFP};
+  });
+  const bvVolledig=bvs.length>0?bvs.every(b=>pb[b.id]!=null&&pb[b.id]!==''):null;
+  const pvIngevuld=(pvAll||[]).some(p=>p.user_id===u.id&&['alles_juist','een_juist_winnaar_juist','niets_juist_winnaar_juist','een_juist_winnaar_fout','alles_fout'].every(k=>p[k]!=null));
+  const ROUND_ORDER=['R32','R16','KF','HF','KF3','F'];
+  const koRondStatus=ROUND_ORDER.map(r=>{
+    const rMatches=koMatches.filter(m=>m.round===r);
+    if(!rMatches.length)return null;
+    const ingevuld=rMatches.filter(m=>myKO[m.id]&&myKO[m.id].trim()!=='').length;
+    const volledig=ingevuld===rMatches.length;
+    return{r,volledig};
+  }).filter(Boolean);
+  const checks=[
+    ...groepStatus.map(g=>g.volledig),
+    ...groepStatus.map(g=>g.heeftJoker),
+    ...groepStatus.map(g=>g.heeftFP),
+    bvVolledig,pvIngevuld,
+    ...koRondStatus.map(r=>r.volledig),
+    u.betaald,
+  ].filter(v=>v!==null);
+  return checks.length?Math.round(checks.filter(Boolean).length/checks.length*100):0;
+}
+
+function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
@@ -4980,13 +5016,17 @@ function Admin({matches,bvs,users,config,spelerStats,pbAll,pvAll,koMatches,koPun
         <div className="stat-box"><div className="stat-n" style={{color:'var(--red)'}}>{echteD.length-betaald}</div><div className="stat-l">Niet betaald</div></div>
         <div className="stat-box"><div className="stat-n" style={{color:'var(--muted)'}}>{testD.length}</div><div className="stat-l">Test</div></div>
       </div>
-      {echteD.map(u=><div className="betaal-row" key={u.id}>
-        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-          <span>{u.name}</span>
-          {u.betaald?<span className="tag tag-green">✓</span>:<span className="tag tag-niet-betaald">⚠</span>}
-        </div>
-        <button className={`btn btn-sm ${u.betaald?'btn-danger':'btn-betaald'}`} onClick={()=>toggleBetaald(u.id,u.betaald)}>{u.betaald?'Onbetaald':'Betaald'}</button>
-      </div>)}
+      {echteD.map(u=>{
+        const pct=calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPronosAll,config);
+        return(<div className="betaal-row" key={u.id}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span>{u.name}</span>
+            {u.betaald?<span className="tag tag-green">✓</span>:<span className="tag tag-niet-betaald">⚠</span>}
+            <span style={{fontSize:11,color:pct===100?'var(--green)':pct>50?'var(--gold)':'var(--muted)'}}>{pct}%</span>
+          </div>
+          <button className={`btn btn-sm ${u.betaald?'btn-danger':'btn-betaald'}`} onClick={()=>toggleBetaald(u.id,u.betaald)}>{u.betaald?'Onbetaald':'Betaald'}</button>
+        </div>);
+      })}
     </div>}
 
     {tab==='users'&&<div className="card">
@@ -5519,7 +5559,7 @@ function App(){
         })()}
         {page==='pv'&&<PuntenVragen cur={freshUser} pvAll={pvAll} users={users} config={config} onRefresh={loadAll}/>}
         {page==='mijnpunten'&&<MijnPunten matches={matches} bvs={bvs} pmAll={pmAll} pbAll={pbAll} jAll={jAll} pvAll={pvAll} fpAll={fpAll} adminFP={fpAll['admin']||{}} fifaRanking={fifaRanking} users={users} spelerStats={spelerStats} config={config} koMatches={koMatches} koPronosAll={koPronosAll} koPunten={koPunten} cur={freshUser}/>}
-        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pbAll={pbAll} pvAll={pvAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
+        {page==='admin'&&user.is_admin&&<Admin matches={matches} bvs={bvs} users={users} config={config} spelerStats={spelerStats} pmAll={pmAll} pbAll={pbAll} pvAll={pvAll} jAll={jAll} koMatches={koMatches} koPunten={koPunten} fifaRanking={fifaRanking} fpAll={fpAll} koPronosAll={koPronosAll} viewPronoOf={viewPronoOf} onRefresh={loadAll}/>}
       </div>
     </div>
     {/* Mobile bottom nav */}
