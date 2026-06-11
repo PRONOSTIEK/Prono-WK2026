@@ -2217,7 +2217,7 @@ function Pronostiek({matches,bvs,pmAll,pbAll,jAll,fpAll,cur,config,spelerStats,k
         {!gfStart&&<div className="info">🃏 Kies <strong>1 joker</strong> per groep — dubbele punten. Kan tot 11 juni 2026.</div>}
 
         {gm.map(m=>{
-          const p=lPM[m.id]||{home_pred:'',away_pred:''},lk=m.home_score!=null,isS=new Date(m.date)<now,isJ=lJ.includes(m.id),hp=p.home_pred,ap=p.away_pred;
+          const p=lPM[m.id]||{home_pred:'',away_pred:''},lk=m.home_score!=null,isS=new Date(m.display_date||m.date)<now,isJ=lJ.includes(m.id),hp=p.home_pred,ap=p.away_pred;
           return(<div className={`match-card ${isJ?'joker-on':''}`} key={m.id}>
             <div className="match-header">
               <span>{(()=>{
