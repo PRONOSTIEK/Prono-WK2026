@@ -1752,7 +1752,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <tbody>
               {rows.map((u,i)=>{
                 const rowBg=u.id===cur.id?'#152018':i%2===0?'#1e2b26':'#1a2420';
-                const isOwn=u.id===cur.id||u.is_avg;
+                const isOwn=u.id===cur.id;
                 const verberg=!cur.is_admin&&!isOwn&&!gfActief;
                 return(<tr key={u.id} className={u.id===cur.id?'st-me':''}>
                   <td className="st-sticky-0" style={{textAlign:'center'}}>
