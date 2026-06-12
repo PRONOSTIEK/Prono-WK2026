@@ -1513,9 +1513,19 @@ function Login({onLogin,config}){
 
 // KLASSEMENT
 // ─── EVOLUTIEGRAFIEK ─────────────────────────────────────────────────────────
-function EvolutieGrafiek({st, gespeeldeMatches, cur}){
-  const[filter,setFilter]=useState('all'); // 'all' | 'top10' | 'mijzelf'
-  const W=800,H=340,PAD={top:16,right:140,bottom:24,left:36};
+function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
+  const[filter,setFilter]=useState('all');
+  const kleurModus=config?.['evolutie_kleur']||'auto';
+  const containerRef=React.useRef(null);
+  const[svgW,setSvgW]=useState(800);
+  React.useEffect(()=>{
+    function update(){if(containerRef.current)setSvgW(Math.max(600,containerRef.current.offsetWidth));}
+    update();
+    window.addEventListener('resize',update);
+    return()=>window.removeEventListener('resize',update);
+  },[]);
+  const W=svgW;
+  const H=340,PAD={top:16,right:140,bottom:24,left:36};
   const GW=W-PAD.left-PAD.right, GH=H-PAD.top-PAD.bottom;
 
   if(!gespeeldeMatches||gespeeldeMatches.length===0) return(
@@ -1525,46 +1535,71 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur}){
     </div>
   );
 
-  // Bereken rangschikking na elke wedstrijd
   const echteSpelers=st.filter(u=>!u.is_avg&&!u.is_admin);
   const N=echteSpelers.length;
-  const puntenReeks={}; // userId -> [pts na match 0, na match 1, ...]
+  const puntenReeks={};
   for(const u of echteSpelers) puntenReeks[u.id]=[0];
-
   for(const m of gespeeldeMatches){
     for(const u of echteSpelers){
       const prev=puntenReeks[u.id][puntenReeks[u.id].length-1];
-      const gained=u.ptsPerMatch?.[m.id]??0;
-      puntenReeks[u.id].push(prev+gained);
+      puntenReeks[u.id].push(prev+(u.ptsPerMatch?.[m.id]??0));
     }
   }
-
-  // Rangschikking per stap
   const nSteps=gespeeldeMatches.length+1;
-  const rangReeks={}; // userId -> [rang na stap 0, stap 1, ...]
+  const rangReeks={};
   for(const u of echteSpelers) rangReeks[u.id]=[];
   for(let s=0;s<nSteps;s++){
     const sorted=[...echteSpelers].sort((a,b)=>(puntenReeks[b.id][s]??0)-(puntenReeks[a.id][s]??0));
     sorted.forEach((u,i)=>rangReeks[u.id].push(i+1));
   }
 
-  // Filter welke spelers te tonen
   let toonSpelers=echteSpelers;
   if(filter==='top10') toonSpelers=echteSpelers.filter(u=>rangReeks[u.id][nSteps-1]<=10);
   if(filter==='mijzelf') toonSpelers=echteSpelers.filter(u=>u.id===cur.id);
 
-  // Kleuren per speler
+  // Kleur bepalen per speler
   const KLEUREN=['#00c853','#ffd600','#64b5f6','#ff7043','#ce93d8','#80cbc4','#ffcc02','#ef9a9a','#a5d6a7','#90caf9','#ffab40','#b0bec5','#f48fb1','#ffe082','#80deea','#bcaaa4','#c5e1a5','#b39ddb'];
   const kleurMap={};
   echteSpelers.forEach((u,i)=>kleurMap[u.id]=KLEUREN[i%KLEUREN.length]);
 
-  // SVG schaalverdeling
-  const xPos=s=>PAD.left+s*(GW/(nSteps-1||1));
-  const yPos=r=>PAD.top+(r-1)*(GH/(N-1||1));
+  function getKleur(u){
+    if(kleurModus==='positie'){
+      const rang=rangReeks[u.id][nSteps-1];
+      if(u.id===cur.id) return'#ffd600';
+      if(rang===1) return'#00c853';
+      if(rang===N) return'#e53935';
+      return'#4a5e52';
+    }
+    return kleurMap[u.id];
+  }
+  function getDikte(u){
+    if(kleurModus==='positie'){
+      const rang=rangReeks[u.id][nSteps-1];
+      if(u.id===cur.id||rang===1||rang===N) return 2.5;
+      return 1;
+    }
+    return u.id===cur.id?2.5:1.2;
+  }
+  function getOpacity(u){
+    if(kleurModus==='positie'){
+      const rang=rangReeks[u.id][nSteps-1];
+      if(u.id===cur.id||rang===1||rang===N) return 1;
+      return 0.4;
+    }
+    return u.id===cur.id?1:0.7;
+  }
 
   const labelH=13;
   const svgH=Math.max(H, N*labelH+PAD.top+PAD.bottom);
+  const xPos=s=>PAD.left+s*(GW/(nSteps-1||1));
   const yPosLabel=r=>PAD.top+(r-1)*((svgH-PAD.top-PAD.bottom)/(N-1||1));
+
+  // Sorteer zodat gemarkeerde spelers bovenaan staan (laatste gerenderd = bovenop)
+  const gesorteerd=[...toonSpelers].sort((a,b)=>{
+    const aB=a.id===cur.id||rangReeks[a.id][nSteps-1]===1||rangReeks[a.id][nSteps-1]===N;
+    const bB=b.id===cur.id||rangReeks[b.id][nSteps-1]===1||rangReeks[b.id][nSteps-1]===N;
+    return aB===bB?0:aB?1:-1;
+  });
 
   return(<div className="card" style={{padding:'12px 14px',marginBottom:14}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
@@ -1578,39 +1613,34 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur}){
         ))}
       </div>
     </div>
-    <div style={{overflowX:'auto'}}>
-      <svg width={W} height={svgH} style={{display:'block',minWidth:W}}>
-        {/* Achtergrondlijnen */}
+    <div ref={containerRef} style={{overflowX:'auto'}}>
+      <svg width={W} height={svgH} style={{display:'block',minWidth:600}}>
         {Array.from({length:Math.min(N,20)},(_,i)=>(
           <line key={i} x1={PAD.left} x2={W-PAD.right} y1={yPosLabel(i+1)} y2={yPosLabel(i+1)} stroke="#2a3d35" strokeWidth="1"/>
         ))}
-        {/* Wedstrijdkolommen */}
         {gespeeldeMatches.map((m,i)=>(
           <line key={m.id} x1={xPos(i+1)} x2={xPos(i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#2a3d3544" strokeWidth="1"/>
         ))}
-        {/* Lijnen per speler */}
-        {toonSpelers.map(u=>{
+        {gesorteerd.map(u=>{
           const pts=rangReeks[u.id];
           const d=pts.map((r,s)=>`${s===0?'M':'L'}${xPos(s)},${yPosLabel(r)}`).join(' ');
-          const isMe=u.id===cur.id;
+          const kleur=getKleur(u);
+          const dikte=getDikte(u);
+          const opacity=getOpacity(u);
           return(<g key={u.id}>
-            <path d={d} fill="none" stroke={kleurMap[u.id]} strokeWidth={isMe?2.5:1.2} strokeOpacity={isMe?1:0.7}/>
-            {/* Label rechts */}
+            <path d={d} fill="none" stroke={kleur} strokeWidth={dikte} strokeOpacity={opacity}/>
             <text x={W-PAD.right+6} y={yPosLabel(rangReeks[u.id][nSteps-1])+4}
-              fontSize={isMe?11:9} fill={kleurMap[u.id]} fontWeight={isMe?700:400}
+              fontSize={dikte>1.5?11:9} fill={kleur} fillOpacity={opacity} fontWeight={dikte>1.5?700:400}
               style={{fontFamily:'DM Sans,sans-serif'}}>
               {u.name?.slice(0,18)}
             </text>
-            {/* Eindpositie bolletje */}
-            <circle cx={xPos(nSteps-1)} cy={yPosLabel(rangReeks[u.id][nSteps-1])} r={isMe?4:2.5} fill={kleurMap[u.id]}/>
+            <circle cx={xPos(nSteps-1)} cy={yPosLabel(rangReeks[u.id][nSteps-1])} r={dikte>1.5?4:2.5} fill={kleur} fillOpacity={opacity}/>
           </g>);
         })}
-        {/* X-as labels: wedstrijdnummer */}
         {gespeeldeMatches.map((m,i)=>(
           <text key={m.id} x={xPos(i+1)} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">{i+1}</text>
         ))}
         <text x={PAD.left} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">0</text>
-        {/* Y-as: rang 1 bovenaan */}
         <text x={PAD.left-4} y={yPosLabel(1)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">1</text>
         <text x={PAD.left-4} y={yPosLabel(N)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">{N}</text>
       </svg>
@@ -1725,7 +1755,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
   function scrollNaar(ankerId){
     const el=document.getElementById(ankerId);
-    if(el){const c=document.querySelector('.content');if(c)c.scrollTo({top:el.offsetTop-60,behavior:'smooth'});}
+    const c=document.querySelector('.content');
+    if(el&&c){const elTop=el.getBoundingClientRect().top;const cTop=c.getBoundingClientRect().top;c.scrollBy({top:elTop-cTop-60,behavior:'smooth'});}
   }
 
   return(<div>
@@ -2135,7 +2166,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     </React.Fragment>;
       if(id==='evolutie') return <React.Fragment key="evolutie">
     <div id="anker-evolutie"/>
-    <EvolutieGrafiek key="evolutie" st={st} gespeeldeMatches={gespeeldeMatches} cur={cur}/>
+    <EvolutieGrafiek key="evolutie" st={st} gespeeldeMatches={gespeeldeMatches} cur={cur} config={config}/>
     </React.Fragment>;
       return null;
     })}
@@ -5559,7 +5590,13 @@ function CelopmaakTab({config, pvAll, users, onRefresh}){
     });
   }
 
-  const[jokerOffset,setJokerOffset]=useState(parseInt(config['joker_outline_offset']??'-2'));
+  const[evolutieKleur,setEvolutieKleur]=useState(config['evolutie_kleur']||'auto');
+
+  async function saveEvolutieKleur(val){
+    setEvolutieKleur(val);
+    await sb.from('config').upsert({key:'evolutie_kleur',value:val});
+    onRefresh();
+  }
   const[jokerDikte,setJokerDikte]=useState(parseInt(config['joker_outline_dikte']??'2'));
 
   async function saveJokerOffset(val){
@@ -5620,6 +5657,21 @@ function CelopmaakTab({config, pvAll, users, onRefresh}){
             <button onClick={()=>verschuif(idx,1)} disabled={idx===volgorde.length-1}
               style={{background:'none',border:'1px solid var(--border)',color:idx===volgorde.length-1?'var(--border)':'var(--muted)',borderRadius:4,padding:'2px 8px',cursor:idx===volgorde.length-1?'default':'pointer',fontSize:13}}>▼</button>
           </div>
+        ))}
+      </div>
+    </div>
+    {/* Evolutiegrafiek kleurmodus */}
+    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:9,padding:'12px 14px',marginBottom:14}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--text)',marginBottom:10,letterSpacing:.5}}>📈 Evolutiegrafiek — kleurmodus</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {[
+          ['auto',    '🎨 Automatisch (vaste kleur per speler)'],
+          ['positie', '🏅 Positie-gebaseerd (1e groen · laatste rood · jezelf goud · rest grijs)'],
+        ].map(([k,l])=>(
+          <label key={k} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,color:evolutieKleur===k?'var(--text)':'var(--muted)',padding:'7px 10px',background:evolutieKleur===k?'var(--dark3)':'transparent',borderRadius:6,border:`1px solid ${evolutieKleur===k?'var(--green)':'var(--border)'}`}}>
+            <input type="radio" name="evolutie_kleur" checked={evolutieKleur===k} onChange={()=>saveEvolutieKleur(k)} style={{accentColor:'var(--green)'}}/>
+            {l}
+          </label>
         ))}
       </div>
     </div>
