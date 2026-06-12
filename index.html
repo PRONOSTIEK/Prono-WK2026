@@ -1512,6 +1512,42 @@ function Login({onLogin,config}){
   </div></div>);}
 
 // KLASSEMENT
+// ─── CELOPMAAK HELPERS (gedeeld door Klassement en CelopmaakTab) ──────────────
+// 8 basis-situaties × 2 (zonder/met joker) = 16 stijlen
+// Sleutelformaat: cel_stijl_{cat}__wb{0|1|2|4}[__joker]
+const CEL_GROEPEN = [
+  {cat:'alles_juist',              label:'Alles juist',         wbVals:[0,1,2,4], defaultClr:'#00c853', defaultBg:'#00c85322'},
+  {cat:'een_juist_winnaar_juist',  label:'1 juist + winnaar ✓', wbVals:[0,1,2,4], defaultClr:'#00c853', defaultBg:'#00c85318'},
+  {cat:'niets_juist_winnaar_juist',label:'0 juist + winnaar ✓', wbVals:[0,1,2,4], defaultClr:'#ffd600', defaultBg:'#ffd60018'},
+  {cat:'een_juist_winnaar_fout',   label:'1 juist + winnaar ✗', wbVals:[0],        defaultClr:'#ffd600', defaultBg:'#ffd60011'},
+  {cat:'alles_fout',               label:'Alles fout',          wbVals:[0],        defaultClr:'#e53935', defaultBg:'#e5393518'},
+];
+function celSleutel(cat, wb, joker){ return `${cat}__wb${wb}${joker?'__joker':''}`; }
+function alleCelSleutels(){
+  const keys=[];
+  for(const g of CEL_GROEPEN){
+    for(const wb of g.wbVals){
+      keys.push({cat:g.cat,wb,joker:false,key:celSleutel(g.cat,wb,false),groep:g});
+      keys.push({cat:g.cat,wb,joker:true, key:celSleutel(g.cat,wb,true), groep:g});
+    }
+  }
+  return keys;
+}
+function parseCelStijl(raw, defaults){
+  try{ const p=JSON.parse(raw||'{}'); return{...defaults,...p}; }catch{return defaults;}
+}
+function defaultStijl(groep, joker){
+  return{bg:joker?'#ffd60008':groep.defaultBg, clr:groep.defaultClr, bold:false, size:11};
+}
+function getCelStijlGlobal(config, cat, wb, joker){
+  if(!cat) return null;
+  const groep=CEL_GROEPEN.find(g=>g.cat===cat);
+  const def=groep?defaultStijl(groep,joker):null;
+  const raw=config['cel_stijl_'+celSleutel(cat,wb??0,joker)];
+  if(!raw) return def;
+  try{ return{...def,...JSON.parse(raw)}; }catch{ return def; }
+}
+
 function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spelerStats,config,koMatches,koPronosAll,koPunten,fifaRanking,cur,viewPronoOf}){
   const isAdmin=cur.is_admin;
   const[toonAlles,setToonAlles]=useState(false);
@@ -1540,7 +1576,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     const totaal=tot+koTot;
     const ptsPerMatch={};
-    for(const d of(matchDet||[]))ptsPerMatch[d.matchId]=d.pts;
+    const catPerMatch={};
+    const wbPerMatch={};
+    for(const d of(matchDet||[])){ptsPerMatch[d.matchId]=d.pts;catPerMatch[d.matchId]=d.cat;wbPerMatch[d.matchId]=d.wb??0;}
     // Matchpunten zonder jokerbonus en zonder bijvragen
     const matchPts=matchDet.reduce((s,d)=>s+(d.isJ?d.pts/2:d.pts),0);
     // Jokerpunten = extra punten door joker (helft van joker-cel punten)
@@ -1552,7 +1590,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const bijvraagDet={};
     for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
     const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{}};
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{}};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
@@ -1562,10 +1600,14 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     return'var(--muted)';
   }
 
+  function getCelStijl(cat, wb, joker){ return getCelStijlGlobal(config, cat, wb, joker); }
+
   function scrollToDetail(){
     const el=document.getElementById('detail-tabel');
     if(el){const c=document.querySelector('.content');if(c)c.scrollTo({top:el.offsetTop-60,behavior:'smooth'});}
   }
+
+  const tabelVolgorde=(()=>{try{return JSON.parse(config['klassement_volgorde']||'null')||['klassement','overzicht','detail'];}catch{return['klassement','overzicht','detail'];}})();
 
   return(<div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
@@ -1588,11 +1630,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
-    <div className="grid2" style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n">{echteUsers.filter(u=>!u.is_avg).length}</div><div className="stat-l">Deelnemers</div></div>
-      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length}</div><div className="stat-l">Gespeeld</div></div>
+    <div style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length} <span style={{fontSize:18,color:'var(--muted)'}}>/ 72</span></div><div className="stat-l">Gespeelde matchen</div></div>
     </div>
 
+    {tabelVolgorde.map(id=>{
+      if(id==='klassement') return <React.Fragment key="klassement">
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
       const stVis=st;
@@ -1682,7 +1725,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         </div>
       </div>);
     })()}
-
+    </React.Fragment>;
+      if(id==='overzicht') return <React.Fragment key="overzicht">
     {/* OVERZICHTSTABEL */}
     {(()=>{
       const stVis=st;
@@ -1802,7 +1846,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         </div>
       </div>);
     })()}
-
+    </React.Fragment>;
+      if(id==='detail') return <React.Fragment key="detail">
     {/* DETAIL TABEL */}
     <div id="detail-tabel" className="card" style={{padding:'12px 14px'}}>
       <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📊 Detail per wedstrijd</div>
@@ -1850,12 +1895,28 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const pts=u.ptsPerMatch[m.id];
                     const isJ=(jAll[u.id]||[]).map(j=>j.match_id).includes(m.id);
                     const gespeeld=m.home_score!=null;
-                    const cellBg=(isJ&&toonProno)?rowBg:!gespeeld?'var(--dark2)':rowBg;
                     const toonProno=gespeeld||isMe||cur.is_admin;
-                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:(isJ&&toonProno)?'2px solid var(--gold)':'none',outlineOffset:'-2px',background:cellBg}}>
+                    // Celopmaak via config
+                    const matchCat=u.catPerMatch?u.catPerMatch[m.id]:null;
+                    const matchWb=u.wbPerMatch?u.wbPerMatch[m.id]??0:0;
+                    const celStijl=gespeeld&&matchCat?getCelStijl(matchCat,matchWb,isJ&&toonProno):null;
+                    const celBg=celStijl?.bg??(!gespeeld?'var(--dark2)':rowBg);
+                    const jokerOutlineOffset=config['joker_outline_offset']??'-2';
+                    const jokerOutlineDikte=config['joker_outline_dikte']??'2';
+                    const randKleur=celStijl?.border??null;
+                    // Joker: gebruik joker dikte/offset instellingen
+                    // Niet-joker met randkleur: vaste 1px outline met offset 0
+                    const outlineClr=randKleur||(isJ&&toonProno?'var(--gold)':null);
+                    const outlineDikte=isJ&&toonProno?jokerOutlineDikte:'1';
+                    const outlineOffset=isJ&&toonProno?`${jokerOutlineOffset}px`:'0px';
+                    const celOutline=outlineClr?`${outlineDikte}px solid ${outlineClr}`:'none';
+                    const ptsFontSize=celStijl?.size??11;
+                    const ptsFontWeight=celStijl?.bold?700:400;
+                    const ptsClr=celStijl?.clr??ptKleur(pts??0);
+                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:'1px solid var(--border)',borderRight:'1px solid var(--border)',textAlign:'center',minWidth:34,outline:celOutline,outlineOffset:outlineOffset,background:celBg}}>
                       {p&&p.home_pred!=null
                         ?<div>
-                          {gespeeld&&<div style={{fontFamily:'Bebas Neue',fontSize:11,color:ptKleur(pts??0)}}>{pts!=null?(pts>0?'+':'')+fmt(pts):'0'}</div>}
+                          {gespeeld&&<div style={{fontFamily:'Bebas Neue',fontSize:ptsFontSize,color:ptsClr,fontWeight:ptsFontWeight}}>{pts!=null?(pts>0?'+':'')+fmt(pts):'0'}</div>}
                           {toonProno&&<div style={{fontSize:8,color:'var(--muted)'}}>{p.home_pred}–{p.away_pred}</div>}
                         </div>
                         :<span style={{color:'var(--border)'}}>–</span>
@@ -1942,6 +2003,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         </div>);
       })()}
     </div>
+    </React.Fragment>;
+      return null;
+    })}
 
   </div>);}
 
@@ -4137,7 +4201,7 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
   async function clearTeldatum(){setTeldatum('');await sb.from('config').upsert({key:'bijvragen_teldatum',value:''});onRefresh();}
   return(<div>
     <div className="section-title">⚙️ Beheer <span className="badge-admin" style={{verticalAlign:'middle'}}>ADMIN</span></div>
-    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>switchTab(k)}>{l}</div>)}</div>
+    <div className="tabs">{[['uitleg','📖'],['matches','Wedstrijden'],['bijvragen','Bijvragen'],['stats','📈 Stats'],['ko','🏆 KO'],['formule','🧮 Formule'],['fifa','🌍 FIFA'],['deadline','⏰'],['betaling','💶'],['users','👥'],['test','🧪 Test'],['notities','📝 Notities'],['celopmaak','🎨 Celopmaak']].map(([k,l])=><div key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>switchTab(k)}>{l}</div>)}</div>
 
     {tab==='uitleg'&&(()=>{
       function cmd(command,value=null){editorRef.current.focus();document.execCommand(command,false,value);}
@@ -5173,6 +5237,7 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
     {/* 🧪 TEST TABBLAD */}
     {tab==='test'&&<TestTab matches={matches} bvs={bvs} koMatches={koMatches} config={config} ag={ag} setAg={setAg} fifaRanking={fifaRanking} onRefresh={onRefresh}/>}
     {tab==='notities'&&<NotitiesTab/>}
+    {tab==='celopmaak'&&<CelopmaakTab config={config} pvAll={pvAll} users={users} onRefresh={onRefresh}/>}
 
   </div>);}
 
@@ -5259,7 +5324,235 @@ function NotitiesTab(){
 }
 
 
-// ─── JAAN MEHDI: GEMIDDELDE DEELNEMER ────────────────────────────────────────
+// ─── CELOPMAAK TAB ────────────────────────────────────────────────────────────
+
+function StijlRij({sleutel, voorbeeld, isJoker, stijlen, updateStijl, saving}){
+    const st=stijlen[sleutel]||{bg:'transparent',clr:'#7a9e8a',bold:false,size:11,border:null};
+    const bgHex=(st.bg&&st.bg!=='transparent')?'#'+st.bg.replace('#','').slice(0,6):'#111714';
+    const clrHex=st.clr?'#'+st.clr.replace('#','').slice(0,6):'#7a9e8a';
+    const borderHex=st.border?'#'+st.border.replace('#','').slice(0,6):'#2a3d35';
+    const borderStyle=st.border?`1px solid ${st.border}`:'1px solid #2a3d3544';
+    const previewStyle={
+      display:'inline-flex',alignItems:'center',justifyContent:'center',
+      minWidth:46,height:28,borderRadius:4,padding:'0 6px',
+      background:st.bg==='transparent'?'transparent':st.bg,
+      color:st.clr, fontWeight:st.bold?700:400, fontSize:st.size,
+      fontFamily:'Bebas Neue',
+      border:'1px solid #2a3d3544',
+      outline:st.border||isJoker?`${isJoker?2:1}px solid ${st.border||st.clr}`:'none',
+      outlineOffset:isJoker?'-2px':'0px',
+    };
+    return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',borderTop:'1px solid var(--border)',flexWrap:'wrap'}}>
+      <div style={{width:50,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <span style={previewStyle}>{voorbeeld}</span>
+      </div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',flex:1}}>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Celkleur
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            <input type="color" value={bgHex}
+              onChange={e=>updateStijl(sleutel,'bg',e.target.value+'44')}
+              style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
+            <button onClick={()=>updateStijl(sleutel,'bg','transparent')}
+              style={{fontSize:9,padding:'2px 5px',borderRadius:3,border:'1px solid var(--border)',background:st.bg==='transparent'?'var(--green)':'var(--dark3)',color:st.bg==='transparent'?'#000':'var(--muted)',cursor:'pointer'}}>
+              Geen
+            </button>
+          </div>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Letterkleur
+          <input type="color" value={clrHex}
+            onChange={e=>updateStijl(sleutel,'clr',e.target.value)}
+            style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Outline
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            <input type="color" value={borderHex}
+              onChange={e=>updateStijl(sleutel,'border',e.target.value)}
+              style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
+            <button onClick={()=>updateStijl(sleutel,'border',null)}
+              style={{fontSize:9,padding:'2px 5px',borderRadius:3,border:'1px solid var(--border)',background:!st.border?'var(--green)':'var(--dark3)',color:!st.border?'#000':'var(--muted)',cursor:'pointer'}}>
+              Geen
+            </button>
+          </div>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Grootte ({st.size||11}px)
+          <input type="range" min={8} max={16} value={st.size||11}
+            onChange={e=>updateStijl(sleutel,'size',parseInt(e.target.value))}
+            style={{width:72}}/>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)',cursor:'pointer'}}>
+          Vet
+          <div style={{display:'flex',alignItems:'center',gap:4,height:22}}>
+            <input type="checkbox" checked={!!st.bold}
+              onChange={e=>updateStijl(sleutel,'bold',e.target.checked)}
+              style={{width:15,height:15,cursor:'pointer'}}/>
+            <span style={{fontSize:11,color:st.bold?'var(--text)':'var(--muted)',fontWeight:st.bold?700:400}}>B</span>
+          </div>
+        </label>
+        {saving[sleutel]&&<span style={{fontSize:10,color:'var(--green)'}}>✓</span>}
+      </div>
+    </div>);
+}
+
+function CelopmaakTab({config, pvAll, users, onRefresh}){
+  const echteUserIds=new Set((users||[]).filter(u=>!u.is_admin&&!u.is_test&&!u.is_avg).map(u=>u.id));
+  const pt=avgPT((pvAll||[]).filter(p=>echteUserIds.has(p.user_id)));
+  const initStijlen=()=>{
+    const s={};
+    for(const {key,groep,joker} of alleCelSleutels()){
+      const def=defaultStijl(groep,joker);
+      s[key]=parseCelStijl(config['cel_stijl_'+key]||'{}', def);
+    }
+    return s;
+  };
+  const[stijlen,setStijlen]=useState(initStijlen);
+  const[saving,setSaving]=useState({});
+
+  async function slaOp(sleutel, nieuweStijl){
+    setSaving(p=>({...p,[sleutel]:true}));
+    await sb.from('config').upsert({key:'cel_stijl_'+sleutel, value:JSON.stringify(nieuweStijl)});
+    onRefresh();
+    setTimeout(()=>setSaving(p=>({...p,[sleutel]:false})),900);
+  }
+
+  function updateStijl(sleutel, veld, waarde){
+    setStijlen(prev=>{
+      const nieuw={...prev,[sleutel]:{...prev[sleutel],[veld]:waarde}};
+      slaOp(sleutel, nieuw[sleutel]);
+      return nieuw;
+    });
+  }
+
+  const[jokerOffset,setJokerOffset]=useState(parseInt(config['joker_outline_offset']??'-2'));
+  const[jokerDikte,setJokerDikte]=useState(parseInt(config['joker_outline_dikte']??'2'));
+
+  async function saveJokerOffset(val){
+    setJokerOffset(val);
+    await sb.from('config').upsert({key:'joker_outline_offset',value:String(val)});
+    onRefresh();
+  }
+
+  async function saveJokerDikte(val){
+    setJokerDikte(val);
+    await sb.from('config').upsert({key:'joker_outline_dikte',value:String(val)});
+    onRefresh();
+  }
+
+  async function resetAlles(){
+    const resets={};
+    for(const {key,groep,joker} of alleCelSleutels()){
+      const def=defaultStijl(groep,joker);
+      resets[key]=def;
+      await sb.from('config').upsert({key:'cel_stijl_'+key,value:JSON.stringify(def)});
+    }
+    setStijlen(resets);
+    await sb.from('config').upsert({key:'joker_outline_offset',value:'-2'});
+    setJokerOffset(-2);
+    await sb.from('config').upsert({key:'joker_outline_dikte',value:'2'});
+    setJokerDikte(2);
+    onRefresh();
+  }
+
+  const TABEL_NAMEN={klassement:'🏆 Live Klassement', overzicht:'📋 Master-Excel Totaal', detail:'📊 Detail per wedstrijd'};
+  const defaultVolgorde=['klassement','overzicht','detail'];
+  const[volgorde,setVolgorde]=useState(()=>{try{return JSON.parse(config['klassement_volgorde']||'null')||defaultVolgorde;}catch{return defaultVolgorde;}});
+
+  async function verschuif(idx, richting){
+    const nieuw=[...volgorde];
+    const swap=idx+richting;
+    if(swap<0||swap>=nieuw.length)return;
+    [nieuw[idx],nieuw[swap]]=[nieuw[swap],nieuw[idx]];
+    setVolgorde(nieuw);
+    await sb.from('config').upsert({key:'klassement_volgorde',value:JSON.stringify(nieuw)});
+    onRefresh();
+  }
+
+  return(<div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--text)',letterSpacing:1}}>🎨 Celopmaak — Detail per wedstrijd</div>
+      <button onClick={resetAlles} className="btn btn-sm" style={{background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',fontSize:11}}>↺ Reset alles</button>
+    </div>
+    {/* Tabel volgorde */}
+    <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:9,padding:'12px 14px',marginBottom:14}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--text)',marginBottom:10,letterSpacing:.5}}>↕ Volgorde tabellen in klassement</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {volgorde.map((id,idx)=>(
+          <div key={id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--dark3)',borderRadius:6,padding:'8px 10px'}}>
+            <span style={{flex:1,fontSize:12,color:'var(--text)'}}>{TABEL_NAMEN[id]}</span>
+            <button onClick={()=>verschuif(idx,-1)} disabled={idx===0}
+              style={{background:'none',border:'1px solid var(--border)',color:idx===0?'var(--border)':'var(--muted)',borderRadius:4,padding:'2px 8px',cursor:idx===0?'default':'pointer',fontSize:13}}>▲</button>
+            <button onClick={()=>verschuif(idx,1)} disabled={idx===volgorde.length-1}
+              style={{background:'none',border:'1px solid var(--border)',color:idx===volgorde.length-1?'var(--border)':'var(--muted)',borderRadius:4,padding:'2px 8px',cursor:idx===volgorde.length-1?'default':'pointer',fontSize:13}}>▼</button>
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* Algemene joker-instelling */}
+    <div style={{background:'var(--card)',border:'1px solid var(--gold)',borderRadius:9,padding:'12px 14px',marginBottom:14}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--gold)',marginBottom:8,letterSpacing:.5}}>🃏 Algemene joker-instelling</div>
+      <label style={{display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--muted)',flexWrap:'wrap'}}>
+        Outline offset ({jokerOffset}px)
+        <input type="range" min={-8} max={8} value={jokerOffset}
+          onChange={e=>saveJokerOffset(parseInt(e.target.value))}
+          style={{width:120}}/>
+        <span style={{fontSize:10,color:'var(--muted)'}}>
+          negatief = naar binnen · positief = naar buiten · 0 = op de rand
+        </span>
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--muted)',flexWrap:'wrap',marginTop:8}}>
+        Outline dikte ({jokerDikte}px)
+        <input type="range" min={1} max={6} value={jokerDikte}
+          onChange={e=>saveJokerDikte(parseInt(e.target.value))}
+          style={{width:120}}/>
+      </label>
+    </div>
+    <div style={{fontSize:11,color:'var(--muted)',marginBottom:16,lineHeight:1.6}}>
+      Stel per puntcombinatie de celopmaak in. Elke categorie heeft varianten met waaghalsbonus (+wb) en met joker (×2). 16 stijlen in totaal.
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      {CEL_GROEPEN.map(groep=>{
+        // Voorbeeld-punten op basis van de echte gemiddelde puntentabel
+        const base=Math.trunc((pt[groep.cat]??0)*100)/100;
+        return(<div key={groep.cat} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10}}>
+          {/* Groepshoofd */}
+          <div style={{padding:'10px 14px',display:'flex',alignItems:'center',gap:8}}>
+            <div style={{fontFamily:'Bebas Neue',fontSize:15,color:'var(--text)',letterSpacing:.5,flex:1}}>{groep.label}</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>basis: {base>0?'+':''}{base} pt</div>
+          </div>
+          {/* Rijen: voor elke wb-waarde: eerst zonder joker, dan met joker */}
+          {groep.wbVals.map(wb=>{
+            const sleutelBase=celSleutel(groep.cat,wb,false);
+            const sleutelJoker=celSleutel(groep.cat,wb,true);
+            const wbLabel=wb>0?` +${wb} waaghals`:'';
+            const ptsBase=base+wb;
+            const ptsJoker=(base+wb)*2;
+            return(<React.Fragment key={wb}>
+              {/* Zonder joker */}
+              <div style={{paddingLeft:14,paddingRight:6}}>
+                <div style={{fontSize:10,color:'var(--muted)',paddingTop:8,paddingBottom:2,fontWeight:600}}>
+                  {wb===0?'Zonder waaghals':'Waaghals'+wbLabel} — zonder joker
+                </div>
+                <StijlRij sleutel={sleutelBase} voorbeeld={(ptsBase>0?'+':'')+ptsBase} isJoker={false} stijlen={stijlen} updateStijl={updateStijl} saving={saving}/>
+              </div>
+              {/* Met joker */}
+              <div style={{paddingLeft:14,paddingRight:6,marginBottom:6}}>
+                <div style={{fontSize:10,color:'var(--gold)',paddingTop:6,paddingBottom:2,fontWeight:600}}>
+                  🃏 {wb===0?'Zonder waaghals':'Waaghals'+wbLabel} — met joker
+                </div>
+                <StijlRij sleutel={sleutelJoker} voorbeeld={(ptsJoker>0?'+':'')+ptsJoker} isJoker={true} stijlen={stijlen} updateStijl={updateStijl} saving={saving}/>
+              </div>
+            </React.Fragment>);
+          })}
+        </div>);
+      })}
+    </div>
+  </div>);
+}
+
+
 const JAAN_ID='jaan_mehdi_avg';
 const JAAN_NAME='Jaan Mehdi';
 
