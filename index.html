@@ -3393,7 +3393,7 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
   while(config['bericht_'+bi]!==undefined){
     try{
       const b=JSON.parse(config['bericht_'+bi]);
-      if(b&&b.html)berichten.push(b);
+      if(b&&b.html&&b.zichtbaar!==false)berichten.push(b);
     }catch{}
     bi++;
   }
@@ -4330,6 +4330,18 @@ function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPr
 
 function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
+  const[uitlegTitel,setUitlegTitel]=useState(config['uitleg_titel']||'');
+  const[uitlegTabNaam,setUitlegTabNaam]=useState(config['uitleg_tabnaam']||'handleiding');
+  const[berichten,setBerichten]=useState(()=>{
+    const b=[];let i=1;
+    while(config['bericht_'+i]!==undefined){
+      try{b.push(JSON.parse(config['bericht_'+i]));}catch{b.push({titel:'',html:config['bericht_'+i]});}
+      i++;
+    }
+    return b;
+  });
+  const berichtEditorsRef=React.useRef({});
+  const[berichtSaved,setBerichtSaved]=useState({});
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
   function switchTab(newTab){document.activeElement?.blur();setTab(newTab);}
@@ -4449,20 +4461,6 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
         setUitlegTekst(html);
         sb.from('config').upsert({key:'uitleg',value:html}).then(()=>{setUitlegSaved(true);setTimeout(()=>setUitlegSaved(false),2000);onRefresh();});
       }
-
-      const[uitlegTitel,setUitlegTitel]=useState(config['uitleg_titel']||'');
-      const[uitlegTabNaam,setUitlegTabNaam]=useState(config['uitleg_tabnaam']||'handleiding');
-      const[berichten,setBerichten]=useState(()=>{
-        const b=[];
-        let i=1;
-        while(config['bericht_'+i]!==undefined){
-          try{b.push(JSON.parse(config['bericht_'+i]));}catch{b.push({titel:'',html:config['bericht_'+i]});}
-          i++;
-        }
-        return b;
-      });
-      const[berichtEditors,setBerichtEditors]=useState({});
-      const[berichtSaved,setBerichtSaved]=useState({});
 
       async function saveTitel(v){
         setUitlegTitel(v);
@@ -4595,12 +4593,14 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
         </div>
         {berichten.length===0&&<div style={{fontSize:12,color:'var(--muted)',marginBottom:14}}>Nog geen berichten. Klik op "+ Nieuw bericht" om er een toe te voegen.</div>}
         {berichten.map((b,idx)=>{
-          const bRef=berichtEditors[idx]||(()=>{const r=React.createRef();setBerichtEditors(p=>({...p,[idx]:r}));return r;})();
-          return(<div key={idx} className="card" style={{marginBottom:12,border:'1px solid var(--border)'}}>
+          if(!berichtEditorsRef.current[idx]) berichtEditorsRef.current[idx]=React.createRef();
+          const bRef=berichtEditorsRef.current[idx];
+          return(<div key={idx} className="card" style={{marginBottom:12,border:`1px solid ${b.zichtbaar===false?'var(--border)':'var(--green)'}`,opacity:b.zichtbaar===false?0.6:1}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
               <input className="ii" style={{flex:1,fontSize:13,fontWeight:600}} defaultValue={b.titel||''}
                 placeholder="Titel van dit bericht"
                 id={'bericht-titel-'+idx}/>
+              {b.zichtbaar===false&&<span style={{fontSize:10,background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',padding:'2px 6px',borderRadius:4}}>verborgen</span>}
               <button onClick={()=>verwijderBericht(idx)}
                 style={{background:'none',border:'1px solid var(--red)',color:'var(--red)',borderRadius:5,padding:'4px 8px',cursor:'pointer',fontSize:11}}>
                 🗑 Verwijder
@@ -4619,6 +4619,14 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
                 await saveBericht(idx,'titel',titel);
                 await saveBericht(idx,'html',html);
               }}>💾 Opslaan</button>
+              <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'var(--muted)'}}>
+                <input type="checkbox" checked={b.zichtbaar!==false}
+                  onChange={e=>saveBericht(idx,'zichtbaar',e.target.checked)}
+                  style={{accentColor:'var(--green)',width:14,height:14}}/>
+                <span style={{color:b.zichtbaar!==false?'var(--green)':'var(--muted)'}}>
+                  {b.zichtbaar!==false?'Zichtbaar':'Verborgen'}
+                </span>
+              </label>
               {berichtSaved[idx]&&<span style={{fontSize:11,color:'var(--green)'}}>✓ Opgeslagen</span>}
             </div>
           </div>);
