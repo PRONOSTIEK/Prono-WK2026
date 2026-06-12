@@ -1515,7 +1515,8 @@ function Login({onLogin,config}){
 // ─── EVOLUTIEGRAFIEK ─────────────────────────────────────────────────────────
 function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
   const[filter,setFilter]=useState('all');
-  const kleurModus=config?.['evolutie_kleur']||'auto';
+  const[modus,setModus]=useState('auto'); // 'auto' | 'positie'
+  const kleurModus=modus;
   const containerRef=React.useRef(null);
   const[svgW,setSvgW]=useState(800);
   React.useEffect(()=>{
@@ -1554,8 +1555,6 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
   }
 
   let toonSpelers=echteSpelers;
-  if(filter==='top10') toonSpelers=echteSpelers.filter(u=>rangReeks[u.id][nSteps-1]<=10);
-  if(filter==='mijzelf') toonSpelers=echteSpelers.filter(u=>u.id===cur.id);
 
   // Kleur bepalen per speler
   const KLEUREN=['#00c853','#ffd600','#64b5f6','#ff7043','#ce93d8','#80cbc4','#ffcc02','#ef9a9a','#a5d6a7','#90caf9','#ffab40','#b0bec5','#f48fb1','#ffe082','#80deea','#bcaaa4','#c5e1a5','#b39ddb'];
@@ -1563,30 +1562,47 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
   echteSpelers.forEach((u,i)=>kleurMap[u.id]=KLEUREN[i%KLEUREN.length]);
 
   function getKleur(u){
+    const rang=rangReeks[u.id][nSteps-1];
+    const isMe=u.id===cur.id;
     if(kleurModus==='positie'){
-      const rang=rangReeks[u.id][nSteps-1];
-      if(u.id===cur.id) return'#ffd600';
+      if(isMe) return'#ffd600';
       if(rang===1) return'#00c853';
       if(rang===N) return'#e53935';
       return'#4a5e52';
     }
+    // auto: vaste kleur maar jezelf = goud
+    if(isMe) return'#ffd600';
     return kleurMap[u.id];
   }
   function getDikte(u){
+    const rang=rangReeks[u.id][nSteps-1];
+    const isMe=u.id===cur.id;
     if(kleurModus==='positie'){
-      const rang=rangReeks[u.id][nSteps-1];
-      if(u.id===cur.id||rang===1||rang===N) return 2.5;
+      if(isMe||rang===1||rang===N) return 2.5;
       return 1;
     }
-    return u.id===cur.id?2.5:1.2;
+    return isMe?2.5:1.2;
   }
   function getOpacity(u){
+    const rang=rangReeks[u.id][nSteps-1];
+    const isMe=u.id===cur.id;
     if(kleurModus==='positie'){
-      const rang=rangReeks[u.id][nSteps-1];
-      if(u.id===cur.id||rang===1||rang===N) return 1;
+      if(isMe||rang===1||rang===N) return 1;
       return 0.4;
     }
-    return u.id===cur.id?1:0.7;
+    return isMe?1:0.7;
+  }
+  function getLabelKleur(u){
+    const rang=rangReeks[u.id][nSteps-1];
+    const isMe=u.id===cur.id;
+    if(kleurModus==='positie'){
+      if(isMe) return'#ffd600';
+      if(rang===1) return'#00c853';
+      if(rang===N) return'#e53935';
+      return'#e8f5e9'; // wit voor de rest
+    }
+    if(isMe) return'#ffd600';
+    return kleurMap[u.id];
   }
 
   const labelH=13;
@@ -1605,9 +1621,9 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
       <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1}}>📈 Rangschikking Evolutie</div>
       <div style={{display:'flex',gap:4}}>
-        {[['all','Iedereen'],['top10','Top 10'],['mijzelf','Mijzelf']].map(([k,l])=>(
-          <button key={k} onClick={()=>setFilter(k)}
-            style={{fontSize:10,padding:'3px 8px',borderRadius:4,border:`1px solid ${filter===k?'var(--green)':'var(--border)'}`,background:filter===k?'var(--green)':'var(--dark3)',color:filter===k?'#000':'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>
+        {[['auto','🎨 Alle kleuren'],['positie','🏅 Positie']].map(([k,l])=>(
+          <button key={k} onClick={()=>setModus(k)}
+            style={{fontSize:10,padding:'3px 8px',borderRadius:4,border:`1px solid ${modus===k?'var(--green)':'var(--border)'}`,background:modus===k?'var(--green)':'var(--dark3)',color:modus===k?'#000':'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>
             {l}
           </button>
         ))}
@@ -1630,7 +1646,7 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
           return(<g key={u.id}>
             <path d={d} fill="none" stroke={kleur} strokeWidth={dikte} strokeOpacity={opacity}/>
             <text x={W-PAD.right+6} y={yPosLabel(rangReeks[u.id][nSteps-1])+4}
-              fontSize={dikte>1.5?11:9} fill={kleur} fillOpacity={opacity} fontWeight={dikte>1.5?700:400}
+              fontSize={dikte>1.5?11:9} fill={getLabelKleur(u)} fillOpacity={opacity} fontWeight={dikte>1.5?700:400}
               style={{fontFamily:'DM Sans,sans-serif'}}>
               {u.name?.slice(0,18)}
             </text>
