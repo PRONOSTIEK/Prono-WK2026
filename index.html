@@ -1898,7 +1898,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const celBg=celStijl?.bg??(!gespeeld?'var(--dark2)':rowBg);
                     const celBorderClr=celStijl?.border??null;
                     const jokerOutlineOffset=config['joker_outline_offset']??'-2';
-                    const jokerOutline=isJ&&toonProno?(celStijl?`2px solid ${celStijl.border||celStijl.clr}`:'2px solid var(--gold)'):'none';
+                    const jokerOutlineDikte=config['joker_outline_dikte']??'2';
+                    const jokerOutline=isJ&&toonProno?(celStijl?`${jokerOutlineDikte}px solid ${celStijl.border||celStijl.clr}`:`${jokerOutlineDikte}px solid var(--gold)`):'none';
                     const ptsFontSize=celStijl?.size??11;
                     const ptsFontWeight=celStijl?.bold?700:400;
                     const ptsClr=celStijl?.clr??ptKleur(pts??0);
@@ -5414,10 +5415,17 @@ function CelopmaakTab({config, pvAll, onRefresh}){
   }
 
   const[jokerOffset,setJokerOffset]=useState(parseInt(config['joker_outline_offset']??'-2'));
+  const[jokerDikte,setJokerDikte]=useState(parseInt(config['joker_outline_dikte']??'2'));
 
   async function saveJokerOffset(val){
     setJokerOffset(val);
     await sb.from('config').upsert({key:'joker_outline_offset',value:String(val)});
+    onRefresh();
+  }
+
+  async function saveJokerDikte(val){
+    setJokerDikte(val);
+    await sb.from('config').upsert({key:'joker_outline_dikte',value:String(val)});
     onRefresh();
   }
 
@@ -5431,6 +5439,8 @@ function CelopmaakTab({config, pvAll, onRefresh}){
     setStijlen(resets);
     await sb.from('config').upsert({key:'joker_outline_offset',value:'-2'});
     setJokerOffset(-2);
+    await sb.from('config').upsert({key:'joker_outline_dikte',value:'2'});
+    setJokerDikte(2);
     onRefresh();
   }
 
@@ -5450,6 +5460,12 @@ function CelopmaakTab({config, pvAll, onRefresh}){
         <span style={{fontSize:10,color:'var(--muted)'}}>
           negatief = naar binnen · positief = naar buiten · 0 = op de rand
         </span>
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--muted)',flexWrap:'wrap',marginTop:8}}>
+        Outline dikte ({jokerDikte}px)
+        <input type="range" min={1} max={6} value={jokerDikte}
+          onChange={e=>saveJokerDikte(parseInt(e.target.value))}
+          style={{width:120}}/>
       </label>
     </div>
     <div style={{fontSize:11,color:'var(--muted)',marginBottom:16,lineHeight:1.6}}>
