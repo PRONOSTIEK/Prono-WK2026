@@ -1897,13 +1897,14 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                     const celStijl=gespeeld&&matchCat?getCelStijl(matchCat,matchWb,isJ&&toonProno):null;
                     const celBg=celStijl?.bg??(!gespeeld?'var(--dark2)':rowBg);
                     const celBorderClr=celStijl?.border??null;
+                    const jokerOutlineOffset=config['joker_outline_offset']??'-2';
                     const jokerOutline=isJ&&toonProno?(celStijl?`2px solid ${celStijl.border||celStijl.clr}`:'2px solid var(--gold)'):'none';
                     const ptsFontSize=celStijl?.size??11;
                     const ptsFontWeight=celStijl?.bold?700:400;
                     const ptsClr=celStijl?.clr??ptKleur(pts??0);
                     const celBorderB=celBorderClr?`1px solid ${celBorderClr}`:'1px solid var(--border)';
                     const celBorderR=celBorderClr?`1px solid ${celBorderClr}`:'1px solid var(--border)';
-                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:celBorderB,borderRight:celBorderR,textAlign:'center',minWidth:34,outline:jokerOutline,outlineOffset:'-2px',background:celBg}}>
+                    return(<td key={m.id} style={{padding:'2px 3px',borderBottom:celBorderB,borderRight:celBorderR,textAlign:'center',minWidth:34,outline:jokerOutline,outlineOffset:`${jokerOutlineOffset}px`,background:celBg}}>
                       {p&&p.home_pred!=null
                         ?<div>
                           {gespeeld&&<div style={{fontFamily:'Bebas Neue',fontSize:ptsFontSize,color:ptsClr,fontWeight:ptsFontWeight}}>{pts!=null?(pts>0?'+':'')+fmt(pts):'0'}</div>}
@@ -5412,6 +5413,14 @@ function CelopmaakTab({config, pvAll, onRefresh}){
     });
   }
 
+  const[jokerOffset,setJokerOffset]=useState(parseInt(config['joker_outline_offset']??'-2'));
+
+  async function saveJokerOffset(val){
+    setJokerOffset(val);
+    await sb.from('config').upsert({key:'joker_outline_offset',value:String(val)});
+    onRefresh();
+  }
+
   async function resetAlles(){
     const resets={};
     for(const {key,groep,joker} of alleCelSleutels()){
@@ -5420,6 +5429,8 @@ function CelopmaakTab({config, pvAll, onRefresh}){
       await sb.from('config').upsert({key:'cel_stijl_'+key,value:JSON.stringify(def)});
     }
     setStijlen(resets);
+    await sb.from('config').upsert({key:'joker_outline_offset',value:'-2'});
+    setJokerOffset(-2);
     onRefresh();
   }
 
@@ -5427,6 +5438,19 @@ function CelopmaakTab({config, pvAll, onRefresh}){
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
       <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--text)',letterSpacing:1}}>🎨 Celopmaak — Detail per wedstrijd</div>
       <button onClick={resetAlles} className="btn btn-sm" style={{background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',fontSize:11}}>↺ Reset alles</button>
+    </div>
+    {/* Algemene joker-instelling */}
+    <div style={{background:'var(--card)',border:'1px solid var(--gold)',borderRadius:9,padding:'12px 14px',marginBottom:14}}>
+      <div style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--gold)',marginBottom:8,letterSpacing:.5}}>🃏 Algemene joker-instelling</div>
+      <label style={{display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--muted)',flexWrap:'wrap'}}>
+        Outline offset ({jokerOffset}px)
+        <input type="range" min={-8} max={8} value={jokerOffset}
+          onChange={e=>saveJokerOffset(parseInt(e.target.value))}
+          style={{width:120}}/>
+        <span style={{fontSize:10,color:'var(--muted)'}}>
+          negatief = naar binnen · positief = naar buiten · 0 = op de rand
+        </span>
+      </label>
     </div>
     <div style={{fontSize:11,color:'var(--muted)',marginBottom:16,lineHeight:1.6}}>
       Stel per puntcombinatie de celopmaak in. Elke categorie heeft varianten met waaghalsbonus (+wb) en met joker (×2). 16 stijlen in totaal.
