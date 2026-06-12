@@ -5191,7 +5191,7 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
     {/* 🧪 TEST TABBLAD */}
     {tab==='test'&&<TestTab matches={matches} bvs={bvs} koMatches={koMatches} config={config} ag={ag} setAg={setAg} fifaRanking={fifaRanking} onRefresh={onRefresh}/>}
     {tab==='notities'&&<NotitiesTab/>}
-    {tab==='celopmaak'&&<CelopmaakTab config={config} onRefresh={onRefresh}/>}
+    {tab==='celopmaak'&&<CelopmaakTab config={config} pvAll={pvAll} onRefresh={onRefresh}/>}
 
   </div>);}
 
@@ -5323,7 +5323,8 @@ function defaultStijl(groep, joker){
   return{bg:joker?'#ffd60008':groep.defaultBg, clr:joker?groep.defaultClr:groep.defaultClr, bold:false, size:11};
 }
 
-function CelopmaakTab({config, onRefresh}){
+function CelopmaakTab({config, pvAll, onRefresh}){
+  const pt=avgPT(pvAll||[]);
   const initStijlen=()=>{
     const s={};
     for(const {key,groep,joker} of alleCelSleutels()){
@@ -5429,9 +5430,8 @@ function CelopmaakTab({config, onRefresh}){
     </div>
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
       {CEL_GROEPEN.map(groep=>{
-        // Bereken voorbeeld-punten op basis van een typische puntentabel
-        const basePt={alles_juist:7,een_juist_winnaar_juist:5,niets_juist_winnaar_juist:4,een_juist_winnaar_fout:2,alles_fout:-2};
-        const base=basePt[groep.cat]??0;
+        // Voorbeeld-punten op basis van de echte gemiddelde puntentabel
+        const base=Math.round((pt[groep.cat]??0)*100)/100;
         return(<div key={groep.cat} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10}}>
           {/* Groepshoofd */}
           <div style={{padding:'10px 14px',display:'flex',alignItems:'center',gap:8}}>
