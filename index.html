@@ -1630,9 +1630,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
-    <div className="grid2" style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n">{echteUsers.filter(u=>!u.is_avg).length}</div><div className="stat-l">Deelnemers</div></div>
-      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length}</div><div className="stat-l">Gespeeld</div></div>
+    <div style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length} <span style={{fontSize:18,color:'var(--muted)'}}>/ 72</span></div><div className="stat-l">Gespeelde matchen</div></div>
     </div>
 
     {tabelVolgorde.map(id=>{
