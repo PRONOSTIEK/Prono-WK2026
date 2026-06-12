@@ -1512,6 +1512,42 @@ function Login({onLogin,config}){
   </div></div>);}
 
 // KLASSEMENT
+// ─── CELOPMAAK HELPERS (gedeeld door Klassement en CelopmaakTab) ──────────────
+// 8 basis-situaties × 2 (zonder/met joker) = 16 stijlen
+// Sleutelformaat: cel_stijl_{cat}__wb{0|1|2|4}[__joker]
+const CEL_GROEPEN = [
+  {cat:'alles_juist',              label:'Alles juist',         wbVals:[0,1,2,4], defaultClr:'#00c853', defaultBg:'#00c85322'},
+  {cat:'een_juist_winnaar_juist',  label:'1 juist + winnaar ✓', wbVals:[0,1,2,4], defaultClr:'#00c853', defaultBg:'#00c85318'},
+  {cat:'niets_juist_winnaar_juist',label:'0 juist + winnaar ✓', wbVals:[0,1,2,4], defaultClr:'#ffd600', defaultBg:'#ffd60018'},
+  {cat:'een_juist_winnaar_fout',   label:'1 juist + winnaar ✗', wbVals:[0],        defaultClr:'#ffd600', defaultBg:'#ffd60011'},
+  {cat:'alles_fout',               label:'Alles fout',          wbVals:[0],        defaultClr:'#e53935', defaultBg:'#e5393518'},
+];
+function celSleutel(cat, wb, joker){ return `${cat}__wb${wb}${joker?'__joker':''}`; }
+function alleCelSleutels(){
+  const keys=[];
+  for(const g of CEL_GROEPEN){
+    for(const wb of g.wbVals){
+      keys.push({cat:g.cat,wb,joker:false,key:celSleutel(g.cat,wb,false),groep:g});
+      keys.push({cat:g.cat,wb,joker:true, key:celSleutel(g.cat,wb,true), groep:g});
+    }
+  }
+  return keys;
+}
+function parseCelStijl(raw, defaults){
+  try{ const p=JSON.parse(raw||'{}'); return{...defaults,...p}; }catch{return defaults;}
+}
+function defaultStijl(groep, joker){
+  return{bg:joker?'#ffd60008':groep.defaultBg, clr:groep.defaultClr, bold:false, size:11};
+}
+function getCelStijlGlobal(config, cat, wb, joker){
+  if(!cat) return null;
+  const groep=CEL_GROEPEN.find(g=>g.cat===cat);
+  const def=groep?defaultStijl(groep,joker):null;
+  const raw=config['cel_stijl_'+celSleutel(cat,wb??0,joker)];
+  if(!raw) return def;
+  try{ return{...def,...JSON.parse(raw)}; }catch{ return def; }
+}
+
 function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spelerStats,config,koMatches,koPronosAll,koPunten,fifaRanking,cur,viewPronoOf}){
   const isAdmin=cur.is_admin;
   const[toonAlles,setToonAlles]=useState(false);
@@ -1564,13 +1600,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     return'var(--muted)';
   }
 
-  function getCelStijl(cat, wb, joker){
-    if(!cat) return null;
-    const sleutel=`${cat}__wb${wb??0}${joker?'__joker':''}`;
-    const raw=config['cel_stijl_'+sleutel];
-    if(!raw) return null;
-    try{ return JSON.parse(raw); }catch{ return null; }
-  }
+  function getCelStijl(cat, wb, joker){ return getCelStijlGlobal(config, cat, wb, joker); }
 
   function scrollToDetail(){
     const el=document.getElementById('detail-tabel');
@@ -5279,49 +5309,6 @@ function NotitiesTab(){
 
 
 // ─── CELOPMAAK TAB ────────────────────────────────────────────────────────────
-// 8 basis-situaties × 2 (zonder/met joker) = 16 stijlen
-// Sleutelformaat: cel_stijl_{cat}__wb{0|1|2|4}[__joker]
-const CEL_GROEPEN = [
-  {
-    cat:'alles_juist', label:'Alles juist', wbVals:[0,1,2,4],
-    defaultClr:'#00c853', defaultBg:'#00c85322',
-  },
-  {
-    cat:'een_juist_winnaar_juist', label:'1 juist + winnaar ✓', wbVals:[0,1,2,4],
-    defaultClr:'#00c853', defaultBg:'#00c85318',
-  },
-  {
-    cat:'niets_juist_winnaar_juist', label:'0 juist + winnaar ✓', wbVals:[0,1,2,4],
-    defaultClr:'#ffd600', defaultBg:'#ffd60018',
-  },
-  {
-    cat:'een_juist_winnaar_fout', label:'1 juist + winnaar ✗', wbVals:[0],
-    defaultClr:'#ffd600', defaultBg:'#ffd60011',
-  },
-  {
-    cat:'alles_fout', label:'Alles fout', wbVals:[0],
-    defaultClr:'#e53935', defaultBg:'#e5393518',
-  },
-];
-// Genereer alle 16 configuratiesleutels (8 basis + 8 joker)
-function celSleutel(cat, wb, joker){ return `${cat}__wb${wb}${joker?'__joker':''}`; }
-function alleCelSleutels(){
-  const keys=[];
-  for(const g of CEL_GROEPEN){
-    for(const wb of g.wbVals){
-      keys.push({cat:g.cat,wb,joker:false,key:celSleutel(g.cat,wb,false),groep:g});
-      keys.push({cat:g.cat,wb,joker:true, key:celSleutel(g.cat,wb,true), groep:g});
-    }
-  }
-  return keys;
-}
-
-function parseCelStijl(raw, defaults){
-  try{ const p=JSON.parse(raw||'{}'); return{...defaults,...p}; }catch{return defaults;}
-}
-function defaultStijl(groep, joker){
-  return{bg:joker?'#ffd60008':groep.defaultBg, clr:joker?groep.defaultClr:groep.defaultClr, bold:false, size:11};
-}
 
 function CelopmaakTab({config, pvAll, onRefresh}){
   const pt=avgPT(pvAll||[]);
