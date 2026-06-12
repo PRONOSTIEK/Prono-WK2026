@@ -1536,7 +1536,7 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
     </div>
   );
 
-  const echteSpelers=st.filter(u=>!u.is_avg&&!u.is_admin);
+  const echteSpelers=st.filter(u=>!u.is_admin);
   const N=echteSpelers.length;
   const puntenReeks={};
   for(const u of echteSpelers) puntenReeks[u.id]=[0];
@@ -1659,6 +1659,13 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
         <text x={PAD.left} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">0</text>
         <text x={PAD.left-4} y={yPosLabel(1)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">1</text>
         <text x={PAD.left-4} y={yPosLabel(N)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">{N}</text>
+        {(()=>{
+          const myRang=rangReeks[cur.id]?.[nSteps-1];
+          if(myRang&&myRang!==1&&myRang!==N) return(
+            <text x={PAD.left-4} y={yPosLabel(myRang)+4} fontSize={9} fill="#ffd600" fontWeight={700} textAnchor="end">{myRang}</text>
+          );
+          return null;
+        })()}
       </svg>
     </div>
     <div style={{fontSize:9,color:'var(--muted)',marginTop:4}}>X-as = wedstrijden (1…{gespeeldeMatches.length}) · Y-as = rangschikking (1 = beste)</div>
