@@ -1756,7 +1756,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   function scrollNaar(ankerId){
     const el=document.getElementById(ankerId);
     const c=document.querySelector('.content');
-    if(el&&c){const elTop=el.getBoundingClientRect().top;const cTop=c.getBoundingClientRect().top;c.scrollBy({top:elTop-cTop-60,behavior:'smooth'});}
+    if(!el||!c) return;
+    // Bereken offset van element relatief aan .content
+    let top=0, node=el;
+    while(node&&node!==c){top+=node.offsetTop;node=node.offsetParent;}
+    c.scrollTo({top:top-60,behavior:'smooth'});
   }
 
   return(<div>
