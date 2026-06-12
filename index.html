@@ -1512,6 +1512,113 @@ function Login({onLogin,config}){
   </div></div>);}
 
 // KLASSEMENT
+// ─── EVOLUTIEGRAFIEK ─────────────────────────────────────────────────────────
+function EvolutieGrafiek({st, gespeeldeMatches, cur}){
+  const[filter,setFilter]=useState('all'); // 'all' | 'top10' | 'mijzelf'
+  const W=800,H=340,PAD={top:16,right:140,bottom:24,left:36};
+  const GW=W-PAD.left-PAD.right, GH=H-PAD.top-PAD.bottom;
+
+  if(!gespeeldeMatches||gespeeldeMatches.length===0) return(
+    <div className="card" style={{padding:'14px',marginBottom:14}}>
+      <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📈 Rangschikking Evolutie</div>
+      <div style={{color:'var(--muted)',fontSize:12}}>Nog geen wedstrijden gespeeld.</div>
+    </div>
+  );
+
+  // Bereken rangschikking na elke wedstrijd
+  const echteSpelers=st.filter(u=>!u.is_avg&&!u.is_admin);
+  const N=echteSpelers.length;
+  const puntenReeks={}; // userId -> [pts na match 0, na match 1, ...]
+  for(const u of echteSpelers) puntenReeks[u.id]=[0];
+
+  for(const m of gespeeldeMatches){
+    for(const u of echteSpelers){
+      const prev=puntenReeks[u.id][puntenReeks[u.id].length-1];
+      const gained=u.ptsPerMatch?.[m.id]??0;
+      puntenReeks[u.id].push(prev+gained);
+    }
+  }
+
+  // Rangschikking per stap
+  const nSteps=gespeeldeMatches.length+1;
+  const rangReeks={}; // userId -> [rang na stap 0, stap 1, ...]
+  for(const u of echteSpelers) rangReeks[u.id]=[];
+  for(let s=0;s<nSteps;s++){
+    const sorted=[...echteSpelers].sort((a,b)=>(puntenReeks[b.id][s]??0)-(puntenReeks[a.id][s]??0));
+    sorted.forEach((u,i)=>rangReeks[u.id].push(i+1));
+  }
+
+  // Filter welke spelers te tonen
+  let toonSpelers=echteSpelers;
+  if(filter==='top10') toonSpelers=echteSpelers.filter(u=>rangReeks[u.id][nSteps-1]<=10);
+  if(filter==='mijzelf') toonSpelers=echteSpelers.filter(u=>u.id===cur.id);
+
+  // Kleuren per speler
+  const KLEUREN=['#00c853','#ffd600','#64b5f6','#ff7043','#ce93d8','#80cbc4','#ffcc02','#ef9a9a','#a5d6a7','#90caf9','#ffab40','#b0bec5','#f48fb1','#ffe082','#80deea','#bcaaa4','#c5e1a5','#b39ddb'];
+  const kleurMap={};
+  echteSpelers.forEach((u,i)=>kleurMap[u.id]=KLEUREN[i%KLEUREN.length]);
+
+  // SVG schaalverdeling
+  const xPos=s=>PAD.left+s*(GW/(nSteps-1||1));
+  const yPos=r=>PAD.top+(r-1)*(GH/(N-1||1));
+
+  const labelH=13;
+  const svgH=Math.max(H, N*labelH+PAD.top+PAD.bottom);
+  const yPosLabel=r=>PAD.top+(r-1)*((svgH-PAD.top-PAD.bottom)/(N-1||1));
+
+  return(<div className="card" style={{padding:'12px 14px',marginBottom:14}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+      <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1}}>📈 Rangschikking Evolutie</div>
+      <div style={{display:'flex',gap:4}}>
+        {[['all','Iedereen'],['top10','Top 10'],['mijzelf','Mijzelf']].map(([k,l])=>(
+          <button key={k} onClick={()=>setFilter(k)}
+            style={{fontSize:10,padding:'3px 8px',borderRadius:4,border:`1px solid ${filter===k?'var(--green)':'var(--border)'}`,background:filter===k?'var(--green)':'var(--dark3)',color:filter===k?'#000':'var(--muted)',cursor:'pointer',fontFamily:'inherit'}}>
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+    <div style={{overflowX:'auto'}}>
+      <svg width={W} height={svgH} style={{display:'block',minWidth:W}}>
+        {/* Achtergrondlijnen */}
+        {Array.from({length:Math.min(N,20)},(_,i)=>(
+          <line key={i} x1={PAD.left} x2={W-PAD.right} y1={yPosLabel(i+1)} y2={yPosLabel(i+1)} stroke="#2a3d35" strokeWidth="1"/>
+        ))}
+        {/* Wedstrijdkolommen */}
+        {gespeeldeMatches.map((m,i)=>(
+          <line key={m.id} x1={xPos(i+1)} x2={xPos(i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#2a3d3544" strokeWidth="1"/>
+        ))}
+        {/* Lijnen per speler */}
+        {toonSpelers.map(u=>{
+          const pts=rangReeks[u.id];
+          const d=pts.map((r,s)=>`${s===0?'M':'L'}${xPos(s)},${yPosLabel(r)}`).join(' ');
+          const isMe=u.id===cur.id;
+          return(<g key={u.id}>
+            <path d={d} fill="none" stroke={kleurMap[u.id]} strokeWidth={isMe?2.5:1.2} strokeOpacity={isMe?1:0.7}/>
+            {/* Label rechts */}
+            <text x={W-PAD.right+6} y={yPosLabel(rangReeks[u.id][nSteps-1])+4}
+              fontSize={isMe?11:9} fill={kleurMap[u.id]} fontWeight={isMe?700:400}
+              style={{fontFamily:'DM Sans,sans-serif'}}>
+              {u.name?.slice(0,18)}
+            </text>
+            {/* Eindpositie bolletje */}
+            <circle cx={xPos(nSteps-1)} cy={yPosLabel(rangReeks[u.id][nSteps-1])} r={isMe?4:2.5} fill={kleurMap[u.id]}/>
+          </g>);
+        })}
+        {/* X-as labels: wedstrijdnummer */}
+        {gespeeldeMatches.map((m,i)=>(
+          <text key={m.id} x={xPos(i+1)} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">{i+1}</text>
+        ))}
+        <text x={PAD.left} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">0</text>
+        {/* Y-as: rang 1 bovenaan */}
+        <text x={PAD.left-4} y={yPosLabel(1)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">1</text>
+        <text x={PAD.left-4} y={yPosLabel(N)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">{N}</text>
+      </svg>
+    </div>
+    <div style={{fontSize:9,color:'var(--muted)',marginTop:4}}>X-as = wedstrijden (1…{gespeeldeMatches.length}) · Y-as = rangschikking (1 = beste)</div>
+  </div>);
+}
+
 // ─── CELOPMAAK HELPERS (gedeeld door Klassement en CelopmaakTab) ──────────────
 // 8 basis-situaties × 2 (zonder/met joker) = 16 stijlen
 // Sleutelformaat: cel_stijl_{cat}__wb{0|1|2|4}[__joker]
@@ -1607,7 +1714,19 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     if(el){const c=document.querySelector('.content');if(c)c.scrollTo({top:el.offsetTop-60,behavior:'smooth'});}
   }
 
-  const tabelVolgorde=(()=>{try{return JSON.parse(config['klassement_volgorde']||'null')||['klassement','overzicht','detail'];}catch{return['klassement','overzicht','detail'];}})();
+  const tabelVolgorde=(()=>{try{const v=JSON.parse(config['klassement_volgorde']||'null');if(v&&!v.includes('evolutie'))v.push('evolutie');return v||['klassement','overzicht','detail','evolutie'];}catch{return['klassement','overzicht','detail','evolutie'];}})();
+
+  const TABEL_INFO={
+    klassement:{label:'🏆 Klassement',    anker:'anker-klassement'},
+    overzicht: {label:'📋 Master-Excel',  anker:'anker-overzicht'},
+    detail:    {label:'📊 Detail',        anker:'anker-detail'},
+    evolutie:  {label:'📈 Evolutie',      anker:'anker-evolutie'},
+  };
+
+  function scrollNaar(ankerId){
+    const el=document.getElementById(ankerId);
+    if(el){const c=document.querySelector('.content');if(c)c.scrollTo({top:el.offsetTop-60,behavior:'smooth'});}
+  }
 
   return(<div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
@@ -1618,11 +1737,18 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
           style={{background:toonAlles?'transparent':'var(--dark3)',border:`1px solid ${toonAlles?'var(--green)':'var(--border)'}`,color:toonAlles?'var(--green)':'var(--muted)',fontSize:11}}
           onClick={()=>setToonAlles(t=>!t)}
         >{toonAlles?'👁 Iedereen':'👁 Alleen betalers'}</button>}
-        <button
-          style={{background:'var(--dark3)',border:'1px solid var(--gold)',color:'var(--gold)',fontSize:11,padding:'5px 10px',borderRadius:5,cursor:'pointer'}}
-          onClick={scrollToDetail}
-        >📊 Detail ↓</button>
       </div>
+    </div>
+    {/* NAVIGATIEBALK */}
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+      {tabelVolgorde.map(id=>{
+        const info=TABEL_INFO[id];
+        if(!info)return null;
+        return(<button key={id} onClick={()=>scrollNaar(info.anker)}
+          style={{background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',fontSize:11,padding:'5px 10px',borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>
+          {info.label} ↓
+        </button>);
+      })}
     </div>
     {toonAlles&&isAdmin&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       👁 Admin-weergave: punten van alle deelnemers zichtbaar, ook niet-betalers.
@@ -1636,6 +1762,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {tabelVolgorde.map(id=>{
       if(id==='klassement') return <React.Fragment key="klassement">
+    <div id="anker-klassement"/>
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
       const stVis=st;
@@ -1727,6 +1854,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     })()}
     </React.Fragment>;
       if(id==='overzicht') return <React.Fragment key="overzicht">
+    <div id="anker-overzicht"/>
     {/* OVERZICHTSTABEL */}
     {(()=>{
       const stVis=st;
@@ -1848,6 +1976,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     })()}
     </React.Fragment>;
       if(id==='detail') return <React.Fragment key="detail">
+    <div id="anker-detail"/>
     {/* DETAIL TABEL */}
     <div id="detail-tabel" className="card" style={{padding:'12px 14px'}}>
       <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📊 Detail per wedstrijd</div>
@@ -2003,6 +2132,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         </div>);
       })()}
     </div>
+    </React.Fragment>;
+      if(id==='evolutie') return <React.Fragment key="evolutie">
+    <div id="anker-evolutie"/>
+    <EvolutieGrafiek key="evolutie" st={st} gespeeldeMatches={gespeeldeMatches} cur={cur}/>
     </React.Fragment>;
       return null;
     })}
@@ -5456,8 +5589,8 @@ function CelopmaakTab({config, pvAll, users, onRefresh}){
     onRefresh();
   }
 
-  const TABEL_NAMEN={klassement:'🏆 Live Klassement', overzicht:'📋 Master-Excel Totaal', detail:'📊 Detail per wedstrijd'};
-  const defaultVolgorde=['klassement','overzicht','detail'];
+  const TABEL_NAMEN={klassement:'🏆 Live Klassement', overzicht:'📋 Master-Excel Totaal', detail:'📊 Detail per wedstrijd', evolutie:'📈 Evolutiegrafiek'};
+  const defaultVolgorde=['klassement','overzicht','detail','evolutie'];
   const[volgorde,setVolgorde]=useState(()=>{try{return JSON.parse(config['klassement_volgorde']||'null')||defaultVolgorde;}catch{return defaultVolgorde;}});
 
   async function verschuif(idx, richting){
