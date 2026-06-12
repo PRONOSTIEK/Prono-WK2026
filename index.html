@@ -5310,6 +5310,63 @@ function NotitiesTab(){
 
 // ─── CELOPMAAK TAB ────────────────────────────────────────────────────────────
 
+function StijlRij({sleutel, voorbeeld, isJoker, stijlen, updateStijl, saving}){
+    const st=stijlen[sleutel]||{bg:'transparent',clr:'#7a9e8a',bold:false,size:11};
+    const bgHex=(st.bg&&st.bg!=='transparent')?'#'+st.bg.replace('#','').slice(0,6):'#111714';
+    const clrHex=st.clr?'#'+st.clr.replace('#','').slice(0,6):'#7a9e8a';
+    const previewStyle={
+      display:'inline-flex',alignItems:'center',justifyContent:'center',
+      minWidth:46,height:28,borderRadius:4,padding:'0 6px',
+      background:st.bg==='transparent'?'transparent':st.bg,
+      color:st.clr, fontWeight:st.bold?700:400, fontSize:st.size,
+      fontFamily:'Bebas Neue',
+      border:'1px solid #2a3d3544',
+      outline:isJoker?`2px solid ${st.clr}`:'none',
+      outlineOffset:isJoker?'-2px':'0',
+    };
+    return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',borderTop:'1px solid var(--border)',flexWrap:'wrap'}}>
+      <div style={{width:50,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <span style={previewStyle}>{voorbeeld}</span>
+      </div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',flex:1}}>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Celkleur
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            <input type="color" value={bgHex}
+              onChange={e=>updateStijl(sleutel,'bg',e.target.value+'44')}
+              style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
+            <button onClick={()=>updateStijl(sleutel,'bg','transparent')}
+              style={{fontSize:9,padding:'2px 5px',borderRadius:3,border:'1px solid var(--border)',background:st.bg==='transparent'?'var(--green)':'var(--dark3)',color:st.bg==='transparent'?'#000':'var(--muted)',cursor:'pointer'}}>
+              Geen
+            </button>
+          </div>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Letterkleur
+          <input type="color" value={clrHex}
+            onChange={e=>updateStijl(sleutel,'clr',e.target.value)}
+            style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
+          Grootte ({st.size||11}px)
+          <input type="range" min={8} max={16} value={st.size||11}
+            onChange={e=>updateStijl(sleutel,'size',parseInt(e.target.value))}
+            style={{width:72}}/>
+        </label>
+        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)',cursor:'pointer'}}>
+          Vet
+          <div style={{display:'flex',alignItems:'center',gap:4,height:22}}>
+            <input type="checkbox" checked={!!st.bold}
+              onChange={e=>updateStijl(sleutel,'bold',e.target.checked)}
+              style={{width:15,height:15,cursor:'pointer'}}/>
+            <span style={{fontSize:11,color:st.bold?'var(--text)':'var(--muted)',fontWeight:st.bold?700:400}}>B</span>
+          </div>
+        </label>
+        {saving[sleutel]&&<span style={{fontSize:10,color:'var(--green)'}}>✓</span>}
+      </div>
+    </div>);
+}
+
 function CelopmaakTab({config, pvAll, onRefresh}){
   const pt=avgPT(pvAll||[]);
   const initStijlen=()=>{
@@ -5349,64 +5406,6 @@ function CelopmaakTab({config, pvAll, onRefresh}){
     onRefresh();
   }
 
-  function StijlRij({sleutel, voorbeeld, isJoker}){
-    const st=stijlen[sleutel]||{bg:'transparent',clr:'#7a9e8a',bold:false,size:11};
-    const previewStyle={
-      display:'inline-flex',alignItems:'center',justifyContent:'center',
-      minWidth:46,height:28,borderRadius:4,padding:'0 6px',
-      background:st.bg==='transparent'?'transparent':st.bg,
-      color:st.clr, fontWeight:st.bold?700:400, fontSize:st.size,
-      fontFamily:'Bebas Neue',
-      border:'1px solid #2a3d3544',
-      outline:isJoker?`2px solid ${st.clr}`:'none',
-      outlineOffset:isJoker?'-2px':'0',
-    };
-    return(<div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',borderTop:'1px solid var(--border)',flexWrap:'wrap'}}>
-      {/* Preview */}
-      <div style={{width:50,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <span style={previewStyle}>{voorbeeld}</span>
-      </div>
-      {/* Controls */}
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',flex:1}}>
-        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
-          Celkleur
-          <div style={{display:'flex',gap:4,alignItems:'center'}}>
-            <input type="color"
-              value={(st.bg&&st.bg!=='transparent')?'#'+st.bg.replace('#','').slice(0,6):'#111714'}
-              onChange={e=>updateStijl(sleutel,'bg',e.target.value+'44')}
-              style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
-            <button onClick={()=>updateStijl(sleutel,'bg','transparent')}
-              style={{fontSize:9,padding:'2px 5px',borderRadius:3,border:'1px solid var(--border)',background:st.bg==='transparent'?'var(--green)':'var(--dark3)',color:st.bg==='transparent'?'#000':'var(--muted)',cursor:'pointer'}}>
-              Geen
-            </button>
-          </div>
-        </label>
-        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
-          Letterkleur
-          <input type="color" value={st.clr||'#7a9e8a'}
-            onChange={e=>updateStijl(sleutel,'clr',e.target.value)}
-            style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
-        </label>
-        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)'}}>
-          Grootte ({st.size||11}px)
-          <input type="range" min={8} max={16} value={st.size||11}
-            onChange={e=>updateStijl(sleutel,'size',parseInt(e.target.value))}
-            style={{width:72}}/>
-        </label>
-        <label style={{display:'flex',flexDirection:'column',gap:2,fontSize:10,color:'var(--muted)',cursor:'pointer'}}>
-          Vet
-          <div style={{display:'flex',alignItems:'center',gap:4,height:22}}>
-            <input type="checkbox" checked={!!st.bold}
-              onChange={e=>updateStijl(sleutel,'bold',e.target.checked)}
-              style={{width:15,height:15,cursor:'pointer'}}/>
-            <span style={{fontSize:11,color:st.bold?'var(--text)':'var(--muted)',fontWeight:st.bold?700:400}}>B</span>
-          </div>
-        </label>
-        {saving[sleutel]&&<span style={{fontSize:10,color:'var(--green)'}}>✓</span>}
-      </div>
-    </div>);
-  }
-
   return(<div>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
       <div style={{fontFamily:'Bebas Neue',fontSize:18,color:'var(--text)',letterSpacing:1}}>🎨 Celopmaak — Detail per wedstrijd</div>
@@ -5438,14 +5437,14 @@ function CelopmaakTab({config, pvAll, onRefresh}){
                 <div style={{fontSize:10,color:'var(--muted)',paddingTop:8,paddingBottom:2,fontWeight:600}}>
                   {wb===0?'Zonder waaghals':'Waaghals'+wbLabel} — zonder joker
                 </div>
-                <StijlRij sleutel={sleutelBase} voorbeeld={(ptsBase>0?'+':'')+ptsBase} isJoker={false}/>
+                <StijlRij sleutel={sleutelBase} voorbeeld={(ptsBase>0?'+':'')+ptsBase} isJoker={false} stijlen={stijlen} updateStijl={updateStijl} saving={saving}/>
               </div>
               {/* Met joker */}
               <div style={{paddingLeft:14,paddingRight:6,marginBottom:6}}>
                 <div style={{fontSize:10,color:'var(--gold)',paddingTop:6,paddingBottom:2,fontWeight:600}}>
                   🃏 {wb===0?'Zonder waaghals':'Waaghals'+wbLabel} — met joker
                 </div>
-                <StijlRij sleutel={sleutelJoker} voorbeeld={(ptsJoker>0?'+':'')+ptsJoker} isJoker={true}/>
+                <StijlRij sleutel={sleutelJoker} voorbeeld={(ptsJoker>0?'+':'')+ptsJoker} isJoker={true} stijlen={stijlen} updateStijl={updateStijl} saving={saving}/>
               </div>
             </React.Fragment>);
           })}
