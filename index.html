@@ -1777,13 +1777,14 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   };
 
   function scrollNaar(ankerId){
-    const el=document.getElementById(ankerId);
-    const c=document.querySelector('.content');
-    if(!el||!c) return;
-    // scrollIntoView werkt niet goed met fixed headers — gebruik scroll met offset
-    const elRect=el.getBoundingClientRect();
-    const cRect=c.getBoundingClientRect();
-    c.scrollTop+=elRect.top-cRect.top-100;
+    setTimeout(()=>{
+      const el=document.getElementById(ankerId);
+      const c=document.querySelector('.content');
+      if(!el||!c) return;
+      const elTop=el.getBoundingClientRect().top;
+      const cTop=c.getBoundingClientRect().top;
+      c.scrollBy({top:elTop-cTop-90,behavior:'smooth'});
+    },50);
   }
 
   return(<div>
