@@ -5591,6 +5591,7 @@ function CelopmaakTab({config, pvAll, users, onRefresh}){
   }
 
   const[evolutieKleur,setEvolutieKleur]=useState(config['evolutie_kleur']||'auto');
+  const[jokerOffset,setJokerOffset]=useState(parseInt(config['joker_outline_offset']??'-2'));
 
   async function saveEvolutieKleur(val){
     setEvolutieKleur(val);
