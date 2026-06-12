@@ -1793,7 +1793,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       </div>
     </div>
     {/* NAVIGATIEBALK */}
-    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,position:'sticky',top:0,zIndex:10,background:'var(--dark)',paddingTop:6,paddingBottom:6}}>
       {tabelVolgorde.map(id=>{
         const info=TABEL_INFO[id];
         if(!info)return null;
