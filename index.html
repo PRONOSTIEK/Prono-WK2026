@@ -1657,7 +1657,6 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
         {gespeeldeMatches.map((m,i)=>(
           <text key={m.id} x={xPos(i+1)} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">{i+1}</text>
         ))}
-        <text x={PAD.left} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">0</text>
         <text x={PAD.left-4} y={yPosLabel(1)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">1</text>
         <text x={PAD.left-4} y={yPosLabel(N)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">{N}</text>
         {(()=>{
@@ -1779,7 +1778,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
   function scrollNaar(ankerId){
     const el=document.getElementById(ankerId);
-    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
   return(<div>
@@ -1805,7 +1804,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       })}
     </div>
     {/* Spacer voor fixed navigatiebalk */}
-    <div style={{height:40,marginBottom:8}}/>
+    <div style={{height:52,marginBottom:4}}/>
     {toonAlles&&isAdmin&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       👁 Admin-weergave: punten van alle deelnemers zichtbaar, ook niet-betalers.
     </div>}
@@ -3379,7 +3378,20 @@ function MatchDay({matches, pmAll, cur, config, jAll, pvAll, users}){
 
 function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,koPronosAll,koPunten,setPage,setPronoTab}){
   const tekst=config.uitleg||'';
-  const paragrafen=tekst.split('\n');
+  const uitlegTitel=config['uitleg_titel']||'';
+  const uitlegTabNaam=config['uitleg_tabnaam']||'handleiding';
+  const paginaTitel=uitlegTabNaam==='titel'&&uitlegTitel?uitlegTitel:'📖 Handleiding';
+
+  // Laad berichten uit config
+  const berichten=[];
+  let bi=1;
+  while(config['bericht_'+bi]!==undefined){
+    try{
+      const b=JSON.parse(config['bericht_'+bi]);
+      if(b&&b.html&&b.zichtbaar!==false)berichten.push(b);
+    }catch{}
+    bi++;
+  }
   const [countNow,setCountNow]=useState(Date.now());
   useEffect(()=>{const t=setInterval(()=>setCountNow(Date.now()),1000);return()=>clearInterval(t);},[]);
 
@@ -3484,7 +3496,31 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
   }
 
   return(<div>
-    <div className="section-title">📖 Handleiding</div>
+    <div className="section-title">{paginaTitel}</div>
+
+    {/* NAVIGATIEBALK als er berichten zijn */}
+    {berichten.length>0&&(()=>{
+      function scrollNaarBericht(ankerId){
+        const el=document.getElementById(ankerId);
+        const c=document.querySelector('.content');
+        if(!el||!c) return;
+        const elRect=el.getBoundingClientRect();
+        const cRect=c.getBoundingClientRect();
+        c.scrollTop+=elRect.top-cRect.top-80;
+      }
+      return(<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,position:'sticky',top:0,zIndex:10,background:'var(--dark)',paddingTop:4,paddingBottom:6}}>
+        {berichten.map((b,i)=>(
+          <button key={i} onClick={()=>scrollNaarBericht('bericht-anker-'+i)}
+            style={{background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',fontSize:11,padding:'5px 10px',borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>
+            {b.titel||'Bericht '+(i+1)} ↓
+          </button>
+        ))}
+        {tekst&&<button onClick={()=>scrollNaarBericht('handleiding-anker')}
+          style={{background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',fontSize:11,padding:'5px 10px',borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>
+          📖 Handleiding ↓
+        </button>}
+      </div>);
+    })()}
 
     {/* AFTELKLOK */}
     {(()=>{
@@ -3543,10 +3579,19 @@ function Uitleg({config,cur,matches,bvs,pmAll,pbAll,jAll,fpAll,pvAll,koMatches,k
       </div>);
     })()}
 
-    {tekst&&<div className="card">
+    {/* BERICHTEN */}
+    {berichten.map((b,i)=>(
+      <div key={i} className="card" style={{marginBottom:12}}>
+        <div id={'bericht-anker-'+i}/>
+        {b.titel&&<div style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--gold)',marginBottom:8,letterSpacing:.5}}>📣 {b.titel}</div>}
+        <div dangerouslySetInnerHTML={{__html:b.html}} style={{fontSize:13,lineHeight:1.7,color:'var(--text)'}}/>
+      </div>
+    ))}
+
+    {tekst&&<div className="card" id="handleiding-anker">
       <div dangerouslySetInnerHTML={{__html:tekst}} style={{fontSize:13,lineHeight:1.7,color:'var(--text)'}}/>
     </div>}
-    {!tekst&&<div className="card" style={{color:'var(--muted)',fontSize:13}}>De admin heeft nog geen uitleg toegevoegd.</div>}
+    {!tekst&&berichten.length===0&&<div className="card" style={{color:'var(--muted)',fontSize:13}}>De admin heeft nog geen uitleg toegevoegd.</div>}
 
     {/* VOORTGANGSBALK */}
     <div className="card" style={{marginBottom:14}}>
@@ -4280,6 +4325,18 @@ function calcVoortgang(u,matches,pmAll,jAll,fpAll,pbAll,bvs,pvAll,koMatches,koPr
 
 function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMatches,koPunten,fifaRanking,fpAll,koPronosAll,viewPronoOf,onRefresh}){
   const[tab,setTab]=useState('matches'),[newQ,setNewQ]=useState(''),[newPts,setNewPts]=useState(5),[newType,setNewType]=useState('team'),[ag,setAg]=useState('A'),[showPw,setShowPw]=useState({}),[deadline,setDeadline]=useState(config.bijvragen_deadline||''),[pvDeadline,setPvDeadline]=useState(config.pv_deadline||''),[groepDeadline,setGroepDeadline]=useState(config.groep_deadline||''),[koDeadline,setKoDeadline]=useState(config.ko_deadline||''),[teldatum,setTeldatum]=useState(config.bijvragen_teldatum||''),[uitlegTekst,setUitlegTekst]=useState(config.uitleg||''),[avgNaam,setAvgNaam]=useState(config.avg_naam||'Jaan Mehdi'),[uitlegSaved,setUitlegSaved]=useState(false),[confirmDelete,setConfirmDelete]=useState(null);
+  const[uitlegTitel,setUitlegTitel]=useState(config['uitleg_titel']||'');
+  const[uitlegTabNaam,setUitlegTabNaam]=useState(config['uitleg_tabnaam']||'handleiding');
+  const[berichten,setBerichten]=useState(()=>{
+    const b=[];let i=1;
+    while(config['bericht_'+i]!==undefined){
+      try{b.push(JSON.parse(config['bericht_'+i]));}catch{b.push({titel:'',html:config['bericht_'+i]});}
+      i++;
+    }
+    return b;
+  });
+  const berichtEditorsRef=React.useRef({});
+  const[berichtSaved,setBerichtSaved]=useState({});
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
   function switchTab(newTab){document.activeElement?.blur();setTab(newTab);}
@@ -4400,6 +4457,73 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
         sb.from('config').upsert({key:'uitleg',value:html}).then(()=>{setUitlegSaved(true);setTimeout(()=>setUitlegSaved(false),2000);onRefresh();});
       }
 
+      async function saveTitel(v){
+        setUitlegTitel(v);
+        await sb.from('config').upsert({key:'uitleg_titel',value:v});
+        onRefresh();
+      }
+      async function saveTabNaam(v){
+        setUitlegTabNaam(v);
+        await sb.from('config').upsert({key:'uitleg_tabnaam',value:v});
+        onRefresh();
+      }
+      async function voegBerichtToe(){
+        const nieuw=[{titel:'Nieuw bericht',html:''},...berichten];
+        setBerichten(nieuw);
+        await Promise.all(nieuw.map((b,i)=>sb.from('config').upsert({key:'bericht_'+(i+1),value:JSON.stringify(b)})));
+        onRefresh();
+      }
+      async function saveBericht(idx, veld, waarde){
+        setBerichten(prev=>{
+          const nieuw=prev.map((b,i)=>i===idx?{...b,[veld]:waarde}:b);
+          sb.from('config').upsert({key:'bericht_'+(idx+1),value:JSON.stringify(nieuw[idx])}).then(()=>{
+            setBerichtSaved(p=>({...p,[idx]:true}));
+            setTimeout(()=>setBerichtSaved(p=>({...p,[idx]:false})),2000);
+            onRefresh();
+          });
+          return nieuw;
+        });
+      }
+      async function verwijderBericht(idx){
+        const nieuw=berichten.filter((_,i)=>i!==idx);
+        setBerichten(nieuw);
+        // Herschrijf alle sleutels
+        await Promise.all(nieuw.map((b,i)=>sb.from('config').upsert({key:'bericht_'+(i+1),value:JSON.stringify(b)})));
+        // Verwijder de laatste sleutel
+        await sb.from('config').upsert({key:'bericht_'+(nieuw.length+1),value:''});
+        onRefresh();
+      }
+
+      function EditorToolbar({refEl}){
+        function c(command,value=null){refEl.current?.focus();document.execCommand(command,false,value);}
+        const btnS=(title,action,content)=>(
+          <button title={title} onMouseDown={e=>{e.preventDefault();action();}}
+            style={{background:'var(--dark2)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)',cursor:'pointer',padding:'4px 8px',fontSize:13,lineHeight:1}}>
+            {content}
+          </button>
+        );
+        return(<div style={{display:'flex',flexWrap:'wrap',gap:4,padding:'8px',background:'var(--dark3)',borderRadius:'6px 6px 0 0',border:'1px solid var(--border)',borderBottom:'none'}}>
+          {btnS('Vet',()=>c('bold'),<strong>V</strong>)}
+          {btnS('Cursief',()=>c('italic'),<em>S</em>)}
+          {btnS('Onderstrepen',()=>c('underline'),<span style={{textDecoration:'underline'}}>O</span>)}
+          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
+          {btnS('Klein',()=>c('fontSize','2'),<span style={{fontSize:11}}>A</span>)}
+          {btnS('Normaal',()=>c('fontSize','3'),<span style={{fontSize:13}}>A</span>)}
+          {btnS('Groot',()=>c('fontSize','4'),<span style={{fontSize:16}}>A</span>)}
+          {btnS('Titel',()=>c('fontSize','5'),<span style={{fontSize:19}}>A</span>)}
+          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
+          {btnS('Opsomming',()=>c('insertUnorderedList'),'• lijst')}
+          {btnS('Genummerd',()=>c('insertOrderedList'),'1. lijst')}
+          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
+          {btnS('Groen',()=>c('foreColor','#4caf8c'),<span style={{color:'#4caf8c'}}>A</span>)}
+          {btnS('Goud',()=>c('foreColor','#f0b429'),<span style={{color:'#f0b429'}}>A</span>)}
+          {btnS('Rood',()=>c('foreColor','#e05c5c'),<span style={{color:'#e05c5c'}}>A</span>)}
+          {btnS('Wit',()=>c('foreColor','#e8f0e8'),<span style={{color:'#e8f0e8',textShadow:'0 0 1px #666'}}>A</span>)}
+          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
+          {btnS('Wissen',()=>c('removeFormat'),'✕')}
+        </div>);
+      }
+
       return(<div>
         {/* Registratieteksten */}
         <div className="card" style={{marginBottom:14}}>
@@ -4412,70 +4536,96 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
           ].map(({key,label,placeholder})=>(
             <div key={key} style={{marginBottom:10}}>
               <div style={{fontSize:12,color:'var(--muted)',marginBottom:4}}>{label}</div>
-              <div style={{display:'flex',gap:6}}>
-                <input className="ii" style={{flex:1,fontSize:12}}
-                  defaultValue={config[key]||''}
-                  placeholder={placeholder}
-                  onBlur={async e=>{await sb.from('config').upsert({key,value:e.target.value});}}
-                />
-              </div>
+              <input className="ii" style={{width:'100%',fontSize:12}}
+                defaultValue={config[key]||''}
+                placeholder={placeholder}
+                onBlur={async e=>{await sb.from('config').upsert({key,value:e.target.value});}}
+              />
             </div>
           ))}
         </div>
 
+        {/* Paginatitel & tabnaam */}
+        <div className="card" style={{marginBottom:14}}>
+          <div className="card-title">🏷️ Paginatitel & tabnaam</div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:12,color:'var(--muted)',marginBottom:4}}>Paginatitel (verschijnt bovenaan de handleiding-pagina)</div>
+            <input className="ii" style={{width:'100%',fontSize:12}} value={uitlegTitel} placeholder="bv. WK 2026 Nieuwsbrief"
+              onChange={e=>setUitlegTitel(e.target.value)}
+              onBlur={e=>saveTitel(e.target.value)}/>
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:6}}>Naam van het tabblad in de navigatie</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {[['handleiding','📖 Handleiding (standaard)'],['titel','Overnemen van paginatitel']].map(([v,l])=>(
+              <label key={v} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,padding:'7px 10px',background:uitlegTabNaam===v?'var(--dark3)':'transparent',borderRadius:6,border:`1px solid ${uitlegTabNaam===v?'var(--green)':'var(--border)'}`,color:uitlegTabNaam===v?'var(--text)':'var(--muted)'}}>
+                <input type="radio" name="uitleg_tabnaam" checked={uitlegTabNaam===v} onChange={()=>saveTabNaam(v)} style={{accentColor:'var(--green)'}}/>
+                {l}
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Handleiding editor */}
-        {(()=>{
-        const btnS=(title,action,content)=>(
-          <button title={title} onMouseDown={e=>{e.preventDefault();action();}}
-            style={{background:'var(--dark2)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)',cursor:'pointer',padding:'4px 8px',fontSize:13,lineHeight:1}}>
-            {content}
-          </button>
-        );
-        return(<div className="card">
-        <div className="card-title">📖 Handleiding bewerken</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Opmaak via de toolbar. Wijzigingen worden opgeslagen met 💾.</div>
-        {/* Toolbar */}
-        <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8,padding:'8px',background:'var(--dark3)',borderRadius:'6px 6px 0 0',border:'1px solid var(--border)',borderBottom:'none'}}>
-          {btnS('Vet',()=>cmd('bold'),<strong>V</strong>)}
-          {btnS('Cursief',()=>cmd('italic'),<em>S</em>)}
-          {btnS('Onderstrepen',()=>cmd('underline'),<span style={{textDecoration:'underline'}}>O</span>)}
-          {btnS('Doorhalen',()=>cmd('strikeThrough'),<span style={{textDecoration:'line-through'}}>D</span>)}
-          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
-          {btnS('Klein',()=>cmd('fontSize','2'),<span style={{fontSize:11}}>A</span>)}
-          {btnS('Normaal',()=>cmd('fontSize','3'),<span style={{fontSize:13}}>A</span>)}
-          {btnS('Groot',()=>cmd('fontSize','4'),<span style={{fontSize:16}}>A</span>)}
-          {btnS('Titel',()=>cmd('fontSize','5'),<span style={{fontSize:19}}>A</span>)}
-          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
-          {btnS('Opsomming',()=>cmd('insertUnorderedList'),'• lijst')}
-          {btnS('Genummerd',()=>cmd('insertOrderedList'),'1. lijst')}
-          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
-          {btnS('Links uitlijnen',()=>cmd('justifyLeft'),'⇤')}
-          {btnS('Centreren',()=>cmd('justifyCenter'),'≡')}
-          {btnS('Rechts uitlijnen',()=>cmd('justifyRight'),'⇥')}
-          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
-          {btnS('Kleur groen',()=>cmd('foreColor','#4caf8c'),<span style={{color:'#4caf8c'}}>A</span>)}
-          {btnS('Kleur goud',()=>cmd('foreColor','#f0b429'),<span style={{color:'#f0b429'}}>A</span>)}
-          {btnS('Kleur rood',()=>cmd('foreColor','#e05c5c'),<span style={{color:'#e05c5c'}}>A</span>)}
-          {btnS('Kleur wit',()=>cmd('foreColor','#e8f0e8'),<span style={{color:'#e8f0e8',textShadow:'0 0 1px #666'}}>A</span>)}
-          <div style={{width:1,background:'var(--border)',margin:'0 2px'}}/>
-          {btnS('Opmaak wissen',()=>cmd('removeFormat'),'✕')}
+        <div className="card" style={{marginBottom:14}}>
+          <div className="card-title">📖 Handleiding bewerken</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Dit is de vaste handleiding-sectie, altijd onderaan.</div>
+          <EditorToolbar refEl={editorRef}/>
+          <div ref={editorRef} contentEditable suppressContentEditableWarning
+            dangerouslySetInnerHTML={{__html:uitlegTekst}}
+            style={{minHeight:200,background:'var(--dark3)',border:'1px solid var(--border)',borderRadius:'0 0 6px 6px',padding:'10px 12px',color:'var(--text)',fontFamily:'DM Sans, sans-serif',fontSize:13,outline:'none',lineHeight:1.7}}
+            onFocus={e=>e.currentTarget.style.borderColor='var(--green)'}
+            onBlur={e=>e.currentTarget.style.borderColor='var(--border)'}/>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
+            <button className="btn btn-sm btn-outline" onClick={saveHtml}>💾 Opslaan</button>
+            <span style={{fontSize:11,color:'var(--green)',opacity:uitlegSaved?1:0,transition:'opacity .4s'}}>✓ Opgeslagen</span>
+          </div>
         </div>
-        {/* Editor */}
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          dangerouslySetInnerHTML={{__html:uitlegTekst}}
-          style={{minHeight:280,background:'var(--dark3)',border:'1px solid var(--border)',borderRadius:'0 0 6px 6px',padding:'10px 12px',color:'var(--text)',fontFamily:'DM Sans, sans-serif',fontSize:13,outline:'none',lineHeight:1.7}}
-          onFocus={e=>e.currentTarget.style.borderColor='var(--green)'}
-          onBlur={e=>e.currentTarget.style.borderColor='var(--border)'}
-        />
-        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
-          <button className="btn btn-sm btn-outline" onClick={saveHtml}>💾 Opslaan</button>
-          <span style={{fontSize:11,color:'var(--green)',opacity:uitlegSaved?1:0,transition:'opacity .4s'}}>✓ Opgeslagen</span>
+
+        {/* Berichten */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--text)',letterSpacing:.5}}>📣 Berichten (nieuwste bovenaan)</div>
+          <button className="btn btn-sm btn-outline" onClick={voegBerichtToe}>+ Nieuw bericht</button>
         </div>
-      </div>);
-      })()}
+        {berichten.length===0&&<div style={{fontSize:12,color:'var(--muted)',marginBottom:14}}>Nog geen berichten. Klik op "+ Nieuw bericht" om er een toe te voegen.</div>}
+        {berichten.map((b,idx)=>{
+          if(!berichtEditorsRef.current[idx]) berichtEditorsRef.current[idx]=React.createRef();
+          const bRef=berichtEditorsRef.current[idx];
+          return(<div key={idx} className="card" style={{marginBottom:12,border:`1px solid ${b.zichtbaar===false?'var(--border)':'var(--green)'}`,opacity:b.zichtbaar===false?0.6:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+              <input className="ii" style={{flex:1,fontSize:13,fontWeight:600}} defaultValue={b.titel||''}
+                placeholder="Titel van dit bericht"
+                id={'bericht-titel-'+idx}/>
+              {b.zichtbaar===false&&<span style={{fontSize:10,background:'var(--dark3)',border:'1px solid var(--border)',color:'var(--muted)',padding:'2px 6px',borderRadius:4}}>verborgen</span>}
+              <button onClick={()=>verwijderBericht(idx)}
+                style={{background:'none',border:'1px solid var(--red)',color:'var(--red)',borderRadius:5,padding:'4px 8px',cursor:'pointer',fontSize:11}}>
+                🗑 Verwijder
+              </button>
+            </div>
+            <EditorToolbar refEl={bRef}/>
+            <div ref={bRef} contentEditable suppressContentEditableWarning
+              dangerouslySetInnerHTML={{__html:b.html||''}}
+              style={{minHeight:120,background:'var(--dark3)',border:'1px solid var(--border)',borderRadius:'0 0 6px 6px',padding:'10px 12px',color:'var(--text)',fontFamily:'DM Sans, sans-serif',fontSize:13,outline:'none',lineHeight:1.7}}
+              onFocus={e=>e.currentTarget.style.borderColor='var(--green)'}
+              onBlur={e=>e.currentTarget.style.borderColor='var(--border)'}/>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
+              <button className="btn btn-sm btn-outline" onClick={async()=>{
+                const titel=document.getElementById('bericht-titel-'+idx)?.value||b.titel||'';
+                const html=bRef.current?.innerHTML||b.html||'';
+                await saveBericht(idx,'titel',titel);
+                await saveBericht(idx,'html',html);
+              }}>💾 Opslaan</button>
+              <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'var(--muted)'}}>
+                <input type="checkbox" checked={b.zichtbaar!==false}
+                  onChange={e=>saveBericht(idx,'zichtbaar',e.target.checked)}
+                  style={{accentColor:'var(--green)',width:14,height:14}}/>
+                <span style={{color:b.zichtbaar!==false?'var(--green)':'var(--muted)'}}>
+                  {b.zichtbaar!==false?'Zichtbaar':'Verborgen'}
+                </span>
+              </label>
+              {berichtSaved[idx]&&<span style={{fontSize:11,color:'var(--green)'}}>✓ Opgeslagen</span>}
+            </div>
+          </div>);
+        })}
       </div>);
     })()}
 
@@ -6025,7 +6175,7 @@ function App(){
   const heeftMatchDay=matchesToday.length>0;
   const nav=[
     {id:'matchday',icon:'🗓️',label:'Match Day'},
-    {id:'uitleg',icon:'📖',label:'Handleiding'},
+    {id:'uitleg',icon:'📖',label:(config['uitleg_tabnaam']==='titel'&&config['uitleg_titel'])?config['uitleg_titel']:'Handleiding'},
     {id:'klassement',icon:'🏆',label:'Klassement'},
     {id:'prono',icon:'📋',label:'Pronostiek'},
     {id:'pv',icon:'🎚️',label:'Punten'},
