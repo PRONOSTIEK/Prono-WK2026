@@ -1608,7 +1608,8 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
 
   const labelH=13;
   const svgH=Math.max(H, N*labelH+PAD.top+PAD.bottom);
-  const xPos=s=>PAD.left+s*(GW/(nSteps-1||1));
+  const nMatches=gespeeldeMatches.length;
+  const xPos=s=>PAD.left+(s-1)*(GW/((nMatches-1)||1));
   const yPosLabel=r=>PAD.top+(r-1)*((svgH-PAD.top-PAD.bottom)/(N-1||1));
 
   // Sorteer zodat gemarkeerde spelers bovenaan staan (laatste gerenderd = bovenop)
@@ -1639,8 +1640,8 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
           <line key={m.id} x1={xPos(i+1)} x2={xPos(i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#2a3d3544" strokeWidth="1"/>
         ))}
         {gesorteerd.map(u=>{
-          const pts=rangReeks[u.id];
-          const d=pts.map((r,s)=>`${s===0?'M':'L'}${xPos(s)},${yPosLabel(r)}`).join(' ');
+          const pts=rangReeks[u.id].slice(1); // skip stap 0 (voor eerste wedstrijd)
+          const d=pts.map((r,idx)=>`${idx===0?'M':'L'}${xPos(idx+1)},${yPosLabel(r)}`).join(' ');
           const kleur=getKleur(u);
           const dikte=getDikte(u);
           const opacity=getOpacity(u);
