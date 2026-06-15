@@ -1785,16 +1785,6 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   }
 
   return(<div>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
-      <div className="section-title" style={{margin:0}}>🏆 Live Klassement</div>
-      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-        {isAdmin&&<button
-          className={`btn btn-sm ${toonAlles?'btn-outline':''}`}
-          style={{background:toonAlles?'transparent':'var(--dark3)',border:`1px solid ${toonAlles?'var(--green)':'var(--border)'}`,color:toonAlles?'var(--green)':'var(--muted)',fontSize:11}}
-          onClick={()=>setToonAlles(t=>!t)}
-        >{toonAlles?'👁 Iedereen':'👁 Alleen betalers'}</button>}
-      </div>
-    </div>
     {/* NAVIGATIEBALK (fixed) */}
     <div id="klassement-nav" style={{display:'flex',gap:6,flexWrap:'wrap',position:'fixed',top:52,left:'var(--nav-left,0)',right:0,zIndex:100,background:'var(--dark2)',borderBottom:'1px solid var(--border)',padding:'6px 18px'}}>
       {tabelVolgorde.map(id=>{
@@ -1808,19 +1798,30 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     </div>
     {/* Spacer voor fixed navigatiebalk */}
     <div style={{height:44,marginBottom:8}}/>
+
+    <div style={{marginBottom:12}}>
+      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length} <span style={{fontSize:18,color:'var(--muted)'}}>/ 72</span></div><div className="stat-l">Gespeelde matchen</div></div>
+    </div>
+
+    <div id="anker-klassement" style={{scrollMarginTop:104}}/>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
+      <div className="section-title" style={{margin:0}}>🏆 Live Klassement</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {isAdmin&&<button
+          className={`btn btn-sm ${toonAlles?'btn-outline':''}`}
+          style={{background:toonAlles?'transparent':'var(--dark3)',border:`1px solid ${toonAlles?'var(--green)':'var(--border)'}`,color:toonAlles?'var(--green)':'var(--muted)',fontSize:11}}
+          onClick={()=>setToonAlles(t=>!t)}
+        >{toonAlles?'👁 Iedereen':'👁 Alleen betalers'}</button>}
+      </div>
+    </div>
     {toonAlles&&isAdmin&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       👁 Admin-weergave: punten van alle deelnemers zichtbaar, ook niet-betalers.
     </div>}
     {teldatum&&!telPunten&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       ⏳ Bijvraagpunten tellen mee vanaf <strong>{new Date(teldatum).toLocaleString('nl-BE')}</strong>
     </div>}
-    <div style={{marginBottom:12}}>
-      <div className="stat-box"><div className="stat-n">{matches.filter(m=>m.home_score!=null).length} <span style={{fontSize:18,color:'var(--muted)'}}>/ 72</span></div><div className="stat-l">Gespeelde matchen</div></div>
-    </div>
-
     {tabelVolgorde.map(id=>{
       if(id==='klassement') return <React.Fragment key="klassement">
-    <div id="anker-klassement" style={{scrollMarginTop:104}}/>
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
       const stVis=st;
@@ -1859,10 +1860,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={thR}>Totaal</th>
             <th style={thR}>Matchen</th>
             <th style={thR}>Joker</th>
-            <th style={thR}>KO</th>
-            <th style={thG}>Bijvragen</th>
             <th style={thR}>✅ Volledig juist</th>
             <th style={thR}>❌ Volledig fout</th>
+            <th style={thR}>KO</th>
+            <th style={thG}>Bijvragen</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
@@ -1887,10 +1888,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.koTot??0,maxKo,minKo)}}>{fmt(u.koTot??0)}</span></td>
-                <td style={tdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalFout??0,minFout,maxFout)}}>{u.aantalFout??0}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.koTot??0,maxKo,minKo)}}>{fmt(u.koTot??0)}</span></td>
+                <td style={tdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
               </tr>);
             })}
             {st.length===0&&<tr><td colSpan={9} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
@@ -1913,10 +1914,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={avgTdR}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemMatch)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
-                <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemKo)}</span></td>
-                <td style={avgTdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJuist)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemFout)}</span></td>
+                <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemKo)}</span></td>
+                <td style={avgTdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
               </tr>);
             })()}
           </tbody>
