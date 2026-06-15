@@ -1751,7 +1751,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const bijvraagDet={};
     for(const d of(det||[])){if(d.cat==='bijvraag'||d.cat==='speler3')bijvraagDet[d.label]=d.pts;}
     const bijvraagPts=(det||[]).filter(d=>d.cat==='bijvraag'||d.cat==='speler3').reduce((s,d)=>s+d.pts,0);
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{}};
+    const aantalJuist=(matchDet||[]).filter(d=>d.cat==='alles_juist').length;
+    const aantalFout=(matchDet||[]).filter(d=>d.cat==='alles_fout').length;
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
@@ -1783,7 +1785,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
   }
 
   return(<div>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
       <div className="section-title" style={{margin:0}}>🏆 Live Klassement</div>
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
         {isAdmin&&<button
@@ -1793,7 +1795,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         >{toonAlles?'👁 Iedereen':'👁 Alleen betalers'}</button>}
       </div>
     </div>
-    {/* NAVIGATIEBALK */}
+    {/* NAVIGATIEBALK (fixed) */}
     <div id="klassement-nav" style={{display:'flex',gap:6,flexWrap:'wrap',position:'fixed',top:52,left:'var(--nav-left,0)',right:0,zIndex:100,background:'var(--dark2)',borderBottom:'1px solid var(--border)',padding:'6px 18px'}}>
       {tabelVolgorde.map(id=>{
         const info=TABEL_INFO[id];
@@ -1805,7 +1807,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       })}
     </div>
     {/* Spacer voor fixed navigatiebalk */}
-    <div style={{height:52,marginBottom:4}}/>
+    <div style={{height:44,marginBottom:8}}/>
     {toonAlles&&isAdmin&&<div className="info" style={{borderColor:'var(--gold)',color:'var(--gold)',marginBottom:12}}>
       👁 Admin-weergave: punten van alle deelnemers zichtbaar, ook niet-betalers.
     </div>}
@@ -1818,7 +1820,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
 
     {tabelVolgorde.map(id=>{
       if(id==='klassement') return <React.Fragment key="klassement">
-    <div id="anker-klassement"/>
+    <div id="anker-klassement" style={{scrollMarginTop:104}}/>
     {/* STANDAARD KLASSEMENT */}
     {(()=>{
       const stVis=st;
@@ -1836,6 +1838,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const bijvVals=stVis.map(u=>u.bijvraagPts??0);
       const maxBijv=bijvVals.length?Math.max(...bijvVals):null;
       const minBijv=bijvVals.length?Math.min(...bijvVals):null;
+      const juistVals=stVis.map(u=>u.aantalJuist??0);
+      const maxJuist=juistVals.length?Math.max(...juistVals):null;
+      const minJuist=juistVals.length?Math.min(...juistVals):null;
+      const foutVals=stVis.map(u=>u.aantalFout??0);
+      const maxFout=foutVals.length?Math.max(...foutVals):null;
+      const minFout=foutVals.length?Math.min(...foutVals):null;
       const goldBorderL={borderLeft:'2px solid var(--gold)'};
       const goldBorderR={borderRight:'2px solid var(--gold)'};
       const tblS={borderCollapse:'collapse',width:'100%',minWidth:700};
@@ -1853,6 +1861,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={thR}>Joker</th>
             <th style={thR}>KO</th>
             <th style={thG}>Bijvragen</th>
+            <th style={thR}>✅ Volledig juist</th>
+            <th style={thR}>❌ Volledig fout</th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
@@ -1879,15 +1889,19 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.koTot??0,maxKo,minKo)}}>{fmt(u.koTot??0)}</span></td>
                 <td style={tdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalFout??0,minFout,maxFout)}}>{u.aantalFout??0}</span></td>
               </tr>);
             })}
-            {st.length===0&&<tr><td colSpan={7} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+            {st.length===0&&<tr><td colSpan={9} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
             {betalenden.length>0&&(()=>{
               const gemTot=Math.round(betalenden.reduce((s,u)=>s+(u.totaalRaw??u.tot),0)/betalenden.length*100)/100;
               const gemMatch=Math.round(betalenden.reduce((s,u)=>s+(u.matchPtsRaw??u.matchPts??0),0)/betalenden.length*100)/100;
               const gemJoker=Math.round(betalenden.reduce((s,u)=>s+(u.jokerPtsRaw??u.jokerPts??0),0)/betalenden.length*100)/100;
               const gemKo=Math.round(betalenden.reduce((s,u)=>s+(u.koTotRaw??u.koTot??0),0)/betalenden.length*100)/100;
               const gemBijv=Math.round(betalenden.reduce((s,u)=>s+(u.bijvraagPtsRaw??u.bijvraagPts??0),0)/betalenden.length*100)/100;
+              const gemJuist=Math.round(betalenden.reduce((s,u)=>s+(u.aantalJuist??0),0)/betalenden.length*100)/100;
+              const gemFout=Math.round(betalenden.reduce((s,u)=>s+(u.aantalFout??0),0)/betalenden.length*100)/100;
               const avgTd={padding:'9px 8px',borderBottom:'1px solid var(--border)',fontSize:13,background:'#1a3a2a',borderTop:'2px solid var(--green)'};
               const avgTdR={...avgTd,textAlign:'right'};
               const avgTdG={...avgTdR,borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'};
@@ -1901,6 +1915,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemKo)}</span></td>
                 <td style={avgTdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemBijv)}</span></td>
+                <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJuist)}</span></td>
+                <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemFout)}</span></td>
               </tr>);
             })()}
           </tbody>
@@ -1910,7 +1926,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     })()}
     </React.Fragment>;
       if(id==='overzicht') return <React.Fragment key="overzicht">
-    <div id="anker-overzicht"/>
+    <div id="anker-overzicht" style={{scrollMarginTop:104}}/>
     {/* OVERZICHTSTABEL */}
     {(()=>{
       const stVis=st;
@@ -2032,7 +2048,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     })()}
     </React.Fragment>;
       if(id==='detail') return <React.Fragment key="detail">
-    <div id="anker-detail"/>
+    <div id="anker-detail" style={{scrollMarginTop:104}}/>
     {/* DETAIL TABEL */}
     <div id="detail-tabel" className="card" style={{padding:'12px 14px'}}>
       <div style={{fontSize:13,color:'var(--green)',fontFamily:'Bebas Neue',letterSpacing:1,marginBottom:6}}>📊 Detail per wedstrijd</div>
@@ -2190,7 +2206,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     </div>
     </React.Fragment>;
       if(id==='evolutie') return <React.Fragment key="evolutie">
-    <div id="anker-evolutie"/>
+    <div id="anker-evolutie" style={{scrollMarginTop:104}}/>
     <EvolutieGrafiek key="evolutie" st={st} gespeeldeMatches={gespeeldeMatches} cur={cur} config={config}/>
     </React.Fragment>;
       return null;
