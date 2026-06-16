@@ -4572,7 +4572,7 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
             defaultValue={config['mededeling_tekst']||''}
             placeholder="bv. Vergeet niet je pronostiek in te vullen voor de deadline van vrijdag!"
             id="mededeling-tekst-input"/>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
             <button className="btn btn-sm btn-outline" onClick={async()=>{
               const tekst=document.getElementById('mededeling-tekst-input')?.value||'';
               await sb.from('config').upsert({key:'mededeling_tekst',value:tekst});
@@ -4586,12 +4586,6 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
               <span style={{color:config['mededeling_aan']==='1'?'var(--gold)':'var(--muted)'}}>
                 {config['mededeling_aan']==='1'?'Banner is actief':'Banner is uit'}
               </span>
-            </label>
-            <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'var(--muted)'}}>
-              Tekstkleur
-              <input type="color" defaultValue={config['mededeling_kleur']||'#ffd600'}
-                onChange={async e=>{await sb.from('config').upsert({key:'mededeling_kleur',value:e.target.value});onRefresh();}}
-                style={{width:28,height:22,border:'none',background:'none',cursor:'pointer',padding:0}}/>
             </label>
             {mededelingSaved&&<span style={{fontSize:11,color:'var(--green)'}}>✓ Opgeslagen</span>}
           </div>
@@ -6259,7 +6253,7 @@ function App(){
           }
           // Geen actieve deadline: toon mededeling indien aan
           if(config['mededeling_aan']==='1'&&config['mededeling_tekst']){
-            return(<div style={{fontSize:12,color:config['mededeling_kleur']||'var(--gold)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            return(<div style={{fontSize:12,color:'var(--gold)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               📣 {config['mededeling_tekst']}
             </div>);
           }
