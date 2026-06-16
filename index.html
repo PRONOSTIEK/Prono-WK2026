@@ -1860,8 +1860,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={thR}>Totaal</th>
             <th style={thR}>Matchen</th>
             <th style={thR}>Joker</th>
-            <th style={thR}>✅ Volledig juist</th>
-            <th style={thR}>❌ Volledig fout</th>
+            <th style={thR}>✅</th>
+            <th style={thR}>❌</th>
             <th style={thR}>KO</th>
             <th style={thG}>Bijvragen</th>
           </tr></thead>
@@ -4355,6 +4355,7 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
   });
   const berichtEditorsRef=React.useRef({});
   const[berichtSaved,setBerichtSaved]=useState({});
+  const[mededelingSaved,setMededelingSaved]=useState(false);
   const[liveStatsMap,setLiveStatsMap]=useState({});
   function handleLiveStats(bvId,updated){setLiveStatsMap(p=>({...p,[bvId]:updated}));}
   function switchTab(newTab){document.activeElement?.blur();setTab(newTab);}
@@ -4561,6 +4562,33 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
               />
             </div>
           ))}
+        </div>
+
+        {/* Algemene mededeling */}
+        <div className="card" style={{marginBottom:14,border:'1px solid var(--gold)'}}>
+          <div className="card-title">📣 Algemene mededeling (banner bovenaan app)</div>
+          <div style={{fontSize:12,color:'var(--muted)',marginBottom:10}}>Verschijnt in de header naast het logo, maar enkel als er geen actieve aftelklok loopt (deadlines hebben voorrang).</div>
+          <textarea className="ii" style={{width:'100%',fontSize:12,minHeight:60,resize:'vertical'}}
+            defaultValue={config['mededeling_tekst']||''}
+            placeholder="bv. Vergeet niet je pronostiek in te vullen voor de deadline van vrijdag!"
+            id="mededeling-tekst-input"/>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:10}}>
+            <button className="btn btn-sm btn-outline" onClick={async()=>{
+              const tekst=document.getElementById('mededeling-tekst-input')?.value||'';
+              await sb.from('config').upsert({key:'mededeling_tekst',value:tekst});
+              setMededelingSaved(true);setTimeout(()=>setMededelingSaved(false),2000);
+              onRefresh();
+            }}>💾 Opslaan</button>
+            <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'var(--muted)'}}>
+              <input type="checkbox" checked={config['mededeling_aan']==='1'}
+                onChange={async e=>{await sb.from('config').upsert({key:'mededeling_aan',value:e.target.checked?'1':'0'});onRefresh();}}
+                style={{accentColor:'var(--gold)',width:14,height:14}}/>
+              <span style={{color:config['mededeling_aan']==='1'?'var(--gold)':'var(--muted)'}}>
+                {config['mededeling_aan']==='1'?'Banner is actief':'Banner is uit'}
+              </span>
+            </label>
+            {mededelingSaved&&<span style={{fontSize:11,color:'var(--green)'}}>✓ Opgeslagen</span>}
+          </div>
         </div>
 
         {/* Paginatitel & tabnaam */}
@@ -6203,8 +6231,8 @@ function App(){
 
   return(<div className="app">
     <div className="topbar">
-      <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <div className="topbar-title">⚽ WK <span>2026</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0,flex:1}}>
+        <div className="topbar-title" style={{flexShrink:0}}>⚽ WK <span>2026</span></div>
         {(()=>{
           const next=[
             {val:config.pv_deadline},{val:config.groep_deadline},
@@ -6212,16 +6240,24 @@ function App(){
           ].map(d=>d.val?new Date(d.val).getTime():null)
            .filter(t=>t&&!isNaN(t)&&t>appNow)
            .sort((a,b)=>a-b)[0];
-          if(!next)return null;
-          const diff=Math.max(0,next-appNow);
-          const d=Math.floor(diff/86400000);
-          const h=Math.floor((diff%86400000)/3600000);
-          const m=Math.floor((diff%3600000)/60000);
-          const s=Math.floor((diff%60000)/1000);
-          const clr=diff<3600000?'var(--red)':diff<86400000?'var(--gold)':'var(--green)';
-          const txt=d>0?`${d} ${d===1?'dag':'dagen'} ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:
-                       `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-          return(<div style={{fontFamily:'Bebas Neue',fontSize:15,color:clr,letterSpacing:1,opacity:.9}}>⏱ {txt}</div>);
+          if(next){
+            const diff=Math.max(0,next-appNow);
+            const d=Math.floor(diff/86400000);
+            const h=Math.floor((diff%86400000)/3600000);
+            const m=Math.floor((diff%3600000)/60000);
+            const s=Math.floor((diff%60000)/1000);
+            const clr=diff<3600000?'var(--red)':diff<86400000?'var(--gold)':'var(--green)';
+            const txt=d>0?`${d} ${d===1?'dag':'dagen'} ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:
+                         `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            return(<div style={{fontFamily:'Bebas Neue',fontSize:15,color:clr,letterSpacing:1,opacity:.9,flexShrink:0}}>⏱ {txt}</div>);
+          }
+          // Geen actieve deadline: toon mededeling indien aan
+          if(config['mededeling_aan']==='1'&&config['mededeling_tekst']){
+            return(<div style={{fontSize:12,color:'var(--gold)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              📣 {config['mededeling_tekst']}
+            </div>);
+          }
+          return null;
         })()}
       </div>
       <div className="user-badge">
