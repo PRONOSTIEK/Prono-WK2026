@@ -1754,10 +1754,11 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const aantalJuist=(matchDet||[]).filter(d=>d.cat==='alles_juist').length;
     const aantalFout=(matchDet||[]).filter(d=>d.cat==='alles_fout').length;
     const waaghalsPts=(matchDet||[]).reduce((s,d)=>s+(d.wb||0)*(d.isJ?2:1),0);
+    const wbMaxEigen=(matchDet||[]).reduce((s,d)=>d.homePred!=null&&d.awayPred!=null?s+waaghals(d.homePred,d.awayPred)*(d.isJ?2:1):s,0);
     const wbIngezet=(matchDet||[]).filter(d=>d.homePred!=null&&d.awayPred!=null&&waaghals(d.homePred,d.awayPred)>0).length;
     const wbGekregen=(matchDet||[]).filter(d=>(d.wb||0)>0).length;
-    const wbPct=wbIngezet>0?Math.round(wbGekregen/wbIngezet*100):null;
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
+    const wbPct=wbMaxEigen>0?Math.round(waaghalsPts/wbMaxEigen*100):null;
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
@@ -1901,7 +1902,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}{u.wbMaxEigen>0?<span style={{fontSize:11,color:'var(--muted)'}}>/{u.wbMaxEigen}</span>:null}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalFout??0,minFout,maxFout)}}>{u.aantalFout??0}</span></td>
