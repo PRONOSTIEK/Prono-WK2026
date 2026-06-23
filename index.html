@@ -1853,6 +1853,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const wbVals=stVis.map(u=>u.waaghalsPts??0);
       const maxWb=wbVals.length?Math.max(...wbVals):null;
       const minWb=wbVals.length?Math.min(...wbVals):null;
+      const wbMaxEigenVals=stVis.map(u=>u.wbMaxEigen??0);
+      const maxWbMaxEigen=wbMaxEigenVals.length?Math.max(...wbMaxEigenVals):null;
+      const minWbMaxEigen=wbMaxEigenVals.length?Math.min(...wbMaxEigenVals):null;
       const maxMogelijkWb=matches.filter(m=>m.home_score!=null&&m.away_score!=null).reduce((s,m)=>s+waaghals(m.home_score,m.away_score),0);
       const wbPctVals=stVis.map(u=>u.wbPct).filter(v=>v!=null);
       const maxWbPct=wbPctVals.length?Math.max(...wbPctVals):null;
@@ -1872,8 +1875,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={thR}>Totaal</th>
             <th style={thR}>Matchen</th>
             <th style={thR}>Joker</th>
-            <th style={thR}>🐃{maxMogelijkWb>0?` /${maxMogelijkWb}`:''}</th>
-            <th style={thR}>🐃%</th>
+            <th style={thR}>Waaghals{maxMogelijkWb>0?` /${maxMogelijkWb} (=max)`:''}</th>
+            <th style={thR}>Waaghals%</th>
             <th style={thR}>✅</th>
             <th style={thR}>❌</th>
             <th style={thR}>KO</th>
@@ -1902,7 +1905,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}{u.wbMaxEigen>0?<span style={{fontSize:11,color:'var(--muted)'}}>/{u.wbMaxEigen}</span>:null}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}</span>{u.wbMaxEigen>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.wbMaxEigen,maxWbMaxEigen,minWbMaxEigen)}}> / {u.wbMaxEigen}</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalFout??0,minFout,maxFout)}}>{u.aantalFout??0}</span></td>
