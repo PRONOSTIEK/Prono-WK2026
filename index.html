@@ -1744,7 +1744,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const matchPts=matchDet.reduce((s,d)=>s+(d.isJ?d.pts/2:d.pts),0);
     // Jokerpunten = extra punten door joker (helft van joker-cel punten)
     const jokerPts=matchDet.filter(d=>d.isJ).reduce((s,d)=>s+d.pts/2,0);
-    const aantalJokers=(jAll[u.id]||[]).length;
+    const aantalJokers=matchDet.filter(d=>d.isJ).length;
     // KO punten per ronde
     const koPtsPerRonde={};
     for(const r of KO_RONDES){koPtsPerRonde[r.id]=koDet.filter(d=>d.round===r.id).reduce((s,d)=>s+d.pts,0);}
@@ -1905,7 +1905,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   {!u.betaald&&!toonAlles&&!u.is_avg&&<div style={{fontSize:9,color:'var(--red)'}}>betaal eerst</div>}
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span>{u.aantalJokers>0&&<span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--muted)'}}> (#{u.aantalJokers})</span>}</td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span>{u.aantalJokers>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--text)'}}> ( {u.aantalJokers} )</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}</span>{u.wbMaxEigen>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.wbMaxEigen,maxWbMaxEigen,minWbMaxEigen)}}> / {u.wbMaxEigen}</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
