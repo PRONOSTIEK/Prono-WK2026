@@ -1744,6 +1744,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const matchPts=matchDet.reduce((s,d)=>s+(d.isJ?d.pts/2:d.pts),0);
     // Jokerpunten = extra punten door joker (helft van joker-cel punten)
     const jokerPts=matchDet.filter(d=>d.isJ).reduce((s,d)=>s+d.pts/2,0);
+    const aantalJokers=(jAll[u.id]||[]).length;
     // KO punten per ronde
     const koPtsPerRonde={};
     for(const r of KO_RONDES){koPtsPerRonde[r.id]=koDet.filter(d=>d.round===r.id).reduce((s,d)=>s+d.pts,0);}
@@ -1758,7 +1759,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const wbIngezet=(matchDet||[]).filter(d=>d.homePred!=null&&d.awayPred!=null&&waaghals(d.homePred,d.awayPred)>0).length;
     const wbGekregen=(matchDet||[]).filter(d=>(d.wb||0)>0).length;
     const wbPct=wbMaxEigen>0?Math.round(waaghalsPts/wbMaxEigen*100):null;
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,aantalJokers:(u.betaald||toonAlles)?aantalJokers:0,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
@@ -1904,7 +1905,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                   {!u.betaald&&!toonAlles&&!u.is_avg&&<div style={{fontSize:9,color:'var(--red)'}}>betaal eerst</div>}
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span>{u.aantalJokers>0&&<span style={{fontFamily:'Bebas Neue',fontSize:13,color:'var(--muted)'}}> (#{u.aantalJokers})</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}</span>{u.wbMaxEigen>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.wbMaxEigen,maxWbMaxEigen,minWbMaxEigen)}}> / {u.wbMaxEigen}</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
