@@ -1873,15 +1873,15 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
           <thead><tr>
             <th style={{...thS,position:'sticky',left:0,zIndex:2}}>#</th>
             <th style={{...thS,position:'sticky',left:36,zIndex:2,minWidth:90,maxWidth:90}}>Naam</th>
-            <th style={thR}>Totaal</th>
-            <th style={thR}>Matchen</th>
-            <th style={thR}>Joker</th>
-            <th style={thR}>Waaghals{maxMogelijkWb>0?` /${maxMogelijkWb} (=max)`:''}</th>
-            <th style={thR}>Waaghals%</th>
-            <th style={thR}>✅</th>
-            <th style={thR}>❌</th>
-            <th style={thR}>KO</th>
-            <th style={thG}>Bijvragen</th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">Totaal</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">Matchen</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">Joker</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">Waaghals{maxMogelijkWb>0?` /${maxMogelijkWb} (=max)`:''}</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">Waaghals%</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">✅</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">❌</div></th>
+            <th style={{...thR,verticalAlign:'bottom'}}><div className="st-rotated">KO</div></th>
+            <th style={{...thG,verticalAlign:'bottom'}}><div className="st-rotated">Bijvragen</div></th>
           </tr></thead>
           <tbody>
             {st.map((u,i)=>{
