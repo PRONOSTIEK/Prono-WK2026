@@ -1866,14 +1866,14 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const goldBorderR={borderRight:'2px solid var(--gold)'};
       const tblS={borderCollapse:'collapse',width:'100%',minWidth:700};
       const thS={textAlign:'left',fontSize:10,textTransform:'uppercase',color:'var(--muted)',padding:'6px 8px',borderBottom:'1px solid var(--border)',letterSpacing:'.3px',whiteSpace:'nowrap'};
-      const thR={...thS,textAlign:'right'};
+      const thR={...thS,textAlign:'center'};
       const thG={...thR,borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)',color:'var(--gold)'};
       return(<div className="card" style={{padding:0}}>
         <div style={{overflowX:'auto',padding:14}}>
         <table style={tblS}>
           <thead><tr>
-            <th style={{...thS,position:'sticky',left:0,zIndex:2,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">#</div></th>
-            <th style={{...thS,position:'sticky',left:36,zIndex:2,minWidth:90,maxWidth:90,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Naam</div></th>
+            <th style={{...thS,position:'sticky',left:0,zIndex:2}}>#</th>
+            <th style={{...thS,position:'sticky',left:36,zIndex:2,minWidth:90,maxWidth:90}}>Naam</th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Totaal</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Matchen</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Joker</div></th>
@@ -1888,7 +1888,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             {st.map((u,i)=>{
               const rowBg=u.id===cur.id?'var(--dark3)':i%2===0?'var(--card)':'var(--dark3)';
               const tdS={padding:'9px 8px',borderBottom:'1px solid var(--border)',fontSize:13,background:rowBg};
-              const tdR={...tdS,textAlign:'right'};
+              const tdR={...tdS,textAlign:'center'};
               const tdG={...tdR,borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'};
               const stickyNum={...tdS,position:'sticky',left:0,zIndex:1};
               const stickyNaam={...tdS,position:'sticky',left:36,zIndex:1,minWidth:90,maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'};
@@ -1927,7 +1927,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               const gemJuist=Math.round(betalenden.reduce((s,u)=>s+(u.aantalJuist??0),0)/betalenden.length*100)/100;
               const gemFout=Math.round(betalenden.reduce((s,u)=>s+(u.aantalFout??0),0)/betalenden.length*100)/100;
               const avgTd={padding:'9px 8px',borderBottom:'1px solid var(--border)',fontSize:13,background:'#1a3a2a',borderTop:'2px solid var(--green)'};
-              const avgTdR={...avgTd,textAlign:'right'};
+              const avgTdR={...avgTd,textAlign:'center'};
               const avgTdG={...avgTdR,borderLeft:'2px solid var(--gold)',borderRight:'2px solid var(--gold)'};
               const avgStickyNum={...avgTd,position:'sticky',left:0,zIndex:1};
               const avgStickyNaam={...avgTd,position:'sticky',left:36,zIndex:1,minWidth:90,maxWidth:90};
