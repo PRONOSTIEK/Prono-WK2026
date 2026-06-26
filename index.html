@@ -1746,6 +1746,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     // Jokerpunten = extra punten door joker (helft van joker-cel punten)
     const jokerPts=matchDet.filter(d=>d.isJ).reduce((s,d)=>s+d.pts/2,0);
     const aantalJokers=matchDet.filter(d=>d.isJ).length;
+    const gemJokerPerJoker=aantalJokers>0?Math.round(jokerPts/aantalJokers*100)/100:null;
     // KO punten per ronde
     const koPtsPerRonde={};
     for(const r of KO_RONDES){koPtsPerRonde[r.id]=koDet.filter(d=>d.round===r.id).reduce((s,d)=>s+d.pts,0);}
@@ -1760,7 +1761,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const wbIngezet=(matchDet||[]).filter(d=>d.homePred!=null&&d.awayPred!=null&&waaghals(d.homePred,d.awayPred)>0).length;
     const wbGekregen=(matchDet||[]).filter(d=>(d.wb||0)>0).length;
     const wbPct=wbMaxEigen>0?Math.round(waaghalsPts/wbMaxEigen*100):null;
-    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,aantalJokers:(u.betaald||toonAlles)?aantalJokers:0,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
+    return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,aantalJokers:(u.betaald||toonAlles)?aantalJokers:0,gemJokerPerJoker:(u.betaald||toonAlles)?gemJokerPerJoker:null,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
   function ptKleur(pts){
@@ -1838,6 +1839,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const minMatch=matchVals.length?Math.min(...matchVals):null;
       const maxJoker=jokerVals.length?Math.max(...jokerVals):null;
       const minJoker=jokerVals.length?Math.min(...jokerVals):null;
+      const gemJokerVals=stVis.map(u=>u.gemJokerPerJoker).filter(v=>v!=null);
+      const maxGemJoker=gemJokerVals.length?Math.max(...gemJokerVals):null;
+      const minGemJoker=gemJokerVals.length?Math.min(...gemJokerVals):null;
       function hlClr(val,max,min){if(val==null||max==null)return'var(--text)';if(val===max&&max!==min)return'var(--green)';if(val===min&&max!==min)return'var(--red)';return'var(--text)';}
       const betalenden=st.filter(u=>!u.is_avg);
       const koVals=stVis.map(u=>u.koTot??0);
@@ -1877,6 +1881,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Totaal</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Matchen</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Joker</div></th>
+            <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Punten/Joker</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Waaghals{maxMogelijkWb>0?` /${maxMogelijkWb} (=max)`:''}</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">Waaghals%</div></th>
             <th style={{...thR,verticalAlign:'bottom',textAlign:'center'}}><div className="st-rotated">✅</div></th>
@@ -1907,6 +1912,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 </td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.matchPts,maxMatch,minMatch)}}>{fmt(u.matchPts??0)}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.jokerPts,maxJoker,minJoker)}}>{fmt(u.jokerPts??0)}</span>{u.aantalJokers>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--text)'}}> / {u.aantalJokers}</span>}</td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.gemJokerPerJoker==null?'var(--muted)':hlClr(u.gemJokerPerJoker,maxGemJoker,minGemJoker)}}>{u.gemJokerPerJoker!=null?fmt(u.gemJokerPerJoker):'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.waaghalsPts??0,maxWb,minWb)}}>{u.waaghalsPts??0}</span>{u.wbMaxEigen>0&&<span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.wbMaxEigen,maxWbMaxEigen,minWbMaxEigen)}}> / {u.wbMaxEigen}</span>}</td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
@@ -1915,11 +1921,12 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={tdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
               </tr>);
             })}
-            {st.length===0&&<tr><td colSpan={11} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
+            {st.length===0&&<tr><td colSpan={12} style={{textAlign:'center',color:'var(--muted)',padding:16}}>Nog geen deelnemers.</td></tr>}
             {betalenden.length>0&&(()=>{
               const gemTot=Math.round(betalenden.reduce((s,u)=>s+(u.totaalRaw??u.tot),0)/betalenden.length*100)/100;
               const gemMatch=Math.round(betalenden.reduce((s,u)=>s+(u.matchPtsRaw??u.matchPts??0),0)/betalenden.length*100)/100;
               const gemJoker=Math.round(betalenden.reduce((s,u)=>s+(u.jokerPtsRaw??u.jokerPts??0),0)/betalenden.length*100)/100;
+              const gemGemJoker=(()=>{const vals=betalenden.map(u=>u.gemJokerPerJoker).filter(v=>v!=null);return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*100)/100:null;})();
               const gemWb=Math.round(betalenden.reduce((s,u)=>s+(u.waaghalsPts??0),0)/betalenden.length*100)/100;
               const gemWbPct=(()=>{const vals=betalenden.map(u=>u.wbPct).filter(v=>v!=null);return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;})();
               const gemKo=Math.round(betalenden.reduce((s,u)=>s+(u.koTotRaw??u.koTot??0),0)/betalenden.length*100)/100;
@@ -1937,6 +1944,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={avgTdR}><div className="pts" style={{color:'var(--green)'}}>{fmt(gemTot)}</div></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemMatch)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJoker)}</span></td>
+                <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{gemGemJoker!=null?fmt(gemGemJoker):'—'}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemWb)}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{gemWbPct!=null?gemWbPct+'%':'—'}</span></td>
                 <td style={avgTdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:'var(--green)'}}>{fmt(gemJuist)}</span></td>
