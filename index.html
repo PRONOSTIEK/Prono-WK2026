@@ -1383,30 +1383,30 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
 // Bereken kwalificatiepunten (groepsfase → KO)
 function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, config){
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
-  const ptsJuist=koPunten['kwal_juist']??2;
-  const ptsAanwezig=koPunten['kwal_aanwezig']??1;
+  const ptsJuist=koPunten['kwal_juist']??10;
+  const ptsAanwezig=koPunten['kwal_aanwezig']??5;
   const echteKO=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
   if(!Object.keys(echteKO).length)return{tot:0,det:[]};
   const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData,fifaRanking);
   const echteKOSet=new Set(Object.keys(echteKO));
   let tot=0;const det=[];
 
-  // Loop over voorspelde teams per positie
+  // 1e en 2e per groep
   for(const [team,vInfo] of Object.entries(voorspeld)){
-    const eInfo=echteKO[team];
     if(vInfo.pos==='1'||vInfo.pos==='2'){
-      // Enkel 1e en 2e per groep tellen mee
+      const eInfo=echteKO[team];
       if(eInfo&&eInfo.pos===vInfo.pos&&eInfo.grp===vInfo.grp){
         tot+=ptsJuist;det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:vInfo.pos});
       } else if(echteKOSet.has(team)){
         tot+=ptsAanwezig;det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:vInfo.pos});
       }
     } else if(vInfo.pos==='3'){
-      // 3e: vergelijk met echte beste derden
-      if(eInfo&&eInfo.pos==='3'){
-        tot+=ptsJuist;det.push({label:`${team} (juiste 3e)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
+      // 3e: 10pt als exact dezelfde positie in beste 8, 5pt als team gewoon in echte 32 zit
+      const eInfo=echteKO[team];
+      if(eInfo&&eInfo.pos==='3'&&eInfo.grp===vInfo.grp){
+        tot+=ptsJuist;det.push({label:`${team} (juiste 3e positie)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
       } else if(echteKOSet.has(team)){
-        tot+=ptsAanwezig;det.push({label:`${team} (3e naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:'3'});
+        tot+=ptsAanwezig;det.push({label:`${team} (3e doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:'3'});
       }
     }
   }
