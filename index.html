@@ -1378,7 +1378,7 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
 
 // Bereken kwalificatiepunten via R32 bracket vergelijking
 function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, config, koMatches){
-  if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
+  if(config&&!isFaseActief(config,'kwal')&&!isFaseActief(config,'ko_r32'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
   // Haal echte R32 teams op uit koMatches
