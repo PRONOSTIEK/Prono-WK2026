@@ -1369,10 +1369,8 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
     if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
     if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
   }
-  // Voor deelnemers: gebruik hun eigen fairplay van derden (groep '3de') als die bestaat
-  let fpDerden=fpData['3de'];
-  if(typeof fpDerden==='string'){try{fpDerden=JSON.parse(fpDerden);}catch{fpDerden=null;}}
-  const top8Derden=sortDerden(derden,Array.isArray(fpDerden)?fpDerden:null,fifaRanking).slice(0,8);
+  // Voor deelnemers: sorteer enkel op punten/doelsaldo/doelpunten, geen fairplay tiebreaker
+  const top8Derden=sortDerden(derden,null,null).slice(0,8);
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
