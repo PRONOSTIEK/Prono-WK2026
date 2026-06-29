@@ -1383,19 +1383,31 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
 // Bereken kwalificatiepunten (groepsfase → KO)
 function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, config){
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
-  const ptsJuist=koPunten['kwal_juist']??2;
-  const ptsAanwezig=koPunten['kwal_aanwezig']??1;
+  const ptsJuist=koPunten['kwal_juist']??10;
+  const ptsAanwezig=koPunten['kwal_aanwezig']??5;
   const echteKO=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
   if(!Object.keys(echteKO).length)return{tot:0,det:[]};
   const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData,fifaRanking);
+  const echteKOSet=new Set(Object.keys(echteKO));
   let tot=0;const det=[];
-  for(const [team,eInfo] of Object.entries(echteKO)){
-    const vInfo=voorspeld[team];
-    if(!vInfo)continue;
-    if(vInfo.pos===eInfo.pos&&vInfo.grp===eInfo.grp){
-      tot+=ptsJuist;det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist',grp:eInfo.grp,pos:eInfo.pos});
-    } else {
-      tot+=ptsAanwezig;det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:eInfo.grp,pos:eInfo.pos});
+
+  // 1e en 2e per groep
+  for(const [team,vInfo] of Object.entries(voorspeld)){
+    if(vInfo.pos==='1'||vInfo.pos==='2'){
+      const eInfo=echteKO[team];
+      if(eInfo&&eInfo.pos===vInfo.pos&&eInfo.grp===vInfo.grp){
+        tot+=ptsJuist;det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:vInfo.pos});
+      } else if(echteKOSet.has(team)){
+        tot+=ptsAanwezig;det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:vInfo.pos});
+      }
+    } else if(vInfo.pos==='3'){
+      // 3e: 10pt als exact dezelfde positie in beste 8, 5pt als team gewoon in echte 32 zit
+      const eInfo=echteKO[team];
+      if(eInfo&&eInfo.pos==='3'&&eInfo.grp===vInfo.grp){
+        tot+=ptsJuist;det.push({label:`${team} (juiste 3e positie)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
+      } else if(echteKOSet.has(team)){
+        tot+=ptsAanwezig;det.push({label:`${team} (3e doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:'3'});
+      }
     }
   }
   return{tot,det};
@@ -1736,7 +1748,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g&&d.pos!=='3').reduce((s,d)=>s+d.pts,0);
     const kwal3des=(kwalDet||[]).filter(d=>d.pos==='3').reduce((s,d)=>s+d.pts,0);
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
-    const totaal=tot+koTot;
+    const totaal=tot+koTot+kwalTot;
     const ptsPerMatch={};
     const catPerMatch={};
     const wbPerMatch={};
@@ -1844,7 +1856,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
       const minGemJoker=gemJokerVals.length?Math.min(...gemJokerVals):null;
       function hlClr(val,max,min){if(val==null||max==null)return'var(--text)';if(val===max&&max!==min)return'var(--green)';if(val===min&&max!==min)return'var(--red)';return'var(--text)';}
       const betalenden=st.filter(u=>!u.is_avg);
-      const koVals=stVis.map(u=>u.koTot??0);
+      const koVals=stVis.map(u=>(u.koTot??0)+(u.kwalTot??0));
       const maxKo=koVals.length?Math.max(...koVals):null;
       const minKo=koVals.length?Math.min(...koVals):null;
       const bijvVals=stVis.map(u=>u.bijvraagPts??0);
@@ -1917,7 +1929,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:u.wbPct==null?'var(--muted)':hlClr(u.wbPct,maxWbPct,minWbPct)}}>{u.wbPct!=null?u.wbPct+'%':'—'}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalJuist??0,maxJuist,minJuist)}}>{u.aantalJuist??0}</span></td>
                 <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.aantalFout??0,minFout,maxFout)}}>{u.aantalFout??0}</span></td>
-                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.koTot??0,maxKo,minKo)}}>{fmt(u.koTot??0)}</span></td>
+                <td style={tdR}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr((u.koTot??0)+(u.kwalTot??0),maxKo,minKo)}}>{fmt((u.koTot??0)+(u.kwalTot??0))}</span></td>
                 <td style={tdG}><span style={{fontFamily:'Bebas Neue',fontSize:16,color:hlClr(u.bijvraagPts??0,maxBijv,minBijv)}}>{fmt(u.bijvraagPts??0)}</span></td>
               </tr>);
             })}
@@ -1929,7 +1941,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
               const gemGemJoker=(()=>{const vals=betalenden.map(u=>u.gemJokerPerJoker).filter(v=>v!=null);return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*100)/100:null;})();
               const gemWb=Math.round(betalenden.reduce((s,u)=>s+(u.waaghalsPts??0),0)/betalenden.length*100)/100;
               const gemWbPct=(()=>{const vals=betalenden.map(u=>u.wbPct).filter(v=>v!=null);return vals.length?Math.round(vals.reduce((s,v)=>s+v,0)/vals.length):null;})();
-              const gemKo=Math.round(betalenden.reduce((s,u)=>s+(u.koTotRaw??u.koTot??0),0)/betalenden.length*100)/100;
+              const gemKo=Math.round(betalenden.reduce((s,u)=>s+((u.koTotRaw??u.koTot??0)+(u.kwalTot??0)),0)/betalenden.length*100)/100;
               const gemBijv=Math.round(betalenden.reduce((s,u)=>s+(u.bijvraagPtsRaw??u.bijvraagPts??0),0)/betalenden.length*100)/100;
               const gemJuist=Math.round(betalenden.reduce((s,u)=>s+(u.aantalJuist??0),0)/betalenden.length*100)/100;
               const gemFout=Math.round(betalenden.reduce((s,u)=>s+(u.aantalFout??0),0)/betalenden.length*100)/100;
@@ -1992,10 +2004,15 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         {label:'Totaal punten',key:'tot',sep:false,sticky:true,noDecimal:false,actief:true},
         {label:'Matchpunten',key:'matchPts',sep:false,noDecimal:false,actief:gfActief},
         {label:'Jokerpunten',key:'jokerPts',sep:true,noDecimal:false,actief:gfActief},
+        {label:'Kwalificatiepunten',key:'kwalTotaal',sep:false,noDecimal:true,actief:kwalActief},
+        {label:'KO 16',key:'ko_R32',sep:false,noDecimal:true,actief:ko_r32Actief&&config['toon_r32_punten']==='1'},
+        {label:'KO 8',key:'ko_R16',sep:false,noDecimal:true,actief:ko_r16Actief},
+        {label:'KO 4',key:'ko_KF',sep:false,noDecimal:true,actief:ko_kfActief},
+        {label:'KO 2',key:'ko_HF',sep:false,noDecimal:true,actief:isFaseActief(config,'ko_hf')},
+        {label:'KO TOTAAL',key:'koTotaal',sep:true,noDecimal:false,actief:kwalActief},
         ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true,actief:kwalActief})),
         {label:'Kwal 3des',key:'kwal3des',sep:false,noDecimal:true,actief:kwalActief},
-        {label:'Kwal. totaal',key:'kwalTotaal',sep:true,noDecimal:true,actief:kwalActief},
-        ...KO_RONDES_VIS.map((r,ri)=>({label:r.label,key:`ko_${r.id}`,sep:ri===KO_RONDES_VIS.length-1,noDecimal:true,actief:isFaseActief(config,{R32:'ko_r32',R16:'ko_r16',KF:'ko_kf'}[r.id]||`ko_${r.id.toLowerCase()}`)&&(r.id!=='R32'||config['toon_r32_punten']==='1')})),
+        {label:'Kwal. totaal',key:'kwalTotaal2',sep:true,noDecimal:true,actief:kwalActief},
         ...allBvCols.map((b,li)=>({label:b.colLabel.length>14?b.colLabel.substring(0,14)+'…':b.colLabel,fullLabel:b.question,key:`bv_${b.question}`,sep:false,noDecimal:false,actief:bijvActief2})),
         {label:'Totaal bijvragen',key:'bijvraagPts',sep:true,noDecimal:false,actief:bijvActief2},
         {label:'Totaal punten',key:'totaalPts',sep:false,noDecimal:false,actief:true},
@@ -2004,6 +2021,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         const d={tot:u.tot,matchPts:u.matchPts??0,jokerPts:u.jokerPts??0,kwal3des:u.kwal3des??0};
         for(const g of GRP)d[`kwal_${g}`]=u.kwalPerGroep?.[g]??0;
         d['kwalTotaal']=GRP.reduce((s,g)=>s+(u.kwalPerGroep?.[g]??0),0)+(u.kwal3des??0);
+        d['kwalTotaal2']=d['kwalTotaal'];
+        d['koTotaal']=(u.koTot??0)+(u.kwalTot??0);
         for(const r of KO_RONDES_VIS)d[`ko_${r.id}`]=u.koPtsPerRonde?.[r.id]??0;
         for(const l of allBvLabels)d[`bv_${l}`]=u.bijvraagDet?.[l]??0;
         d['bijvraagPts']=bijvActief2?(u.bijvraagPts??0):null;
