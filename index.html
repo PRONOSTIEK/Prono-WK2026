@@ -1362,9 +1362,7 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
     if(!gm.length)continue;
     const scV={};
     for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-    let fp=fpData[grp];
-    if(typeof fp==='string'){try{fp=JSON.parse(fp);}catch{fp=null;}}
-    const stand=buildStand(gm,scV,Array.isArray(fp)?fp:null,fifaRanking);
+    const stand=buildStand(gm,scV,null,fifaRanking);
     if(stand.length>=1)winnaars[grp]={team:stand[0].team,pos:'1',grp};
     if(stand.length>=2)runners[grp]={team:stand[1].team,pos:'2',grp};
     if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
@@ -1742,6 +1740,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
     // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
     const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config);
+    if(u.name==='SAS')console.log('SAS kwalDet:',JSON.stringify(kwalDet));
     const kwalPerGroep={};
     for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g&&d.pos!=='3').reduce((s,d)=>s+d.pts,0);
     const kwal3des=(kwalDet||[]).filter(d=>d.pos==='3').reduce((s,d)=>s+d.pts,0);
