@@ -1368,7 +1368,7 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
     if(stand.length>=3)derden.push({...stand[2],pos:'3',grp});
   }
   // Voor deelnemers: sorteer enkel op punten/doelsaldo/doelpunten, geen fairplay tiebreaker
-  const top8Derden=sortDerden(derden,null,null).slice(0,8);
+  const top8Derden=sortDerden(derden,null,fifaRanking).slice(0,8);
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
