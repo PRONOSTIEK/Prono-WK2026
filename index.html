@@ -1381,9 +1381,8 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   if(config&&!isFaseActief(config,'kwal')&&!isFaseActief(config,'ko_r32'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
-  // Haal echte R32 teams op uit koMatches
-  const allMatches=[...(matches||[]),...(koMatches||[])];
-  const echteR32Matches=allMatches.filter(m=>m.round==='R32');
+  // Haal echte R32 teams op uit koMatches (altijd beschikbaar ongeacht actief_ko_r32)
+  const echteR32Matches=(koMatches||[]).filter(m=>m.round==='R32');
   if(!echteR32Matches.length)return{tot:0,det:[]};
   // Echte bracket: per positie home en away
   const echteR32={};
