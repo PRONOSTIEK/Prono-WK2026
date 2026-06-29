@@ -1376,33 +1376,87 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
   return result;
 }
 
-// Bereken kwalificatiepunten (groepsfase → KO)
+// Bereken kwalificatiepunten via R32 bracket vergelijking
 function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, config){
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
-  const echteKO=calcEchteKOTeams(matches,adminFP||{},fifaRanking);
-  if(!Object.keys(echteKO).length)return{tot:0,det:[]};
-  const voorspeld=calcVoorspeldeKOTeams(matches,pm,fpData,fifaRanking);
-  const echteKOSet=new Set(Object.keys(echteKO));
+  // Haal echte R32 teams op
+  const echteMatches=matches.filter(m=>m.round==='R32');
+  if(!echteMatches.length)return{tot:0,det:[]};
+  // Echte bracket: per positie home en away
+  const echteR32={};
+  for(const m of echteMatches){
+    if(m.home&&m.away) echteR32[parseInt(m.position)]=[m.home,m.away];
+  }
+  if(!Object.keys(echteR32).length)return{tot:0,det:[]};
+  const echte32Set=new Set(Object.values(echteR32).flat());
+  // Voorspelde bracket via getR32Teams
+  const GRP=['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const winnaars={};const runners={};const derdenMetGroep=[];const thirdsStats={};
+  for(const grp of GRP){
+    const gm=matches.filter(m=>m.group===grp&&m.round==='groep');
+    if(!gm.length)continue;
+    const stand=buildStand(gm,pm,fpData&&fpData[grp],fifaRanking);
+    if(stand.length>=1)winnaars[grp]=stand[0].team;
+    if(stand.length>=2)runners[grp]=stand[1].team;
+    if(stand.length>=3){
+      const t3=stand[2];
+      derdenMetGroep.push({team:t3.team,grp});
+      thirdsStats[grp]={team:t3.team,pts:t3.pts,gd:t3.gd,gs:t3.gs};
+    }
+  }
+  // Sorteer derden
+  const fifaMap={};for(const r of (fifaRanking||[]))fifaMap[r.team]=r.points;
+  const sorted3=Object.entries(thirdsStats).sort((a,b)=>
+    b[1].pts-a[1].pts||b[1].gd-a[1].gd||b[1].gs-a[1].gs||(fifaMap[b[1].team]||0)-(fifaMap[a[1].team]||0)
+  );
+  const top8=[...sorted3.slice(0,8).map(([g,v])=>v.team)];
+  // assignDerdenToR32
+  const doorgestoten=derdenMetGroep.filter(d=>top8.includes(d.team));
+  const grpsKey=doorgestoten.map(d=>d.grp).sort().join('');
+  const toewijzing=R32_DERDE_COMBINATIES[grpsKey]||[];
+  const grpToTeam={};for(const d of doorgestoten)grpToTeam[d.grp]=d.team;
+  const dArr=toewijzing.length?toewijzing.map(code=>grpToTeam[code]||null):top8;
+  // Match config
+  const matchCfg={
+    1:['R_A','R_B'],2:['W_E','d3'],3:['W_F','R_C'],4:['W_C','R_F'],
+    5:['W_I','d5'],6:['R_E','R_I'],7:['W_A','d0'],8:['W_L','d7'],
+    9:['W_D','d2'],10:['W_G','d4'],11:['R_K','R_L'],12:['W_H','R_J'],
+    13:['W_B','d1'],14:['W_J','R_H'],15:['W_K','d6'],16:['R_D','R_G'],
+  };
+  // Groep per positie/rol
+  const rolGroep={
+    '1H':'A','1A':'B','2H':'E','2A':'D','3H':'F','3A':'C','4H':'C','4A':'F',
+    '5H':'I','5A':'?','6H':'E','6A':'I','7H':'A','7A':'?','8H':'L','8A':'?',
+    '9H':'D','9A':'?','10H':'G','10A':'?','11H':'K','11A':'L','12H':'H','12A':'J',
+    '13H':'B','13A':'?','14H':'J','14A':'H','15H':'K','15A':'?','16H':'D','16A':'G',
+  };
+  function getTeam(src){
+    if(src.startsWith('W_'))return winnaars[src.slice(2)]||'';
+    if(src.startsWith('R_'))return runners[src.slice(2)]||'';
+    if(src.startsWith('d')){const i=parseInt(src[1]);return(i<dArr.length&&dArr[i])||'';}
+    return '';
+  }
+  function getGroep(pos,side,src){
+    if(src.startsWith('d')){const i=parseInt(src[1]);return toewijzing[i]||'?';}
+    return rolGroep[pos+side]||'?';
+  }
   let tot=0;const det=[];
-
-  // 1e en 2e per groep
-  for(const [team,vInfo] of Object.entries(voorspeld)){
-    if(vInfo.pos==='1'||vInfo.pos==='2'){
-      const eInfo=echteKO[team];
-      if(eInfo&&eInfo.pos===vInfo.pos&&eInfo.grp===vInfo.grp){
-        tot+=ptsJuist;det.push({label:`${team} (juiste plaats)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:vInfo.pos});
-      } else if(echteKOSet.has(team)){
-        tot+=ptsAanwezig;det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:vInfo.pos});
-      }
-    } else if(vInfo.pos==='3'){
-      const eInfo=echteKO[team];
-      if(eInfo&&eInfo.pos==='3'&&eInfo.rank3===vInfo.rank3){
-        tot+=ptsJuist;det.push({label:`${team} (juiste 3e #${vInfo.rank3+1})`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
-      } else if(echteKOSet.has(team)){
-        tot+=ptsAanwezig;det.push({label:`${team} (3e doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:'3'});
-      }
+  for(const [posStr,[hSrc,aSrc]] of Object.entries(matchCfg)){
+    const pos=parseInt(posStr);
+    const echte=echteR32[pos];
+    if(!echte)continue;
+    const [eh,ea]=echte;
+    const ph=getTeam(hSrc);const pa=getTeam(aSrc);
+    const gh=getGroep(posStr,'H',hSrc);const ga=getGroep(posStr,'A',aSrc);
+    if(ph){
+      if(ph===eh){tot+=ptsJuist;det.push({label:`${ph} (juiste match)`,pts:ptsJuist,cat:'kwal_juist',grp:gh,pos:'H'});}
+      else if(echte32Set.has(ph)){tot+=ptsAanwezig;det.push({label:`${ph} (doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:gh,pos:'H'});}
+    }
+    if(pa){
+      if(pa===ea){tot+=ptsJuist;det.push({label:`${pa} (juiste match)`,pts:ptsJuist,cat:'kwal_juist',grp:ga,pos:'A'});}
+      else if(echte32Set.has(pa)){tot+=ptsAanwezig;det.push({label:`${pa} (doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:ga,pos:'A'});}
     }
   }
   return{tot,det};
@@ -1740,8 +1794,8 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
     const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config);
     const kwalPerGroep={};
-    for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g&&d.pos!=='3').reduce((s,d)=>s+d.pts,0);
-    const kwal3des=(kwalDet||[]).filter(d=>d.pos==='3').reduce((s,d)=>s+d.pts,0);
+    for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g).reduce((s,d)=>s+d.pts,0);
+    const kwal3des=0; // Derden zitten nu in kwalPerGroep, geen aparte kolom
     const filled=matches.filter(m=>{const p=pm[m.id];return p&&p.home_pred!=null;}).length;
     const totaal=tot+koTot+kwalTot;
     const ptsPerMatch={};
