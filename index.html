@@ -1348,7 +1348,7 @@ function calcEchteKOTeams(matches, adminFP, fifaRanking){
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
-  for(const d of top8Derden)result[d.team]={pos:'3',grp:d.grp};
+  top8Derden.forEach((d,i)=>{result[d.team]={pos:'3',grp:d.grp,rank3:i};});
   return result;
 }
 
@@ -1372,7 +1372,7 @@ function calcVoorspeldeKOTeams(matches, pm, fpData, fifaRanking){
   const result={};
   for(const g of Object.values(winnaars))result[g.team]={pos:g.pos,grp:g.grp};
   for(const g of Object.values(runners))result[g.team]={pos:g.pos,grp:g.grp};
-  for(const d of top8Derden)result[d.team]={pos:'3',grp:d.grp};
+  top8Derden.forEach((d,i)=>{result[d.team]={pos:'3',grp:d.grp,rank3:i};});
   return result;
 }
 
@@ -1397,10 +1397,9 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
         tot+=ptsAanwezig;det.push({label:`${team} (naar KO)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:vInfo.pos});
       }
     } else if(vInfo.pos==='3'){
-      // 3e: 10pt als exact dezelfde positie in beste 8, 5pt als team gewoon in echte 32 zit
       const eInfo=echteKO[team];
-      if(eInfo&&eInfo.pos==='3'&&eInfo.grp===vInfo.grp){
-        tot+=ptsJuist;det.push({label:`${team} (juiste 3e positie)`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
+      if(eInfo&&eInfo.pos==='3'&&eInfo.rank3===vInfo.rank3){
+        tot+=ptsJuist;det.push({label:`${team} (juiste 3e #${vInfo.rank3+1})`,pts:ptsJuist,cat:'kwal_juist',grp:vInfo.grp,pos:'3'});
       } else if(echteKOSet.has(team)){
         tot+=ptsAanwezig;det.push({label:`${team} (3e doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:vInfo.grp,pos:'3'});
       }
@@ -1769,7 +1768,6 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const wbIngezet=(matchDet||[]).filter(d=>d.homePred!=null&&d.awayPred!=null&&waaghals(d.homePred,d.awayPred)>0).length;
     const wbGekregen=(matchDet||[]).filter(d=>(d.wb||0)>0).length;
     const wbPct=wbMaxEigen>0?Math.round(waaghalsPts/wbMaxEigen*100):null;
-    if(u.name==='SAS')console.log('SAS kwal3des:',kwal3des,'kwalTot:',kwalTot,'kwalDet.length:',kwalDet.length,'kwalDet pos3:',(kwalDet||[]).filter(d=>d.pos==='3').map(d=>d.label+':'+d.pts));
     return{...u,tot:(u.betaald||toonAlles)?totaal:0,totaalRaw:totaal,filled,ptsPerMatch:(u.betaald||toonAlles)?ptsPerMatch:{},catPerMatch:(u.betaald||toonAlles)?catPerMatch:{},wbPerMatch:(u.betaald||toonAlles)?wbPerMatch:{},matchPts:(u.betaald||toonAlles)?matchPts:0,matchPtsRaw:matchPts,jokerPts:(u.betaald||toonAlles)?jokerPts:0,jokerPtsRaw:jokerPts,aantalJokers:(u.betaald||toonAlles)?aantalJokers:0,gemJokerPerJoker:(u.betaald||toonAlles)?gemJokerPerJoker:null,koTot:(u.betaald||toonAlles)?koTot:0,koTotRaw:koTot,koPtsPerRonde:(u.betaald||toonAlles)?koPtsPerRonde:{},kwalTot:(u.betaald||toonAlles)?kwalTot:0,kwalPerGroep:(u.betaald||toonAlles)?kwalPerGroep:{},kwal3des:(u.betaald||toonAlles)?kwal3des:0,bijvraagPts:(u.betaald||toonAlles)?bijvraagPts:0,bijvraagPtsRaw:bijvraagPts,bijvraagDet:(u.betaald||toonAlles)?bijvraagDet:{},aantalJuist:(u.betaald||toonAlles)?aantalJuist:0,aantalFout:(u.betaald||toonAlles)?aantalFout:0,waaghalsPts:(u.betaald||toonAlles)?waaghalsPts:0,wbMaxEigen:(u.betaald||toonAlles)?wbMaxEigen:0,wbPct:(u.betaald||toonAlles)?wbPct:null};
   }).sort((a,b)=>(!cur?.is_admin&&!matches.some(m=>m.home_score!=null))?(a.name||'').localeCompare(b.name||'','nl'):b.tot-a.tot);
 
