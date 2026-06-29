@@ -1395,7 +1395,7 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   const GRP=['A','B','C','D','E','F','G','H','I','J','K','L'];
   const winnaars={};const runners={};const derdenMetGroep=[];const thirdsStats={};
   for(const grp of GRP){
-    const gm=matches.filter(m=>m.group===grp&&m.round==='groep');
+    const gm=matches.filter(m=>m.group===grp);
     if(!gm.length)continue;
     const stand=buildStand(gm,pm,fpData&&fpData[grp],fifaRanking);
     if(stand.length>=1)winnaars[grp]=stand[0].team;
