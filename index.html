@@ -1445,6 +1445,12 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
     return rolGroep[pos+side]||'?';
   }
   let tot=0;const det=[];
+  if(typeof window!=='undefined'&&window.__kwalDebug){
+    console.log('DEBUG winnaars:',JSON.stringify(winnaars));
+    console.log('DEBUG runners:',JSON.stringify(runners));
+    console.log('DEBUG echteR32:',JSON.stringify(echteR32));
+    console.log('DEBUG top8:',JSON.stringify(top8));
+  }
   for(const [posStr,[hSrc,aSrc]] of Object.entries(matchCfg)){
     const pos=parseInt(posStr);
     const echte=echteR32[pos];
@@ -1794,6 +1800,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const{tot,matchDet,det}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
     // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
+    if(u.name==='Tom Ryckaert')window.__kwalDebug=true; else window.__kwalDebug=false;
     const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config,koMatches);
     if(u.name==='Laura'||u.name==='Tom Ryckaert'){console.log(u.name,'pm keys:',Object.keys(pm).length,'matches met group:',matches.filter(m=>GRP.includes(m.group)).length,'kwalTot:',kwalTot,'eerste pm entry:',JSON.stringify(Object.entries(pm)[0]));}
     const kwalPerGroep={};
