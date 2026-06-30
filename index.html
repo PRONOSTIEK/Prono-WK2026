@@ -1397,7 +1397,9 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   for(const grp of GRP){
     const gm=matches.filter(m=>m.group===grp);
     if(!gm.length)continue;
-    const stand=buildStand(gm,pm,null,fifaRanking);
+    const scV={};
+    for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
+    const stand=buildStand(gm,scV,null,fifaRanking);
     if(stand.length>=1)winnaars[grp]=stand[0].team;
     if(stand.length>=2)runners[grp]=stand[1].team;
     if(stand.length>=3){
