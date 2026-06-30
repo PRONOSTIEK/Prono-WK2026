@@ -1795,6 +1795,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
     // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
     const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config,koMatches);
+    if(u.name==='Laura'||u.name==='Tom Ryckaert'){console.log(u.name,'pm keys:',Object.keys(pm).length,'matches met group:',matches.filter(m=>GRP.includes(m.group)).length,'kwalTot:',kwalTot,'eerste pm entry:',JSON.stringify(Object.entries(pm)[0]));}
     const kwalPerGroep={};
     for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g).reduce((s,d)=>s+d.pts,0);
     const kwal3des=0; // Derden zitten nu in kwalPerGroep, geen aparte kolom
