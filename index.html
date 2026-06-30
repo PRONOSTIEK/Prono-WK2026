@@ -1381,90 +1381,46 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
-  // Haal echte R32 teams op uit koMatches (altijd beschikbaar ongeacht actief_ko_r32)
-  const echteR32Matches=(koMatches||[]).filter(m=>m.round==='R32');
+  if(!matches||!matches.every(m=>m.home_score!=null))return{tot:0,det:[]};
+  // Echte bracket via de bestaande, bewezen calcKOTeams (zelfde als "Echte match" weergave)
+  const echteScores={};
+  for(const m of matches){if(m.home_score!=null)echteScores[m.id]={home_pred:m.home_score,away_pred:m.away_score};}
+  const adminFPObj=adminFP||{};
+  const adminFPDerden=adminFPObj['3de'];
+  const{winnaars:echteWinn,runners:echteRun,top8Derden:echteTop8,derdenMetGroep:echteD3}=
+    calcKOTeams(matches,echteScores,adminFPObj,fifaRanking,Array.isArray(adminFPDerden)?adminFPDerden:null);
+  // Voorspelde bracket via dezelfde calcKOTeams, met de pronostiek van de deelnemer
+  const{winnaars:predWinn,runners:predRun,top8Derden:predTop8,derdenMetGroep:predD3}=
+    calcKOTeams(matches,pm,fpData||{},fifaRanking,null);
+  const echteR32Matches=(koMatches||[]).filter(m=>m.round==='R32').sort((a,b)=>a.position-b.position);
   if(!echteR32Matches.length)return{tot:0,det:[]};
-  // Echte bracket: per positie home en away
-  const echteR32={};
-  for(const m of echteR32Matches){
-    if(m.home&&m.away) echteR32[parseInt(m.position)]=[m.home,m.away];
-  }
-  if(!Object.keys(echteR32).length)return{tot:0,det:[]};
-  const echte32Set=new Set(Object.values(echteR32).flat());
-  // Voorspelde bracket via getR32Teams
-  const GRP=['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const winnaars={};const runners={};const derdenMetGroep=[];const thirdsStats={};
-  for(const grp of GRP){
-    const gm=matches.filter(m=>m.group===grp);
-    if(!gm.length)continue;
-    const scV={};
-    for(const m of gm){const p=pm[m.id];if(p&&p.home_pred!=null)scV[m.id]={h:p.home_pred,a:p.away_pred};}
-    const stand=buildStand(gm,scV,null,fifaRanking);
-    if(stand.length>=1)winnaars[grp]=stand[0].team;
-    if(stand.length>=2)runners[grp]=stand[1].team;
-    if(stand.length>=3){
-      const t3=stand[2];
-      derdenMetGroep.push({team:t3.team,grp});
-      thirdsStats[grp]={team:t3.team,pts:t3.pts,gd:t3.gd,gs:t3.gs};
-    }
-  }
-  // Sorteer derden
-  const fifaMap={};for(const r of (fifaRanking||[]))fifaMap[r.team]=r.points;
-  const sorted3=Object.entries(thirdsStats).sort((a,b)=>
-    b[1].pts-a[1].pts||b[1].gd-a[1].gd||b[1].gs-a[1].gs||(fifaMap[b[1].team]||0)-(fifaMap[a[1].team]||0)
-  );
-  const top8=[...sorted3.slice(0,8).map(([g,v])=>v.team)];
-  // assignDerdenToR32
-  const doorgestoten=derdenMetGroep.filter(d=>top8.includes(d.team));
-  const grpsKey=doorgestoten.map(d=>d.grp).sort().join('');
-  const toewijzing=R32_DERDE_COMBINATIES[grpsKey]||[];
-  const grpToTeam={};for(const d of doorgestoten)grpToTeam[d.grp]=d.team;
-  const dArr=toewijzing.length?toewijzing.map(code=>grpToTeam[code]||null):top8;
-  // Match config
-  const matchCfg={
-    1:['R_A','R_B'],2:['W_E','d3'],3:['W_F','R_C'],4:['W_C','R_F'],
-    5:['W_I','d5'],6:['R_E','R_I'],7:['W_A','d0'],8:['W_L','d7'],
-    9:['W_D','d2'],10:['W_G','d4'],11:['R_K','R_L'],12:['W_H','R_J'],
-    13:['W_B','d1'],14:['W_J','R_H'],15:['W_K','d6'],16:['R_D','R_G'],
-  };
-  // Groep per positie/rol
-  const rolGroep={
-    '1H':'A','1A':'B','2H':'E','2A':'D','3H':'F','3A':'C','4H':'C','4A':'F',
-    '5H':'I','5A':'?','6H':'E','6A':'I','7H':'A','7A':'?','8H':'L','8A':'?',
-    '9H':'D','9A':'?','10H':'G','10A':'?','11H':'K','11A':'L','12H':'H','12A':'J',
-    '13H':'B','13A':'?','14H':'J','14A':'H','15H':'K','15A':'?','16H':'D','16A':'G',
-  };
-  function getTeam(src){
-    if(src.startsWith('W_'))return winnaars[src.slice(2)]||'';
-    if(src.startsWith('R_'))return runners[src.slice(2)]||'';
-    if(src.startsWith('d')){const i=parseInt(src[1]);return(i<dArr.length&&dArr[i])||'';}
-    return '';
-  }
-  function getGroep(pos,side,src){
-    if(src.startsWith('d')){const i=parseInt(src[1]);return toewijzing[i]||'?';}
-    return rolGroep[pos+side]||'?';
-  }
+  const echte32Set=new Set([...Object.values(echteWinn),...Object.values(echteRun),...echteTop8]);
   let tot=0;const det=[];
-  if(typeof window!=='undefined'&&window.__kwalDebug){
-    console.log('DEBUG winnaars:',JSON.stringify(winnaars));
-    console.log('DEBUG runners:',JSON.stringify(runners));
-    console.log('DEBUG echteR32:',JSON.stringify(echteR32));
-    console.log('DEBUG top8:',JSON.stringify(top8));
-  }
-  for(const [posStr,[hSrc,aSrc]] of Object.entries(matchCfg)){
-    const pos=parseInt(posStr);
-    const echte=echteR32[pos];
-    if(!echte)continue;
-    const [eh,ea]=echte;
-    const ph=getTeam(hSrc);const pa=getTeam(aSrc);
-    const gh=getGroep(posStr,'H',hSrc);const ga=getGroep(posStr,'A',aSrc);
+  for(const m of echteR32Matches){
+    const pos=parseInt(m.position);
+    const echteTeams=getR32Teams(m.id,echteWinn,echteRun,echteTop8,pos,echteD3);
+    const predTeams=getR32Teams(m.id,predWinn,predRun,predTop8,pos,predD3);
+    if(echteTeams.length<2)continue;
+    const[eh,ea]=echteTeams;
+    const[ph,pa]=predTeams;
+    // Groep bepalen voor elk voorspeld team (voor kwalPerGroep)
+    const findGrp=(team,winn,run,d3)=>{
+      for(const[g,t] of Object.entries(winn))if(t===team)return g;
+      for(const[g,t] of Object.entries(run))if(t===team)return g;
+      const d=d3.find(x=>x.team===team);
+      return d?d.grp:'?';
+    };
     if(ph){
+      const gh=findGrp(ph,predWinn,predRun,predD3);
       if(ph===eh){tot+=ptsJuist;det.push({label:`${ph} (juiste match)`,pts:ptsJuist,cat:'kwal_juist',grp:gh,pos:'H'});}
       else if(echte32Set.has(ph)){tot+=ptsAanwezig;det.push({label:`${ph} (doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:gh,pos:'H'});}
+      else{det.push({label:`${ph} (niet doorgestoten)`,pts:0,cat:'kwal_fout',grp:gh,pos:'H'});}
     }
     if(pa){
+      const ga=findGrp(pa,predWinn,predRun,predD3);
       if(pa===ea){tot+=ptsJuist;det.push({label:`${pa} (juiste match)`,pts:ptsJuist,cat:'kwal_juist',grp:ga,pos:'A'});}
       else if(echte32Set.has(pa)){tot+=ptsAanwezig;det.push({label:`${pa} (doorgestoten)`,pts:ptsAanwezig,cat:'kwal_aanwezig',grp:ga,pos:'A'});}
+      else{det.push({label:`${pa} (niet doorgestoten)`,pts:0,cat:'kwal_fout',grp:ga,pos:'A'});}
     }
   }
   return{tot,det};
@@ -1800,9 +1756,7 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
     const{tot,matchDet,det}=calcPts(pm,pb,matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[u.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
     const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[u.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
     // Kwal punten per groep: via calcKwalPunten maar NIET bij totaal optellen (zit al in koTot via R32)
-    if(u.name==='Tom Ryckaert')window.__kwalDebug=true; else window.__kwalDebug=false;
     const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pm,fp,matches,koPunten,adminFP,fifaRanking,config,koMatches);
-    if(u.name==='Laura'||u.name==='Tom Ryckaert'){console.log(u.name,'pm keys:',Object.keys(pm).length,'matches met group:',matches.filter(m=>GRP.includes(m.group)).length,'kwalTot:',kwalTot,'eerste pm entry:',JSON.stringify(Object.entries(pm)[0]));}
     const kwalPerGroep={};
     for(const g of GRP)kwalPerGroep[g]=(kwalDet||[]).filter(d=>d.grp===g).reduce((s,d)=>s+d.pts,0);
     const kwal3des=0; // Derden zitten nu in kwalPerGroep, geen aparte kolom
