@@ -1310,7 +1310,7 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
   // R16 apart verwerkt via normale loop hieronder
 
   for(const m of koMatches){
-    const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
+    const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round)||(m.round==='R32'&&config['toon_r32_punten']==='1');
     if(!roundActief)continue;
     if(m.round==='R32'&&config&&config['toon_r32_punten']!=='1')continue;
     if(m.round==='R16')continue; // R16 al apart verwerkt hierboven
