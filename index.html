@@ -1320,8 +1320,10 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
         tot+=ptsJuist;det.push({label:`🎯 ${pred} (juiste winnaar)`,team:pred,pts:ptsJuist,round:'R32',cat:'juist'});
       } else if(echteWinnaars.has(pred)){
         tot+=ptsAanwezig;det.push({label:`✓ ${pred} (doorgestoten)`,team:pred,pts:ptsAanwezig,round:'R32',cat:'aanwezig'});
+        if(typeof window!=='undefined')console.log('KO8 aanwezig:',pred,'pos:',m.position,'winner:',m.winner);
       }
     }
+    if(typeof window!=='undefined')console.log('KO8 totaal koPronos:',JSON.stringify(Object.fromEntries(r32Ms.map(m=>[m.position,koPronos[m.id]]))));
   }
 
   for(const m of koMatches){
