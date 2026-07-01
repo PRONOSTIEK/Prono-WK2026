@@ -1307,10 +1307,30 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
 
   // Helper: geeft de twee voorspelde teams voor een match terug
   // Bereken punten per match - beide voorspelde teams worden geëvalueerd
+  // Verwerk R16 apart: vergelijk alle 16 voorspelde R32 winnaars met alle 16 echte R16 teams
+  if(isFaseActief(config,roundKeys['R16']||'ko_r16')){
+    const r32Ms=koMatches.filter(x=>x.round==='R32').sort((a,b)=>a.position-b.position);
+    const r16Ms=koMatches.filter(x=>x.round==='R16').sort((a,b)=>a.position-b.position);
+    const echteR16Teams=new Set(r16Ms.flatMap(m=>[m.home,m.away].filter(Boolean)));
+    const ptsAanwezig=koPunten['R16_aanwezig']??1;
+    const ptsJuist=koPunten['R16_juist']??2;
+    const voorspeldeR32Winnaars=r32Ms.map(r=>koPronos[r.id]).filter(Boolean);
+    // Gebruik unieke teams om dubbeltelling te vermijden
+    const geteld=new Set();
+    for(const p of voorspeldeR32Winnaars){
+      if(geteld.has(p))continue;
+      geteld.add(p);
+      if(echteR16Teams.has(p)){
+        tot+=ptsAanwezig;det.push({label:`✓ ${p} (in ronde)`,team:p,pts:ptsAanwezig,round:'R16',cat:'aanwezig'});
+      }
+    }
+  }
+
   for(const m of koMatches){
     const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
     if(!roundActief)continue;
     if(m.round==='R32'&&config&&config['toon_r32_punten']!=='1')continue;
+    if(m.round==='R16')continue; // R16 al apart verwerkt hierboven
     const ptsJuist=koPunten[m.round+'_juist']??2;
     const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
     const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
