@@ -1313,7 +1313,14 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
     const roundActief=!config||(m.round==='R32'?config['toon_r32_punten']==='1':isFaseActief(config,roundKeys[m.round]||m.round));
     if(!roundActief)continue;
     if(m.round==='R32'&&config&&config['toon_r32_punten']!=='1')continue;
-    if(m.round==='R16')continue; // R16 al apart verwerkt hierboven
+    if(m.round==='R32'){
+      if(!m.winner)continue;
+      const pred=koPronos[m.id];
+      if(!pred)continue;
+      const ptsJuist=koPunten['R16_juist']??10;
+      if(pred===m.winner){tot+=ptsJuist;det.push({label:`🎯 ${pred} (juiste winnaar)`,team:pred,pts:ptsJuist,round:'R32',cat:'juist'});}
+      continue;
+    }
     const ptsJuist=koPunten[m.round+'_juist']??2;
     const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
     const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
