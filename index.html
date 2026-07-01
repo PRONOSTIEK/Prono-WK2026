@@ -1282,11 +1282,16 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
         const verliezers=hfAllTeams.filter(t=>!hfWinners.includes(t));
         echteTeamsPerMatch[m.id]=verliezers.slice(0,2);
       } else {
-        // Gebruik alleen winnaars van vorige ronde als echte teams
-        const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
-        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-        const idx=(m.position-1)*2;
-        echteTeamsPerMatch[m.id]=[prevMatches[idx]?.winner,prevMatches[idx+1]?.winner].filter(Boolean);
+        // Gebruik home/away van de match als die ingevuld zijn (admin heeft echte teams ingevuld)
+        // Anders fallback op winnaars van vorige ronde
+        if(m.home&&m.away){
+          echteTeamsPerMatch[m.id]=[m.home,m.away];
+        } else {
+          const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
+          const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+          const idx=(m.position-1)*2;
+          echteTeamsPerMatch[m.id]=[prevMatches[idx]?.winner,prevMatches[idx+1]?.winner].filter(Boolean);
+        }
       }
     }
   }
@@ -1302,26 +1307,29 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
 
   // Helper: geeft de twee voorspelde teams voor een match terug
   // Bereken punten per match - beide voorspelde teams worden geëvalueerd
-  // R16 apart verwerkt via normale loop hieronder
-
-  for(const m of koMatches){
-    const roundActief=!config||(m.round==='R32'?config['toon_r32_punten']==='1':isFaseActief(config,roundKeys[m.round]||m.round));
-    if(!roundActief)continue;
-    if(m.round==='R32'&&config&&config['toon_r32_punten']!=='1')continue;
-    if(m.round==='R32'){
+  // KO 8: vergelijk winner_pred per R32 match met de echte winner
+  if(config['toon_r32_punten']==='1'){
+    const r32Ms=koMatches.filter(x=>x.round==='R32').sort((a,b)=>a.position-b.position);
+    const ptsJuist=koPunten['R16_juist']??10;
+    for(const m of r32Ms){
       if(!m.winner)continue;
       const pred=koPronos[m.id];
       if(!pred)continue;
-      const ptsJuist=koPunten['R16_juist']??10;
-      if(pred===m.winner){tot+=ptsJuist;det.push({label:`🎯 ${pred} (juiste winnaar)`,team:pred,pts:ptsJuist,round:'R32',cat:'juist'});}
-      continue;
+      if(pred===m.winner){
+        tot+=ptsJuist;det.push({label:`🎯 ${pred} (juiste winnaar)`,team:pred,pts:ptsJuist,round:'R32',cat:'juist'});
+      }
     }
+  }
+
+  for(const m of koMatches){
+    if(m.round==='R32')continue; // R32 al apart verwerkt hierboven
+    const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
+    if(!roundActief)continue;
+    if(m.round==='R16')continue;
     const ptsJuist=koPunten[m.round+'_juist']??2;
     const ptsAanwezig=koPunten[m.round+'_aanwezig']??1;
     const teamsInDezeMatch=echteTeamsPerMatch[m.id]||[];
     const inRonde=teamsInRonde[m.round]||new Set();
-    // Haal beide voorspelde teams op: winner_pred (thuis) en away_pred (uit)
-    // away_pred wordt automatisch bepaald door de getMatchTeams logica
     const voorspeldeTeams=getVoorspeldeTeams(m,koPronos,koMatches);
     for(const p of voorspeldeTeams){
       if(!p)continue;
@@ -1329,7 +1337,7 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
       const inDezeRonde=inRonde.has(p);
       if(inDezeMatch){
         tot+=ptsJuist;det.push({label:`🎯 ${p} (juiste match)`,team:p,pts:ptsJuist,round:m.round,cat:'juist'});
-      } else if(inDezeRonde&&m.round!=='R32'){
+      } else if(inDezeRonde){
         tot+=ptsAanwezig;det.push({label:`✓ ${p} (in ronde)`,team:p,pts:ptsAanwezig,round:m.round,cat:'aanwezig'});
       }
     }
@@ -1392,7 +1400,7 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
-  if(!matches||!matches.some(m=>m.home_score!=null))return{tot:0,det:[]};
+  if(!matches||!matches.every(m=>m.home_score!=null))return{tot:0,det:[]};
   // Echte bracket via de bestaande, bewezen calcKOTeams (zelfde als "Echte match" weergave)
   const echteScores={};
   for(const m of matches){if(m.home_score!=null)echteScores[m.id]={home_pred:m.home_score,away_pred:m.away_score};}
@@ -2031,9 +2039,10 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         
         ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true,actief:kwalActief})),
         {label:'Kwal. totaal',key:'kwalTotaal2',sep:true,noDecimal:true,actief:kwalActief},
-        {label:'KO 8',key:'ko_R32',sep:false,noDecimal:true,actief:ko_r32Actief&&config['toon_r32_punten']==='1'},
+        {label:'KO 8',key:'ko_R32',sep:false,noDecimal:true,actief:config['toon_r32_punten']==='1'},
         {label:'KO 4',key:'ko_R16',sep:false,noDecimal:true,actief:ko_r16Actief},
         {label:'KO 2',key:'ko_KF',sep:false,noDecimal:true,actief:ko_kfActief},
+        {label:'KO 2',key:'ko_HF',sep:false,noDecimal:true,actief:isFaseActief(config,'ko_hf')},
         {label:'KO TOTAAL',key:'koTotaal',sep:true,noDecimal:false,actief:kwalActief},
         ...allBvCols.map((b,li)=>({label:b.colLabel.length>14?b.colLabel.substring(0,14)+'…':b.colLabel,fullLabel:b.question,key:`bv_${b.question}`,sep:false,noDecimal:false,actief:bijvActief2})),
         {label:'Totaal bijvragen',key:'bijvraagPts',sep:true,noDecimal:false,actief:bijvActief2},
