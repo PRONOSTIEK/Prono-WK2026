@@ -1307,24 +1307,7 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
 
   // Helper: geeft de twee voorspelde teams voor een match terug
   // Bereken punten per match - beide voorspelde teams worden geëvalueerd
-  // Verwerk R16 apart: vergelijk alle 16 voorspelde R32 winnaars met alle 16 echte R16 teams
-  if(isFaseActief(config,roundKeys['R16']||'ko_r16')){
-    const r32Ms=koMatches.filter(x=>x.round==='R32').sort((a,b)=>a.position-b.position);
-    const r16Ms=koMatches.filter(x=>x.round==='R16').sort((a,b)=>a.position-b.position);
-    const echteR16Teams=new Set(r16Ms.flatMap(m=>[m.home,m.away].filter(Boolean)));
-    const ptsAanwezig=koPunten['R16_aanwezig']??1;
-    const ptsJuist=koPunten['R16_juist']??2;
-    const voorspeldeR32Winnaars=r32Ms.map(r=>koPronos[r.id]).filter(Boolean);
-    // Gebruik unieke teams om dubbeltelling te vermijden
-    const geteld=new Set();
-    for(const p of voorspeldeR32Winnaars){
-      if(geteld.has(p))continue;
-      geteld.add(p);
-      if(echteR16Teams.has(p)){
-        tot+=ptsAanwezig;det.push({label:`✓ ${p} (in ronde)`,team:p,pts:ptsAanwezig,round:'R16',cat:'aanwezig'});
-      }
-    }
-  }
+  // R16 apart verwerkt via normale loop hieronder
 
   for(const m of koMatches){
     const roundActief=!config||isFaseActief(config,roundKeys[m.round]||m.round);
@@ -1407,7 +1390,7 @@ function calcKwalPunten(pm, fpData, matches, koPunten, adminFP, fifaRanking, con
   if(config&&!isFaseActief(config,'kwal'))return{tot:0,det:[]};
   const ptsJuist=koPunten['kwal_juist']??10;
   const ptsAanwezig=koPunten['kwal_aanwezig']??5;
-  if(!matches||!matches.every(m=>m.home_score!=null))return{tot:0,det:[]};
+  if(!matches||!matches.some(m=>m.home_score!=null))return{tot:0,det:[]};
   // Echte bracket via de bestaande, bewezen calcKOTeams (zelfde als "Echte match" weergave)
   const echteScores={};
   for(const m of matches){if(m.home_score!=null)echteScores[m.id]={home_pred:m.home_score,away_pred:m.away_score};}
@@ -2046,10 +2029,9 @@ function Klassement({users,matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,spel
         
         ...GRP.map((g,gi)=>({label:`Kwal ${g}`,key:`kwal_${g}`,sep:false,noDecimal:true,actief:kwalActief})),
         {label:'Kwal. totaal',key:'kwalTotaal2',sep:true,noDecimal:true,actief:kwalActief},
-        {label:'KO 16',key:'ko_R32',sep:false,noDecimal:true,actief:ko_r32Actief&&config['toon_r32_punten']==='1'},
-        {label:'KO 8',key:'ko_R16',sep:false,noDecimal:true,actief:ko_r16Actief},
-        {label:'KO 4',key:'ko_KF',sep:false,noDecimal:true,actief:ko_kfActief},
-        {label:'KO 2',key:'ko_HF',sep:false,noDecimal:true,actief:isFaseActief(config,'ko_hf')},
+        {label:'KO 8',key:'ko_R32',sep:false,noDecimal:true,actief:ko_r32Actief&&config['toon_r32_punten']==='1'},
+        {label:'KO 4',key:'ko_R16',sep:false,noDecimal:true,actief:ko_r16Actief},
+        {label:'KO 2',key:'ko_KF',sep:false,noDecimal:true,actief:ko_kfActief},
         {label:'KO TOTAAL',key:'koTotaal',sep:true,noDecimal:false,actief:kwalActief},
         ...allBvCols.map((b,li)=>({label:b.colLabel.length>14?b.colLabel.substring(0,14)+'…':b.colLabel,fullLabel:b.question,key:`bv_${b.question}`,sep:false,noDecimal:false,actief:bijvActief2})),
         {label:'Totaal bijvragen',key:'bijvraagPts',sep:true,noDecimal:false,actief:bijvActief2},
