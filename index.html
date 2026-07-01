@@ -1282,10 +1282,16 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
         const verliezers=hfAllTeams.filter(t=>!hfWinners.includes(t));
         echteTeamsPerMatch[m.id]=verliezers.slice(0,2);
       } else {
-        const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
-        const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
-        const idx=(m.position-1)*2;
-        echteTeamsPerMatch[m.id]=[prevMatches[idx]?.winner,prevMatches[idx+1]?.winner].filter(Boolean);
+        // Gebruik home/away van de match als die ingevuld zijn (admin heeft echte teams ingevuld)
+        // Anders fallback op winnaars van vorige ronde
+        if(m.home&&m.away){
+          echteTeamsPerMatch[m.id]=[m.home,m.away];
+        } else {
+          const prevRound={R16:'R32',KF:'R16',HF:'KF',F:'HF'}[round];
+          const prevMatches=koMatches.filter(x=>x.round===prevRound).sort((a,b)=>a.position-b.position);
+          const idx=(m.position-1)*2;
+          echteTeamsPerMatch[m.id]=[prevMatches[idx]?.winner,prevMatches[idx+1]?.winner].filter(Boolean);
+        }
       }
     }
   }
