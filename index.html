@@ -6267,7 +6267,7 @@ function App(){
       sb.from('fifa_ranking').select('*').order('points',{ascending:false}),
       sb.from('punten_vragen').select('*').limit(10000),
       sb.from('fairplay').select('*').limit(100000),
-      (userRef.current?.is_admin?sb.from('ko_pronos').select('*').limit(100000):sb.from('ko_pronos').select('*').eq('user_id',userRef.current?.id||'x')),
+      sb.from('ko_pronos').select('*').limit(100000),
     ]);
     // Grote tabellen sequentieel laden
     const{data:pm}=await sb.from('pronos_matches').select('*').limit(10000);
