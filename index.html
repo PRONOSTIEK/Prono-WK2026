@@ -3107,7 +3107,7 @@ function MijnPunten({matches,bvs,pmAll,pbAll,jAll,pvAll,fpAll,adminFP,fifaRankin
   const{tot,det,matchDet}=calcPts(pmAll[cur.id]||{},pbAll[cur.id]||{},matches,bvs,jids,pt,spelerStats,teldatum,koPronosAll[cur.id]||{},koMatches,fifaRanking,config,koPronosAll,pbAll);
   const{tot:koTot,det:koDet}=calcKOPts(koPronosAll[cur.id]||{},koMatches,koPunten,config,matches,adminFP,fifaRanking);
   const{tot:kwalTot,det:kwalDet}=calcKwalPunten(pmAll[cur.id]||{},fpAll[cur.id]||{},matches,koPunten,adminFP,fifaRanking,config,koMatches);
-  const totaal=tot+koTot;
+  const totaal=tot+koTot+kwalTot;
 
   // Statistieken
   const aantalAllesJuist=matchDet.filter(m=>m.cat==='alles_juist').length;
