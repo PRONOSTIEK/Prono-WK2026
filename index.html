@@ -1310,8 +1310,8 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
   // KO 8: vergelijk winner_pred per R32 match met de echte winner
   if(config['toon_r32_punten']==='1'){
     const r32Ms=koMatches.filter(x=>x.round==='R32').sort((a,b)=>a.position-b.position);
-    const ptsJuist=koPunten['R16_juist']??10;
-    const ptsAanwezig=koPunten['R16_aanwezig']??5;
+    const ptsJuist=koPunten['kwal_juist']??10;
+    const ptsAanwezig=koPunten['kwal_aanwezig']??5;
     const echteWinnaars=new Set(r32Ms.map(m=>m.winner).filter(Boolean));
     for(const m of r32Ms){
       const pred=koPronos[m.id];
@@ -5224,19 +5224,19 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
         <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>Punten voor het correct voorspellen welke teams zich plaatsen voor de KO-fase (top 2 per groep + beste 8 derden).</div>
         <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
           <div style={{flex:1,fontSize:13}}>Juiste positie (bv. groepswinnaar én 1e geworden)</div>
-          <input key={koPunten['kwal_juist']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
+          <input id="kwal_juist_input" key={koPunten['kwal_juist']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
             defaultValue={koPunten['kwal_juist']??2}
-            onBlur={async e=>{await sb.from('ko_punten').upsert({round:'kwal_juist',points:parseInt(e.target.value)||0});onRefresh();}}
           />
           <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+          <button className="btn" style={{fontSize:11,padding:'2px 8px'}} onClick={async()=>{const v=parseInt(document.getElementById('kwal_juist_input').value)||0;await sb.from('ko_punten').upsert({round:'kwal_juist',points:v});onRefresh();}}>💾</button>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0'}}>
           <div style={{flex:1,fontSize:13}}>Wel naar KO maar verkeerde positie</div>
-          <input key={koPunten['kwal_aanwezig']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
+          <input id="kwal_aanwezig_input" key={koPunten['kwal_aanwezig']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
             defaultValue={koPunten['kwal_aanwezig']??1}
-            onBlur={async e=>{await sb.from('ko_punten').upsert({round:'kwal_aanwezig',points:parseInt(e.target.value)||0});onRefresh();}}
           />
           <span style={{fontSize:11,color:'var(--muted)'}}>pt</span>
+          <button className="btn" style={{fontSize:11,padding:'2px 8px'}} onClick={async()=>{const v=parseInt(document.getElementById('kwal_aanwezig_input').value)||0;await sb.from('ko_punten').upsert({round:'kwal_aanwezig',points:v});onRefresh();}}>💾</button>
         </div>
       </div>
       <div className="card">
@@ -5257,17 +5257,24 @@ function Admin({matches,bvs,users,config,spelerStats,pmAll,pbAll,pvAll,jAll,koMa
           <div style={{fontSize:10,color:'var(--green)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Juiste match</div>
           <div style={{fontSize:10,color:'var(--gold)',textTransform:'uppercase',letterSpacing:.5,textAlign:'center'}}>Wel in ronde</div>
         </div>
-        {[['R32','KO 8 (winnaars 16e finales)'],['R16','KO 4 (winnaars 8e finales)'],['KF','KO 2 (winnaars KF)'],['HF','Halve finales'],['KF3','Kleine finale'],['F','Finale']].map(([round,label])=>(
+        {[['R16','KO 8 (winnaars 16e finales)'],['KF','KO 4 (winnaars 8e finales)'],['HF','KO 2 (winnaars KF)'],['KF3','Halve finales'],['F','Finale']].map(([round,label])=>(
           <div key={round} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:'6px 10px',alignItems:'center',padding:'6px 0',borderTop:'1px solid var(--border)',opacity:round==='R32'&&config['toon_r32_punten']!=='1'?0.4:1}}>
             <div style={{fontSize:13,display:'flex',alignItems:'center',gap:6}}>{label}{round==='R32'&&config['toon_r32_punten']!=='1'&&<span style={{fontSize:10,color:'var(--muted)'}}>(uitgeschakeld)</span>}</div>
-            <input key={koPunten[round+'_juist']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
+            <input key={koPunten[round+'_juist']} id={`ko_${round}_juist`} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--green)',color:'var(--green)'}}
               defaultValue={koPunten[round+'_juist']??2}
-              onBlur={async e=>{await sb.from('ko_punten').upsert({round:round+'_juist',points:parseInt(e.target.value)||0});onRefresh();}}
             />
-            <input key={koPunten[round+'_aanwezig']} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
+            <input key={koPunten[round+'_aanwezig']} id={`ko_${round}_aanwezig`} className="ii" type="number" min="0" style={{width:60,textAlign:'center',borderColor:'var(--gold)',color:'var(--gold)'}}
               defaultValue={koPunten[round+'_aanwezig']??1}
-              onBlur={async e=>{await sb.from('ko_punten').upsert({round:round+'_aanwezig',points:parseInt(e.target.value)||0});onRefresh();}}
             />
+            <button className="btn" style={{fontSize:11,padding:'2px 8px'}} onClick={async()=>{
+              const j=parseInt(document.getElementById(`ko_${round}_juist`).value)||0;
+              const a=parseInt(document.getElementById(`ko_${round}_aanwezig`).value)||0;
+              await Promise.all([
+                sb.from('ko_punten').upsert({round:round+'_juist',points:j}),
+                sb.from('ko_punten').upsert({round:round+'_aanwezig',points:a}),
+              ]);
+              onRefresh();
+            }}>💾</button>
           </div>
         ))}
       </div>
