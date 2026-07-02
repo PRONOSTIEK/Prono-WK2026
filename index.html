@@ -1595,7 +1595,24 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
       puntenReeks[u.id].push(prev+(u.ptsPerMatch?.[m.id]??0));
     }
   }
-  const nSteps=gespeeldeMatches.length+1;
+
+  // Extra stappen na groepsfase
+  const extraStappen=[];
+  if(isFaseActief(config,'kwal')) extraStappen.push({label:'Kwal',key:'kwalTot'});
+  if(config['toon_r32_punten']==='1') extraStappen.push({label:'KO8',key:'ko_R32'});
+  if(isFaseActief(config,'ko_r16')) extraStappen.push({label:'KO4',key:'ko_R16'});
+  if(isFaseActief(config,'ko_kf')) extraStappen.push({label:'KO2',key:'ko_KF'});
+  if(isFaseActief(config,'bijvragen')) extraStappen.push({label:'Bijvr.',key:'bijvraagPts'});
+
+  for(const stap of extraStappen){
+    for(const u of echteSpelers){
+      const prev=puntenReeks[u.id][puntenReeks[u.id].length-1];
+      const extra=stap.key==='kwalTot'?(u.kwalTot??0):stap.key==='bijvraagPts'?(u.bijvraagPts??0):(u.koPtsPerRonde?.[stap.key.replace('ko_','')]??0);
+      puntenReeks[u.id].push(prev+extra);
+    }
+  }
+
+  const nSteps=gespeeldeMatches.length+1+extraStappen.length;
   const rangReeks={};
   for(const u of echteSpelers) rangReeks[u.id]=[];
   for(let s=0;s<nSteps;s++){
@@ -1657,7 +1674,8 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
   const labelH=13;
   const svgH=Math.max(H, N*labelH+PAD.top+PAD.bottom);
   const nMatches=gespeeldeMatches.length;
-  const xPos=s=>PAD.left+(s-1)*(GW/((nMatches-1)||1));
+  const totalSteps=gespeeldeMatches.length+extraStappen.length;
+  const xPos=s=>PAD.left+(s-1)*(GW/((totalSteps-1)||1));
   const yPosLabel=r=>PAD.top+(r-1)*((svgH-PAD.top-PAD.bottom)/(N-1||1));
 
   // Sorteer zodat gemarkeerde spelers bovenaan staan (laatste gerenderd = bovenop)
@@ -1687,6 +1705,9 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
         {gespeeldeMatches.map((m,i)=>(
           <line key={m.id} x1={xPos(i+1)} x2={xPos(i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#2a3d3544" strokeWidth="1"/>
         ))}
+        {extraStappen.map((stap,i)=>(
+          <line key={stap.key} x1={xPos(gespeeldeMatches.length+i+1)} x2={xPos(gespeeldeMatches.length+i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#ffd60033" strokeWidth="1" strokeDasharray="3,3"/>
+        ))}
         {gesorteerd.map(u=>{
           const pts=rangReeks[u.id].slice(1); // skip stap 0 (voor eerste wedstrijd)
           const d=pts.map((r,idx)=>`${idx===0?'M':'L'}${xPos(idx+1)},${yPosLabel(r)}`).join(' ');
@@ -1706,6 +1727,9 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
         {gespeeldeMatches.map((m,i)=>(
           <text key={m.id} x={xPos(i+1)} y={svgH-PAD.bottom+14} fontSize={7} fill="#7a9e8a" textAnchor="middle">{i+1}</text>
         ))}
+        {extraStappen.map((stap,i)=>(
+          <text key={stap.key} x={xPos(gespeeldeMatches.length+i+1)} y={svgH-PAD.bottom+14} fontSize={7} fill="#ffd600" textAnchor="middle">{stap.label}</text>
+        ))}
         <text x={PAD.left-4} y={yPosLabel(1)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">1</text>
         <text x={PAD.left-4} y={yPosLabel(N)+4} fontSize={8} fill="#7a9e8a" textAnchor="end">{N}</text>
         {(()=>{
@@ -1717,7 +1741,7 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
         })()}
       </svg>
     </div>
-    <div style={{fontSize:9,color:'var(--muted)',marginTop:4}}>X-as = wedstrijden (1…{gespeeldeMatches.length}) · Y-as = rangschikking (1 = beste)</div>
+    <div style={{fontSize:9,color:'var(--muted)',marginTop:4}}>X-as = wedstrijden (1…{gespeeldeMatches.length}){extraStappen.length>0?` + ${extraStappen.map(s=>s.label).join(', ')}`:''}· Y-as = rangschikking (1 = beste)</div>
   </div>);
 }
 
