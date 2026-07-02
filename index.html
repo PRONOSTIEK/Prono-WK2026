@@ -1699,9 +1699,7 @@ function EvolutieGrafiek({st, gespeeldeMatches, cur, config}){
     </div>
     <div ref={containerRef} style={{overflowX:'auto'}}>
       <svg width={W} height={svgH} style={{display:'block',minWidth:600}}>
-        {Array.from({length:Math.min(N,20)},(_,i)=>(
-          <line key={i} x1={PAD.left} x2={W-PAD.right} y1={yPosLabel(i+1)} y2={yPosLabel(i+1)} stroke="#2a3d35" strokeWidth="1"/>
-        ))}
+        
         {gespeeldeMatches.map((m,i)=>(
           <line key={m.id} x1={xPos(i+1)} x2={xPos(i+1)} y1={PAD.top} y2={svgH-PAD.bottom} stroke="#2a3d3544" strokeWidth="1"/>
         ))}
