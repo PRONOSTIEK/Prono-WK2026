@@ -1310,8 +1310,8 @@ function calcKOPts(koPronos, koMatches, koPunten, config, matches, adminFP, fifa
   // KO 8: vergelijk winner_pred per R32 match met de echte winner
   if(config['toon_r32_punten']==='1'){
     const r32Ms=koMatches.filter(x=>x.round==='R32').sort((a,b)=>a.position-b.position);
-    const ptsJuist=koPunten['kwal_juist']??10;
-    const ptsAanwezig=koPunten['kwal_aanwezig']??5;
+    const ptsJuist=koPunten['R16_juist']??10;
+    const ptsAanwezig=koPunten['R16_aanwezig']??5;
     const echteWinnaars=new Set(r32Ms.map(m=>m.winner).filter(Boolean));
     for(const m of r32Ms){
       const pred=koPronos[m.id];
